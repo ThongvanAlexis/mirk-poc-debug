@@ -1,0 +1,81 @@
+# iOS Podfile for MirkFall POC.
+#
+# Seeded manually because the dev host is Windows (no CocoaPods) — Flutter
+# normally generates this on first `flutter build ios`, but we need custom
+# post_install settings for `permission_handler 12.x`, which requires
+# opt-in preprocessor macros to compile its permission handlers. Without
+# these macros the plugin silently returns `denied` without ever calling
+# CoreLocation, and the iOS permission dialog never fires — caught on
+# 2026-04-30 sideload (mirrors the same bug logged in the parent project
+# GOSL-MirkFall on 2026-04-19, see .planning/phases/06-review-gate-gps/
+# 06-REVIEW.md line 71 in that repo).
+#
+# Any edit here must keep:
+#   - `platform :ios, '13.0'` in sync with Info.plist's MinimumOSVersion
+#     and Runner.xcodeproj's IPHONEOS_DEPLOYMENT_TARGET.
+#   - the `PERMISSION_*` macros aligned with every iOS permission the app
+#     actually asks for via `permission_handler`. Add a new macro here the
+#     SAME commit that adds a new `Permission.foo.request()` call on the
+#     Dart side, otherwise the prod build silently no-ops that permission.
+
+platform :ios, '13.0'
+
+# CocoaPods analytics sends network stats synchronously, adding ~1s to
+# every `pod install`. Kept off for reproducible + quiet CI.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
+    target.build_configurations.each do |config|
+      # permission_handler 12.x: opt-in preprocessor macros per
+      # https://pub.dev/packages/permission_handler (iOS Setup). Every
+      # permission the app requests via permission_handler MUST have its
+      # macro here; missing macros → silent `denied` without a dialog.
+      #
+      # Currently required (POC Phase 1):
+      #   PERMISSION_LOCATION — locationWhenInUse
+      #                         (PermissionGateScreen → Permission.locationWhenInUse.request()).
+      #
+      # Add PERMISSION_NOTIFICATIONS=1 the same commit that introduces a
+      # Permission.notification call (none in POC Phase 1).
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_LOCATION=1',
+      ]
+    end
+  end
+end
