@@ -39,6 +39,7 @@ changes.
 | flutter_test | (SDK) | BSD-3-Clause | flutter.dev | None — test harness only | BSD-3 | Bundled | iOS+Android+Windows | 2026-04-30 |
 | flutter_lints | 6.0.0 | BSD-3-Clause | https://pub.dev/packages/flutter_lints | None — analyzer config, no runtime | BSD-3 | Active (flutter.dev) | iOS+Android+Windows | 2026-04-30 |
 | yaml | 3.1.3 | MIT | https://pub.dev/packages/yaml | None — pure-Dart YAML parser used by tool/ scripts | MIT, BSD-3 | Active (Dart team) | iOS+Android+Windows | 2026-04-30 |
+| test | 1.30.0 | BSD-3-Clause | https://pub.dev/packages/test | None — pure-Dart test runner used by `dart test tool/test/`; no built-in network | BSD-3 | Active (Dart team) | iOS+Android+Windows | 2026-04-30 |
 
 ## Transitive dependencies
 

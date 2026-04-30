@@ -35,8 +35,23 @@ Future<int> runCheck(List<String> args) async {
   final YamlMap lock = loadYaml(await lockFile.readAsString()) as YamlMap;
   final YamlMap lockPackages = (lock['packages'] as YamlMap?) ?? YamlMap();
 
-  // Build the "expected" map {name -> version} from pubspec.lock (skip SDK).
+  // Build two views of pubspec.lock:
+  //   - `expected`: every non-SDK lockfile entry, used for version-mismatch
+  //     detection when the package IS declared in DEPENDENCIES.md (catches
+  //     stale rows that drifted from the lock).
+  //   - `expectedDirect`: direct + dev deps only. Used for the "missing from
+  //     DEPENDENCIES.md" check. Transitive packages NOT listed in
+  //     DEPENDENCIES.md don't fail the gate at Phase 1 — per DEPENDENCIES.md
+  //     `## Transitive dependencies` placeholder + ROADMAP.md Phase 5
+  //     hardening deferral, the Phase 1 audit surface is direct deps only.
+  //     Failing on 100+ unaudited transitives would force a multi-hour audit
+  //     contrary to the documented audit-scope decision.
+  //
+  // Late phases (Phase 5+) tighten this gate: once DEPENDENCIES.md's
+  // transitive table is filled, every `transitive` row in pubspec.lock will
+  // need a matching row. The gate gets stricter by adding to expectedDirect.
   final Map<String, String> expected = <String, String>{};
+  final Map<String, String> expectedDirect = <String, String>{};
   for (final MapEntry<dynamic, dynamic> entry in lockPackages.entries) {
     final String name = entry.key as String;
     final YamlMap meta = entry.value as YamlMap;
@@ -44,6 +59,12 @@ Future<int> runCheck(List<String> args) async {
     if (source == 'sdk') continue;
     final String version = meta['version'] as String? ?? '';
     expected[name] = version;
+    final String dependencyKind = meta['dependency'] as String? ?? '';
+    // pubspec.lock dependency field values: "direct main", "direct dev",
+    // "direct overridden", "transitive". Direct/dev/overridden are required.
+    if (dependencyKind != 'transitive') {
+      expectedDirect[name] = version;
+    }
   }
 
   // Parse DEPENDENCIES.md: keep the last-seen version per package name.
@@ -85,6 +106,14 @@ Future<int> runCheck(List<String> args) async {
     if (name.isEmpty || name == 'Package' || name == 'Action') continue;
     if (name.startsWith('-')) continue;
     if (version.isEmpty || version == 'Version' || version.startsWith('-')) continue;
+    // SDK-bundled packages (flutter_localizations, flutter_test, flutter
+    // itself) are declared in pubspec.yaml as `sdk: flutter` and ship via
+    // the Flutter SDK rather than via pub.dev — they don't appear in
+    // pubspec.lock under any source. The DEPENDENCIES.md rows still exist
+    // (license + audit purposes) but use the literal version marker `(SDK)`.
+    // Skipping them here mirrors the `if (source == 'sdk') continue;` filter
+    // applied to the expected-map at line 44.
+    if (version == '(SDK)') continue;
     declared[name] = version;
   }
 
@@ -92,17 +121,27 @@ Future<int> runCheck(List<String> args) async {
   final List<String> extra = <String>[];
   final List<String> mismatched = <String>[];
 
-  for (final MapEntry<String, String> e in expected.entries) {
+  // "Missing" only flags direct/dev deps absent from DEPENDENCIES.md —
+  // transitive deps absent from DEPENDENCIES.md are tolerated at Phase 1
+  // (Phase 5 audit pass tightens this).
+  for (final MapEntry<String, String> e in expectedDirect.entries) {
     if (!declared.containsKey(e.key)) {
       missing.add('${e.key} ${e.value}');
-    } else if (declared[e.key] != e.value) {
+    }
+  }
+  // "Mismatched" applies to ANY declared row that has a lockfile entry —
+  // including transitives — so a row in DEPENDENCIES.md that drifted from
+  // the lock still gets caught.
+  for (final MapEntry<String, String> e in expected.entries) {
+    if (declared.containsKey(e.key) && declared[e.key] != e.value) {
       mismatched.add('${e.key}: lock=${e.value} md=${declared[e.key]}');
     }
   }
   for (final String d in declared.keys) {
     // Section-header filter already excluded the Tooling table rows — any
     // package name left here belongs to a pubspec section. If it's not in
-    // pubspec.lock, it's a stale entry.
+    // pubspec.lock at all (neither direct nor transitive), it's a stale
+    // entry that should be removed from DEPENDENCIES.md.
     if (!expected.containsKey(d)) {
       extra.add(d);
     }

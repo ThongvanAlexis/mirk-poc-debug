@@ -32,6 +32,14 @@ final List<RegExp> _excludePatterns = <RegExp>[
   RegExp(r'\.swagger\.dart$'), // chopper swagger
   RegExp(r'\.chopper\.dart$'), // chopper
   RegExp(r'\.mocks\.dart$'), // mockito
+  // Flutter `flutter gen-l10n` codegen output — Plan 01-01 dropped the
+  // synthetic-package flag (Flutter 3.41 removal), so AppLocalizations now
+  // ships under `lib/l10n/` instead of `.dart_tool/flutter_gen/`. The files
+  // are regenerated on every `flutter pub get` from the .arb sources, so
+  // injecting a hand-written GOSL header would be overwritten on the next
+  // codegen run. Exclude them by name pattern; the .arb sources themselves
+  // are not Dart and are not scanned.
+  RegExp(r'[/\\]l10n[/\\]app_localizations(_[a-zA-Z]+)?\.dart$'),
   RegExp(r'[/\\]generated[/\\]'),
   // `test/generated_migrations/` holds drift_dev's auto-generated
   // SchemaVerifier helpers (schema.dart / schema_v{N}.dart). Same status as
