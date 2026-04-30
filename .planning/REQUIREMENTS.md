@@ -82,7 +82,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
 - [ ] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
 - [ ] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
-- [ ] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target (Phase 1 smoke test confirms this)
+- [ ] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target. Phase 1 UAT exit gate: developer sideloads the IPA, taps share-logs, picks Mail, sends to themselves, verifies the email arrives with the gzipped log file as attachment. Verbal "approved" is the gate (no synthetic-log smoke test required per Phase 1 CONTEXT.md decision).
 
 ### Performance Instrumentation
 
@@ -207,6 +207,11 @@ Filled by the roadmap on 2026-04-30. Five phases:
 - Phase 3 (Fog — THE HYPOTHESIS): 11 requirements (FOG × 8, PERF-03/04/05)
 - Phase 4 (Wisps): 4 requirements (WISP × 4)
 - Phase 5 (Decision Gate): 1 requirement (PERF-06)
+
+## Revisions
+
+- **2026-04-30 (Phase 1 planning):** LOG-05 wording softened — dropped the prior 50-megabyte synthetic-logfile smoke-test specification per CONTEXT.md `Phase 1 UAT exit gate` decision. The replacement gate is verbal "approved" after a single sideload + Mail round-trip walk.
+- **2026-04-30 (Phase 1 planning, B-1 fix):** BOOT-01 SDK pin updated from `3.41.8` to `3.41.7` for parent code-donor parity per RESEARCH.md Open Question #1. The earlier 3.41.8 wording predated the planner's parent-parity lock; Plan 01 (`flutter create`) and Plan 03 Task 2 (CI workflow `flutter-version: '3.41.7'`) both reference 3.41.7. This wording change brings REQUIREMENTS.md into lockstep with both plans.
 
 ---
 *Requirements defined: 2026-04-30*

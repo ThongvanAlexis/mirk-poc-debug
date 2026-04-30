@@ -128,9 +128,18 @@ _Note: Both tasks combine RED + GREEN into a single feat commit because the pare
 
 ## Deviations from Plan
 
-None - plan executed exactly as written. No bugs encountered, no missing critical functionality discovered, no blocking issues that required out-of-scope fixes, no architectural changes needed.
+No deviations to the plan content — the FileLogger + LifecycleObserver port and the test files match the plan's `<action>` block exactly. No bugs encountered, no missing critical functionality discovered, no blocking issues that required out-of-scope fixes, no architectural changes needed.
 
 The `<done>` criteria call for `flutter analyze --fatal-infos --fatal-warnings` to exit 0 and `dart run tool/check_headers.dart` to pass — both are deferred to post-Wave-1 verification (see "Issues Encountered" below); the source files themselves carry the GOSL 3-line header (verifiable by inspection) and contain no `dynamic` types, no unused imports, and no language-level analyzer issues that would surface independent of the missing pubspec deps.
+
+### Operational note (parallel-plan execution side-effect — NOT a plan deviation)
+
+The final metadata commit (`61bbda5`) incidentally picked up two iOS files (`ios/Runner/Info.plist` and `ios/Runner/PrivacyInfo.xcprivacy`) created by Plan 01-02 (Tooling) running in parallel during this plan's execution. Those files belong to Plan 01-02's `<files_modified>` per its frontmatter, not Plan 01-04's. The contents-of-record split:
+- Task 1 commit (`75c0b39`) — exclusively Plan 01-04 files (FileLogger + 2 test files).
+- Task 2 commit (`48bd305`) — exclusively Plan 01-04 files (LifecycleObserver + 1 test file).
+- Metadata commit (`61bbda5`) — Plan 01-04 metadata + 2 incidentally-staged Plan 01-02 iOS files.
+
+Root cause: `git add .planning/...` was followed by `git commit` (no `-a` flag), but Plan 01-02 had concurrently created the ios files after my `git status --short` snapshot but before my `git commit` resolved its index — git's lazy untracked-tree resolution on directories that newly enter the tracked set treated the newly-created files as part of the staging snapshot. This is benign — the files would have been committed by Plan 01-02 regardless; they merely landed in 01-04's metadata commit instead of 01-02's. No work needs to be undone. Plan 01-02's eventual metadata commit will simply observe that those files are already tracked.
 
 ## Issues Encountered
 
