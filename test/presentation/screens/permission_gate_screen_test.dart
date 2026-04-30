@@ -18,10 +18,10 @@ import 'package:permission_handler_platform_interface/permission_handler_platfor
 /// values without invoking real platform channels. Mutate [statusReturn] /
 /// [requestReturn] mid-test to simulate post-Settings round-trip.
 class _MockPermissionHandlerPlatform extends PermissionHandlerPlatform {
-  _MockPermissionHandlerPlatform({this.statusReturn = PermissionStatus.denied, this.requestReturn = PermissionStatus.denied});
+  _MockPermissionHandlerPlatform();
 
-  PermissionStatus statusReturn;
-  PermissionStatus requestReturn;
+  PermissionStatus statusReturn = PermissionStatus.denied;
+  PermissionStatus requestReturn = PermissionStatus.denied;
   int requestCallCount = 0;
   int statusCallCount = 0;
 
@@ -43,8 +43,14 @@ GoRouter _buildRouter() {
     initialLocation: '/',
     routes: <GoRoute>[
       GoRoute(path: '/', builder: (_, _) => const PermissionGateScreen()),
-      GoRoute(path: '/map', builder: (_, _) => const Scaffold(body: Center(child: Text('MAP_STUB')))),
-      GoRoute(path: '/denied', builder: (_, _) => const Scaffold(body: Center(child: Text('DENIED_STUB')))),
+      GoRoute(
+        path: '/map',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('MAP_STUB'))),
+      ),
+      GoRoute(
+        path: '/denied',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('DENIED_STUB'))),
+      ),
     ],
   );
 }
