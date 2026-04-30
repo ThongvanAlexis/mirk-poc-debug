@@ -2,6 +2,12 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+// Transitive deps via path_provider — same suppression pattern as the
+// permission_handler_platform_interface case in Plans 05/06. Production
+// code carries no such suppression; only this test imports the platform
+// interface to install a `PathProviderPlatform.instance` override.
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -103,7 +109,11 @@ void main() {
           break;
         }
       }
-      expect(sawNonZeroMs, isTrue, reason: 'At least one record across 20 emissions MUST land on a non-zero millisecond — proves ms precision is preserved end-to-end.');
+      expect(
+        sawNonZeroMs,
+        isTrue,
+        reason: 'At least one record across 20 emissions MUST land on a non-zero millisecond — proves ms precision is preserved end-to-end.',
+      );
     });
 
     test('idempotent bootstrap reopens a fresh file and stops writing to the prior one', () async {
@@ -120,11 +130,7 @@ void main() {
       await FileLogger.bootstrap();
       final secondFilename = FileLogger.activeFilename;
       expect(secondFilename, isNotNull);
-      expect(
-        secondFilename,
-        isNot(equals(firstFilename)),
-        reason: 'Second bootstrap MUST open a fresh file (different timestamp).',
-      );
+      expect(secondFilename, isNot(equals(firstFilename)), reason: 'Second bootstrap MUST open a fresh file (different timestamp).');
 
       Logger('test').info('record-B');
       await FileLogger.flush();
@@ -134,29 +140,35 @@ void main() {
       final firstContents = File(firstFilename!).readAsStringSync();
       final secondContents = File(secondFilename!).readAsStringSync();
       expect(firstContents, contains('record-A'));
-      expect(
-        firstContents,
-        isNot(contains('record-B')),
-        reason: 'Prior _raf MUST be closed — record-B written after bootstrap #2 must NOT appear in file #1.',
-      );
+      expect(firstContents, isNot(contains('record-B')), reason: 'Prior _raf MUST be closed — record-B written after bootstrap #2 must NOT appear in file #1.');
       expect(secondContents, contains('record-B'));
-      expect(
-        secondContents,
-        isNot(contains('record-A')),
-        reason: 'New _raf is fresh — record-A from before bootstrap #2 must NOT appear in file #2.',
-      );
+      expect(secondContents, isNot(contains('record-A')), reason: 'New _raf is fresh — record-A from before bootstrap #2 must NOT appear in file #2.');
     });
 
     test('10 MB prune cap evicts oldest files at bootstrap', () async {
-      // Fresh setup: tear down the bootstrap-created dir, repopulate with
-      // > 10 MB of synthetic files BEFORE bootstrapping.
+      // Fresh setup: clear non-active files from the bootstrap-created logs
+      // dir and repopulate with > 10 MB of synthetic files BEFORE re-bootstrapping.
       await FileLogger.flush();
       final logsDir = Directory(p.join(tempDir.path, 'logs'));
-      // Wipe everything to start clean.
+      // Workaround for Windows file-lock semantics: we cannot delete logsDir
+      // recursively while the active log RAF (opened by setUp's bootstrap)
+      // still holds a handle to a file inside it (errno 32 — sharing
+      // violation). Plan 04 SUMMARY's macOS/Linux tests didn't hit this
+      // because POSIX permits unlinking open files. Iterate-and-skip-active
+      // is the platform-agnostic equivalent: the next bootstrap call below
+      // will close the active RAF and the prune algorithm operates on every
+      // file in the dir uniformly. CLAUDE.md §Workarounds — comment present
+      // because the loop's semantics aren't obvious without context.
       if (logsDir.existsSync()) {
-        await logsDir.delete(recursive: true);
+        final activeFilename = FileLogger.activeFilename;
+        for (final FileSystemEntity entity in logsDir.listSync()) {
+          if (entity is! File) continue;
+          if (activeFilename != null && p.equals(entity.path, activeFilename)) continue;
+          entity.deleteSync();
+        }
+      } else {
+        await logsDir.create(recursive: true);
       }
-      await logsDir.create(recursive: true);
 
       // Create 12 files of 1 MB each = 12 MB total. Spread mtimes 1 s apart
       // so the prune algorithm can sort them reliably.
@@ -213,11 +225,7 @@ void main() {
         contains('_raf = null'),
         reason: 'Post-exception null-out is the documented infinite-loop defense; removing it re-introduces the zone-error-handler loop.',
       );
-      expect(
-        source,
-        contains('developer.log'),
-        reason: 'Failure-fallback surfacing path — without it, FileSystemException is silently swallowed.',
-      );
+      expect(source, contains('developer.log'), reason: 'Failure-fallback surfacing path — without it, FileSystemException is silently swallowed.');
     });
   });
 }
