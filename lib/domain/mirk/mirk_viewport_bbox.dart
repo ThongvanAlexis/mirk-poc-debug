@@ -41,8 +41,8 @@ class MirkViewportBbox {
   /// Constructs a bbox. Asserts `south <= north` and the antimeridian-wrap
   /// invariant on `west`/`east` (mirroring the parent freezed `@Assert`s).
   MirkViewportBbox({required this.south, required this.west, required this.north, required this.east})
-      : assert(south <= north, 'MirkViewportBbox: south must be <= north (got south=$south, north=$north)'),
-        assert(west <= east || (west > 0 && east < 0), 'MirkViewportBbox: east < west only permitted on antimeridian wrap');
+    : assert(south <= north, 'MirkViewportBbox: south must be <= north (got south=$south, north=$north)'),
+      assert(west <= east || (west > 0 && east < 0), 'MirkViewportBbox: east < west only permitted on antimeridian wrap');
 
   @override
   bool operator ==(Object other) {

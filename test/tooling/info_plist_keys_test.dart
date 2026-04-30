@@ -43,10 +43,7 @@ void main() {
     test('value is a non-empty string', () {
       // Match the next <string>...</string> after the key. Plist XML is
       // strictly key-then-value pairs.
-      final RegExp keyToValueRegex = RegExp(
-        r'<key>NSLocationWhenInUseUsageDescription</key>\s*<string>([^<]+)</string>',
-        multiLine: true,
-      );
+      final RegExp keyToValueRegex = RegExp(r'<key>NSLocationWhenInUseUsageDescription</key>\s*<string>([^<]+)</string>', multiLine: true);
       final RegExpMatch? match = keyToValueRegex.firstMatch(contents);
       expect(match, isNotNull, reason: 'NSLocationWhenInUseUsageDescription must be followed by a <string> element');
       expect(match!.group(1)!.trim(), isNotEmpty, reason: 'rationale string must not be blank — App Store rejects empty usage descriptions');
@@ -65,10 +62,7 @@ void main() {
 
   group('AUTH-06 — ITSAppUsesNonExemptEncryption=false', () {
     test('key is present with <false/> value', () {
-      final RegExp regex = RegExp(
-        r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false\s*/>',
-        multiLine: true,
-      );
+      final RegExp regex = RegExp(r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false\s*/>', multiLine: true);
       expect(
         regex.hasMatch(contents),
         isTrue,
@@ -79,15 +73,8 @@ void main() {
 
   group('Pitfall E — ProMotion 120 Hz unlock', () {
     test('CADisableMinimumFrameDurationOnPhone=true is present', () {
-      final RegExp regex = RegExp(
-        r'<key>CADisableMinimumFrameDurationOnPhone</key>\s*<true\s*/>',
-        multiLine: true,
-      );
-      expect(
-        regex.hasMatch(contents),
-        isTrue,
-        reason: 'Without this key, iOS caps Flutter at 60 Hz on non-Apple-team apps even on ProMotion devices.',
-      );
+      final RegExp regex = RegExp(r'<key>CADisableMinimumFrameDurationOnPhone</key>\s*<true\s*/>', multiLine: true);
+      expect(regex.hasMatch(contents), isTrue, reason: 'Without this key, iOS caps Flutter at 60 Hz on non-Apple-team apps even on ProMotion devices.');
     });
   });
 }

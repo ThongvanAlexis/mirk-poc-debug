@@ -8,10 +8,7 @@ import 'package:mirk_poc_debug/infrastructure/logging/file_logger.dart';
 void main() {
   group('FileLogger filename format (POC adaptation #1 — UTC ISO-8601 basic)', () {
     test('canonical case — DateTime.utc(2026, 4, 30, 14, 25, 3) → 20260430T142503Z', () {
-      expect(
-        FileLogger.formatFilenameTimestampForTest(DateTime.utc(2026, 4, 30, 14, 25, 3)),
-        '20260430T142503Z',
-      );
+      expect(FileLogger.formatFilenameTimestampForTest(DateTime.utc(2026, 4, 30, 14, 25, 3)), '20260430T142503Z');
     });
 
     test('local-time input is converted to UTC before formatting', () {
@@ -28,10 +25,7 @@ void main() {
     });
 
     test('zero padding on every component', () {
-      expect(
-        FileLogger.formatFilenameTimestampForTest(DateTime.utc(2026, 1, 5, 3, 7, 9)),
-        '20260105T030709Z',
-      );
+      expect(FileLogger.formatFilenameTimestampForTest(DateTime.utc(2026, 1, 5, 3, 7, 9)), '20260105T030709Z');
     });
   });
 }
