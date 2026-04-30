@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-05-PLAN.md (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
-last_updated: "2026-04-30T16:48:48.198Z"
-last_activity: 2026-04-30 — Plan 01-05 complete (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
+stopped_at: Completed 01-06-PLAN.md (PermissionGateScreen + PermissionDeniedScreen — AUTH-01..04)
+last_updated: "2026-04-30T17:01:50Z"
+last_activity: 2026-04-30 — Plan 01-06 complete (PermissionGateScreen + PermissionDeniedScreen — AUTH-01..04)
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 1 of 5 (Foundation)
-Plan: 6 of 7 in current phase (Wave 0 + Wave 1 + Wave 2 Plan 05 complete; next is Plan 01-06 in Wave 2)
+Plan: 7 of 7 in current phase (Wave 0 + Wave 1 + Wave 2 + Wave 3 Plan 06 complete; next is Plan 01-07 — main.dart + GoRouter wiring + MapScreen scaffolding)
 Status: In progress
-Last activity: 2026-04-30 — Plan 01-05 complete (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
+Last activity: 2026-04-30 — Plan 01-06 complete (PermissionGateScreen + PermissionDeniedScreen — AUTH-01..04)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 86%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [███████░░░] 71%
 | Phase 01-foundation P03 | 30 min | 3 tasks | 9 files |
 | Phase 01 P01 | 7 min | 3 tasks | 12 files |
 | Phase 01-foundation P05 | 5 min | 2 tasks | 4 files |
+| Phase 01-foundation P06 | 10 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Plan 01-03: hand-rolled MirkViewportBbox replaces freezed-generated parent class; package:mirkfall imports rewritten to package:mirk_poc_debug; CI workflow lands at Wave 0 (red-then-green until Plan 07 hardens main.dart). — POC pubspec drops freezed per RESEARCH.md §Standard Stack §NOT included; preserving each donor file's import-style minimises diff for future verbatim re-syncs from parent; landing CI at Wave 0 lets Plan 07 see immediately whether gates job goes green on the first push.
 - [Phase 01-foundation]: Plan 01-01: adopted existing Flutter scaffold instead of running flutter create (Rule 3 deviation — scaffold from prior session matched user-approved bundle ID com.thongvan.mirkPocDebug). Strict-pinned Path A pubspec.yaml committed with test: 1.30.0 added per Plan 01-02 coordination flag. Constants port: 30 of parent's 880 constants — only what Phase 1 + BOOT-08 donor files reference. Asset bundle test for shader uses IPLR magic-byte verification (not loadString) because Flutter's shaders: block compiles to binary at build time. — scaffold-adoption avoids overwriting Plan 01-02 parallel work; test 1.30.0 enables Plan 01-02 tool tests; constants subset prevents Phase 2+ dead code; IPLR-aware test mirrors the runtime FragmentProgram.fromAsset idiom
 - [Phase 01-foundation]: Plan 01-05: buildPocAppBar PreferredSizeWidget factory + FpsCounterOverlay StatefulWidget landed (LOG-04 + PERF-01). 9 widget tests green, strict analyze clean, GOSL headers verified. Three Rule 1 deviations: (1) SharePlus.instance.share(ShareParams) replaces deprecated Share.shareXFiles in share_plus 12.0.2; (2) dropped unnecessary dart:ui FontFeature import; (3) AppLocalizations import via package:mirk_poc_debug/l10n (Plan 01-01 deferred-items pre-flagged this).
+- [Phase 01-foundation]: Plan 01-06: PermissionGateScreen (StatefulWidget + WidgetsBindingObserver lifecycle re-check — W-2 fix) + PermissionDeniedScreen (Stateless single Open-Settings) landed (AUTH-01..04). 11 widget tests green; strict analyze clean on lib/presentation + test/presentation. Pattern established: tester.binding.handleAppLifecycleStateChanged + mid-test mock mutation simulates the post-Settings round-trip without a real iOS device. PermissionHandlerPlatform.instance test seam reused as the zero-dep mock pattern. — Lifecycle re-check is THE differentiator vs. cold-restart UX; per CONTEXT.md user must NOT need to re-open the app to escape the denied screen. Single suppression `// ignore_for_file: depend_on_referenced_packages` on test files (transitive permission_handler_platform_interface) follows Plan 01-04 pattern; production lib carries no suppressions.
 
 ### Pending Todos
 
@@ -88,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T16:48:38.379Z
-Stopped at: Completed 01-05-PLAN.md (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
+Last session: 2026-04-30T17:01:50Z
+Stopped at: Completed 01-06-PLAN.md (PermissionGateScreen + PermissionDeniedScreen — AUTH-01..04)
 Resume file: None

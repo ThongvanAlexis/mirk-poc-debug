@@ -34,10 +34,10 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Permissions
 
-- [ ] **AUTH-01**: On launch, the app shows a permission rationale screen explaining why `locationWhenInUse` is required for the fog-of-war
-- [ ] **AUTH-02**: When the user accepts the rationale, the app requests `Permission.locationWhenInUse` via `permission_handler`
-- [ ] **AUTH-03**: On grant, the app navigates to the map screen via `context.go('/map')` (full pile reset — there's nowhere to go back to)
-- [ ] **AUTH-04**: On deny, the app shows a denied screen with a button that opens system settings via `permission_handler.openAppSettings()`
+- [x] **AUTH-01**: On launch, the app shows a permission rationale screen explaining why `locationWhenInUse` is required for the fog-of-war
+- [x] **AUTH-02**: When the user accepts the rationale, the app requests `Permission.locationWhenInUse` via `permission_handler`
+- [x] **AUTH-03**: On grant, the app navigates to the map screen via `context.go('/map')` (full pile reset — there's nowhere to go back to)
+- [x] **AUTH-04**: On deny, the app shows a denied screen with a button that opens system settings via `permission_handler.openAppSettings()`
 - [x] **AUTH-05**: `ios/Runner/Info.plist` contains `NSLocationWhenInUseUsageDescription` with a non-empty rationale string; no `NSLocationAlwaysAndWhenInUseUsageDescription` (out of scope)
 - [x] **AUTH-06**: `ios/Runner/Info.plist` contains `ITSAppUsesNonExemptEncryption=false`
 
@@ -155,10 +155,10 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | CI-03 | Phase 1 | Complete |
 | CI-04 | Phase 1 | Complete |
 | CI-05 | Phase 1 | Complete |
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
+| AUTH-04 | Phase 1 | Complete |
 | AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
 | MAP-01 | Phase 2 | Pending |
