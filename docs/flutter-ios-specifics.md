@@ -155,7 +155,92 @@ record bootstrap.
 geolocator) arrivent en bursts < 1 seconde. Sans ms, les ordres relatifs
 sont ambigus.
 
-### 3.5 Prune des vieux logs au boot — cap fixe
+### 3.5 Écritures synchrones — pourquoi `_onRecord` n'est PAS `async`
+
+**Race condition #1 : auto-race sur `Stream.listen`.** Le hook
+`Logger.root.onRecord.listen(_onRecord)` ne `await` PAS les callbacks
+asynchrones. Si on écrit `_onRecord` en async avec
+`await raf.writeString(line)`, deux records qui arrivent à < 1 ms d'écart
+démarrent leurs writes en parallèle — et les bytes s'**interleavent** dans
+le fichier. Résultat : JSONL corrompu, lignes mélangées, parsing pété.
+
+**Fix :** `_onRecord` est synchrone, utilise `writeStringSync` + `flushSync` :
+
+```dart
+// ✅ Synchrone — pas de race possible, Stream.listen séquentialise les calls
+static void _onRecord(LogRecord rec) {
+  final raf = _raf;
+  if (raf == null) return;
+  final line = '${jsonEncode(_buildEntry(rec))}\n';
+  try {
+    raf.writeStringSync(line);
+    raf.flushSync();    // = fsync(2) — durable disque, pas juste userspace
+  } on FileSystemException catch (e) {
+    developer.log('FileLogger record write failed: $e', name: 'FileLogger');
+    _raf = null;        // drop silencieux des records suivants
+  }
+}
+
+// ❌ Async — back-to-back records s'interleavent, JSONL corrompu
+static Future<void> _onRecord(LogRecord rec) async {
+  final raf = _raf;
+  if (raf == null) return;
+  await raf.writeString('${jsonEncode(_buildEntry(rec))}\n');  // RACE
+}
+```
+
+**Pourquoi pas un `Queue` + worker async ?** Possible mais ajoute de la
+latence (les events sont batched), et les logs critiques (crash imminent)
+peuvent ne pas être flushés à temps. Le sync direct flush garantit que
+chaque record est sur disque AVANT que `_onRecord` rende la main — donc
+même un kill brutal d'iOS perd au pire le record en cours d'écriture, pas
+les 200 d'avant en buffer.
+
+**Symptôme historique de l'ancienne implémentation async :**
+`StateError: StreamSink is bound` levé quand `_onRecord` ré-entrait
+pendant qu'un `await sink.flush()` précédent était in-flight. Le catch
+nullait le sink → ~99% des records suivants droppés silencieusement
+pour le reste de la session. Bug observé sur le parent project pendant
+l'install d'un asset 5.2 GB sous pression mémoire.
+
+---
+
+**Race condition #1bis : iOS jetsam invalide la page cache** (deuxième
+bug production-fatal du parent). `IOSink.flush()` ne flush que
+**userspace → kernel page cache**, pas jusqu'au flash. Sous pression
+mémoire foreground (iOS jetsam, classique pendant l'install d'assets
+volumineux ou un load de tiles map), iOS **invalide la page cache** et
+les records écrits dans les dernières secondes **n'atteignent jamais
+le flash**. L'app crashe ou est tuée → log perdu juste avant le crash,
+pile au moment où il aurait été le plus utile.
+
+**Fix :** `RandomAccessFile.flushSync()` qui est le vrai `fsync(2)`
+documenté Dart (durable jusqu'au flash), pas juste un drain userspace.
+Coût : ~sub-milliseconde sur flash moderne (ACCEPTABLE pour une app
+diagnostic single-user).
+
+**À retenir :** `IOSink + flush()` = piège. `RandomAccessFile +
+flushSync()` = bon. **NE PAS** "moderniser" en `IOSink` parce que ça
+a l'air plus idiomatique — l'API plus propre cache deux bugs prod.
+
+---
+
+**Race condition #2 : boucle infinie sur erreur.** Si `_onRecord` log
+l'erreur via `Logger.shout(e)` au lieu de `developer.log()`, ça
+déclenche un nouveau LogRecord → nouveau `_onRecord` → nouveau write
+fail → nouveau `Logger.shout` → ∞.
+
+**Fix :** sur `FileSystemException`, on utilise `dart:developer` `log()`
+**directement** (visible dans Xcode console / `flutter logs`, pas dans
+le pipeline `Logger`), et on **null le `_raf`** pour que les records
+suivants soient silencieusement droppés au lieu de re-rentrer.
+
+**Catch only `FileSystemException` :** l'API sync ne lève pas
+`StateError` (à la différence de l'async). Catch trop large = on attrape
+des bugs de programmation qu'on devrait laisser propager (CLAUDE.md
+§Error handling).
+
+### 3.6 Prune des vieux logs au boot — cap fixe
 
 Au bootstrap, le logger énumère `<app_documents_dir>/logs/`, somme la taille
 totale des fichiers `.txt`/`.txt.gz`, et **supprime les plus vieux** jusqu'à
@@ -171,9 +256,22 @@ const int kMaxLogsDirBytes = 10 * 1024 * 1024;   // 10 MB
 ```
 
 **Le fichier actif n'est jamais supprimé** par le prune (sinon RAF cassé).
-Voir le test Windows ci-dessous.
+Voir le test Windows ci-dessous (§3.7).
 
-### 3.6 Test Windows — sharing-violation sur unlink-open-file
+**Race condition #3 (acceptée) : double-bootstrap concurrent.** Le prune
+suppose qu'**une seule instance de l'app écrit dans le dossier logs** à un
+moment donné. Si deux fenêtres Flutter desktop bootent en parallèle, elles
+peuvent chacune compter la taille du dossier avant que l'autre n'ait
+écrit, puis chacune décide de pruner les mêmes vieux fichiers → over-delete
+ou compteurs incohérents.
+
+C'est une **invariant accepté** sur mobile (iOS / Android = single
+instance par design). Sur desktop, c'est OK pour une app single-window.
+Si on ship un jour une variante headless ou multi-window qui peut tourner
+à côté de l'UI, il faudra un **fcntl file-lock** sur le dossier au
+bootstrap. Pas le cas pour V1.0.
+
+### 3.7 Test Windows — sharing-violation sur unlink-open-file
 
 **Symptôme :** Le test "10 MB prune cap" échoue déterministiquement sur
 Windows avec :
@@ -209,7 +307,7 @@ await for (final entry in logsDir.list()) {
 await logsDir.delete(recursive: true);
 ```
 
-### 3.7 Lifecycle observer — flush sur background
+### 3.8 Lifecycle observer — flush sur background
 
 Sans ça, les events des dernières secondes sont perdus si l'app est tuée
 par iOS (memory pressure, force-quit user). Le `FileLoggerLifecycleObserver`
@@ -220,7 +318,7 @@ implémente `WidgetsBindingObserver.didChangeAppLifecycleState` et appelle
 **Enregistrer dans `main()`** (voir §3.2). Sans ça l'observer existe mais
 n'est pas notifié.
 
-### 3.8 Partage des logs (LOG-04) — `share_plus` 12.x
+### 3.9 Partage des logs (LOG-04) — `share_plus` 12.x
 
 Pas `Share.shareXFiles(...)` (deprecated, `dart format --fatal-infos`
 explose). Utiliser :
@@ -233,6 +331,106 @@ await SharePlus.instance.share(
 
 Le bouton de partage déclenche le iOS share sheet → Mail → email arrive
 avec `<timestamp>_logs.txt.gz` en attachment.
+
+### 3.10 Petits quirks à NE PAS toucher
+
+Liste des décisions implémentation qui ont l'air gratuites mais qui
+encodent un piège — ne pas les "nettoyer" sans relire cette section.
+
+**`FileMode.writeOnlyAppend`** (pas `write`, pas `append`).
+- `FileMode.write` truncate le fichier au open → si bootstrap re-tourne
+  (hot-reload, test re-bootstrap, ou clearAll(rearm: true)), tous les
+  records du run actuel sautent.
+- `FileMode.append` ouvre en read+write+append → on lit jamais, donc
+  permission read inutile. `writeOnlyAppend` est la forme exacte.
+
+**Idempotency bootstrap : `close → cancel`, dans cet ordre.**
+```dart
+await _closeRafQuietly();        // 1. ferme le RAF d'abord
+await _subscription?.cancel();   // 2. désabonne ENSUITE
+```
+L'inverse (cancel avant close) laisse une fenêtre où `_onRecord` peut
+être appelé sur un RAF déjà null → on perd silencieusement le dernier
+record. Suit la convention "close downstream resource first, then stop
+upstream signal".
+
+**`flush()` est intentionnellement no-op.**
+```dart
+static Future<void> flush() async {
+  // Intentionally empty — durability is enforced per-record in _onRecord.
+}
+```
+Chaque record fait son propre `flushSync` au write-time, donc il n'y a
+**rien à flush** au call-site (share-sheet, lifecycle observer). On
+garde quand même la méthode pour ne pas casser les call-sites
+existants. **NE PAS supprimer** sous prétexte qu'elle a l'air inutile —
+c'est un compatibility shim explicite.
+
+**Premier record après bootstrap = cross-check sandbox UUID iOS.**
+```dart
+Logger('infrastructure.logging.file_logger')
+    .info('FileLogger bootstrap — activeFilename=$_activeFilename');
+```
+Le path absolu est loggé dans le JSONL lui-même. Pourquoi : le sandbox
+container UUID iOS peut **changer entre les launches** (réinstall via
+SideStore, restore depuis backup, app data migration). En relisant un
+vieux log, on peut comparer le path écrit au path qu'on lit pour
+détecter une rotation et savoir que l'ancien `activeFilename` est devenu
+invalide.
+
+**`listLogFiles()` sort par `FileStat.modified`, PAS par filename.**
+Robuste à un futur changement du format de filename. Si on switch un
+jour de `YYYYMMDDTHHMMSSZ` à un autre format, le sort reste correct
+parce qu'il s'appuie sur l'mtime kernel, pas sur l'ordre alphabétique
+du nom.
+
+**Catch only `FileSystemException`** (pas `Exception` ni `Object`).
+L'API sync ne lève pas `StateError` (à la différence de l'async). Catch
+trop large = on attrape des bugs de programmation qu'on devrait laisser
+propager (CLAUDE.md §Error handling : "Bugs de programmation → laisser
+propager jusqu'au handler top-level").
+
+**Lifecycle observer : `super.didChangeAppLifecycleState(state)`
+**en premier**, et flush en `unawaited()`.**
+```dart
+@override
+void didChangeAppLifecycleState(AppLifecycleState state) {
+  super.didChangeAppLifecycleState(state);   // 1. convention Flutter
+  if (state == AppLifecycleState.resumed) return;
+  unawaited(_flushCallback());               // 2. fire-and-forget
+}
+```
+- `super.didChange...` first : convention Flutter (mixin chains).
+- `resumed` → pas de flush (le buffer a été drainé sur la transition
+  out-of-resumed précédente — re-flush serait un syscall no-op).
+- `unawaited()` : `didChangeAppLifecycleState` est sync, on ne peut
+  pas await. Le flush est best-effort : si l'OS kill avant que le
+  fsync rende la main, on a au moins écrit ce qu'on avait à cet
+  instant T.
+
+### 3.11 Verbose logging toggle (debug menu)
+
+Deux mécanismes pour activer le niveau `Level.ALL` (au lieu de
+`Level.INFO` par défaut) :
+
+1. **`--dart-define=DEBUG=true`** au build — verbose forcé pour ce
+   build, non-runtime-toggleable.
+2. **`SharedPreferences` flag `debug_logging_enabled`** — toggleable
+   à runtime via un menu debug dans l'app, persiste entre les launches.
+
+Au bootstrap, le niveau racine est calculé comme :
+```dart
+const debugDefine = bool.fromEnvironment('DEBUG');
+final verboseFromPrefs = prefs.getBool(kDebugLoggingPrefsKey) ?? false;
+Logger.root.level = (debugDefine || verboseFromPrefs) ? Level.ALL : Level.INFO;
+```
+
+**API recommandée :** `FileLogger.writeVerbosePref(bool value)` plutôt
+que `FileLogger.toggleVerbosePref()`. Le premier est un write explicite
+(idempotent, aligne le fichier persisté avec l'état du widget). Le
+second fait un read-modify-write XOR — si l'utilisateur tape deux fois
+vite sur le toggle, on peut avoir une race read-modify-write. À garder
+seulement pour les call-sites qui n'ont pas l'état désiré sous la main.
 
 ---
 
@@ -314,8 +512,12 @@ Conséquence pratique :
 - [ ] `Info.plist`: `CFBundleName` en camelCase ou avec espaces, **pas**
       d'underscore (§2)
 - [ ] `FileLogger.bootstrap()` appelé avant `runApp()` dans `main.dart` (§3.2)
-- [ ] `FileLoggerLifecycleObserver` enregistré via `addObserver` (§3.7)
-- [ ] `kMaxLogsDirBytes` dans `lib/config/constants.dart` (§3.5)
+- [ ] `FileLoggerLifecycleObserver` enregistré via `addObserver` (§3.8)
+- [ ] `kMaxLogsDirBytes` dans `lib/config/constants.dart` (§3.6)
+- [ ] `_onRecord` synchrone (`writeStringSync` + `flushSync`) — JAMAIS async (§3.5)
+- [ ] `RandomAccessFile` ouvert en `FileMode.writeOnlyAppend` (§3.10)
+- [ ] Catch only `FileSystemException` dans `_onRecord` + null le `_raf` sur erreur (§3.5)
+- [ ] Sur erreur : log via `dart:developer` `log()`, **pas** via `Logger.shout` (§3.5)
 - [ ] CI workflow : `dart format lib/l10n/` **avant** le check
       `--set-exit-if-changed` (§4.1)
 - [ ] Imports l10n: `package:<project>/l10n/...`, pas `flutter_gen` (§4.1)
