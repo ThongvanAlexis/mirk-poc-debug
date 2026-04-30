@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 1/7 | In Progress | - |
 | 2. Map (no fog) | 0/TBD | Not started | - |
 | 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |

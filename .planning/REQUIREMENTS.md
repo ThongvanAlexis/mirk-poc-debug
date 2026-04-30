@@ -9,7 +9,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Bootstrap
 
-- [ ] **BOOT-01**: Flutter project initialised with SDK pin `3.41.8` and Dart `3.11.x`; `pubspec.yaml` strictly version-pinned (no `^`); `pubspec.lock` committed
+- [ ] **BOOT-01**: Flutter project initialised with SDK pin `3.41.7` and Dart `3.11.x`; `pubspec.yaml` strictly version-pinned (no `^`); `pubspec.lock` committed
 - [ ] **BOOT-02**: Every `.dart` file in `lib/` and `test/` starts with the GOSL v1.0 copyright header (`// Copyright (c) 2026 THONGVAN Alexis` / `// Licensed under the Good Old Software License v1.0` / `// See LICENSE file for details`)
 - [ ] **BOOT-03**: `LICENSE` file at repo root contains the GOSL v1.0 text
 - [ ] **BOOT-04**: `analysis_options.yaml` enforces `strict-casts: true`, `strict-inference: true`, `strict-raw-types: true`; uses `flutter_lints 6.0.0`
@@ -78,8 +78,8 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Logger
 
-- [ ] **LOG-01**: A logger configured via the `logging` package writes to `<getApplicationDocumentsDirectory()>/logs/yyyymmdd_hhmmss_logs.txt`, one file per app session
-- [ ] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
+- [x] **LOG-01**: A logger configured via the `logging` package writes to `<getApplicationDocumentsDirectory()>/logs/yyyymmdd_hhmmss_logs.txt`, one file per app session
+- [x] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
 - [ ] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
 - [ ] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
 - [ ] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target (Phase 1 smoke test confirms this)
@@ -184,8 +184,8 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | WISP-02 | Phase 4 | Pending |
 | WISP-03 | Phase 4 | Pending |
 | WISP-04 | Phase 4 | Pending |
-| LOG-01 | Phase 1 | Pending |
-| LOG-02 | Phase 1 | Pending |
+| LOG-01 | Phase 1 | Complete |
+| LOG-02 | Phase 1 | Complete |
 | LOG-03 | Phase 1 | Pending |
 | LOG-04 | Phase 1 | Pending |
 | LOG-05 | Phase 1 | Pending |
