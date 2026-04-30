@@ -70,7 +70,5 @@ Future<void> _onSharePressed(BuildContext context, String activeFilename) async 
   // share_plus 12.0.2 deprecates Share.shareXFiles in favour of
   // SharePlus.instance.share(ShareParams(files: ...)). The ShareParams API
   // is the only non-deprecated path forward in this version of the lib.
-  await SharePlus.instance.share(
-    ShareParams(files: <XFile>[XFile(outFilename, mimeType: 'application/gzip')]),
-  );
+  await SharePlus.instance.share(ShareParams(files: <XFile>[XFile(outFilename, mimeType: 'application/gzip')]));
 }
