@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [ ] 01-02-PLAN.md — Tooling: port tool/check_* + tool/test/* scripts, DEPENDENCIES.md skeleton, iOS Info.plist + PrivacyInfo.xcprivacy
   - [ ] 01-03-PLAN.md — BOOT-08 donor source files port, three-job CI workflow, REQUIREMENTS.md LOG-05 wording update
   - [ ] 01-04-PLAN.md — FileLogger + FileLoggerLifecycleObserver port-with-three-POC-adaptations + tests
-  - [ ] 01-05-PLAN.md — buildPocAppBar share-logs helper + FpsCounterOverlay (ProMotion-aware) + widget tests
+  - [x] 01-05-PLAN.md — buildPocAppBar share-logs helper + FpsCounterOverlay (ProMotion-aware) + widget tests
   - [ ] 01-06-PLAN.md — PermissionGateScreen (lifecycle resume re-check) + PermissionDeniedScreen + widget tests
   - [ ] 01-07-PLAN.md — main wiring: lib/main.dart + app.dart + router.dart + MapScreen placeholder + LOG-05 manual UAT checkpoint
 
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 4/7 | In Progress | - |
+| 1. Foundation | 5/7 | In Progress | - |
 | 2. Map (no fog) | 0/TBD | Not started | - |
 | 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |

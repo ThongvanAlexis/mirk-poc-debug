@@ -81,12 +81,12 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **LOG-01**: A logger configured via the `logging` package writes to `<getApplicationDocumentsDirectory()>/logs/yyyymmdd_hhmmss_logs.txt`, one file per app session
 - [x] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
 - [ ] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
-- [ ] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
+- [x] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
 - [x] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target. Phase 1 UAT exit gate: developer sideloads the IPA, taps share-logs, picks Mail, sends to themselves, verifies the email arrives with the gzipped log file as attachment. Verbal "approved" is the gate (no synthetic-log smoke test required per Phase 1 CONTEXT.md decision).
 
 ### Performance Instrumentation
 
-- [ ] **PERF-01**: An on-screen FPS counter overlay is rendered on the map screen (toggleable via a dev menu or always-on for the POC); shows current FPS rolling-averaged over 1 s
+- [x] **PERF-01**: An on-screen FPS counter overlay is rendered on the map screen (toggleable via a dev menu or always-on for the POC); shows current FPS rolling-averaged over 1 s
 - [ ] **PERF-02**: At Phase 2 UAT walk on iPhone 17 Pro: pan-FPS without fog ≥ 40 (gate before Phase 3 fog work begins)
 - [ ] **PERF-03**: At Phase 3 UAT walk on iPhone 17 Pro: pan-FPS with fog active ≥ 30; idle-fog-animation FPS ≥ 50
 - [ ] **PERF-04**: At Phase 3 UAT walk: frame-delta probe (FOG-08) shows median ≤ 16 ms, p95 ≤ 32 ms, max ≤ 48 ms across ≥ 10 combined gestures
@@ -187,9 +187,9 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | LOG-01 | Phase 1 | Complete |
 | LOG-02 | Phase 1 | Complete |
 | LOG-03 | Phase 1 | Pending |
-| LOG-04 | Phase 1 | Pending |
+| LOG-04 | Phase 1 | Complete |
 | LOG-05 | Phase 1 | Complete |
-| PERF-01 | Phase 1 | Pending |
+| PERF-01 | Phase 1 | Complete |
 | PERF-02 | Phase 2 | Pending |
 | PERF-03 | Phase 3 | Pending |
 | PERF-04 | Phase 3 | Pending |

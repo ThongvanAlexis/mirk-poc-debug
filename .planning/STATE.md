@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-PLAN.md (Flutter bootstrap — pubspec Path A + l10n + LICENSE + binary assets + constants subset; bundle ID com.thongvan.mirkPocDebug locked)
-last_updated: "2026-04-30T16:38:39.537Z"
-last_activity: 2026-04-30 — Plan 01-01 complete (Flutter bootstrap — Path A pubspec + l10n + LICENSE + binary assets + constants subset; bundle ID com.thongvan.mirkPocDebug locked)
+stopped_at: Completed 01-05-PLAN.md (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
+last_updated: "2026-04-30T16:48:48.198Z"
+last_activity: 2026-04-30 — Plan 01-05 complete (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
-  percent: 57
+  completed_plans: 5
+  percent: 71
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 1 of 5 (Foundation)
-Plan: 5 of 7 in current phase (Wave 0 + Wave 1 complete; next is Plan 01-05 in Wave 2)
+Plan: 6 of 7 in current phase (Wave 0 + Wave 1 + Wave 2 Plan 05 complete; next is Plan 01-06 in Wave 2)
 Status: In progress
-Last activity: 2026-04-30 — Plan 01-01 complete (Flutter bootstrap — Path A pubspec + l10n + LICENSE + binary assets + constants subset; bundle ID com.thongvan.mirkPocDebug locked)
+Last activity: 2026-04-30 — Plan 01-05 complete (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
 
-Progress: [██████░░░░] 57%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [██████░░░░] 57%
 | Phase 01-foundation P02 | 9 min | 3 tasks | 10 files |
 | Phase 01-foundation P03 | 30 min | 3 tasks | 9 files |
 | Phase 01 P01 | 7 min | 3 tasks | 12 files |
+| Phase 01-foundation P05 | 5 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,7 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Plan 01-02: ported tool/* CI gates verbatim from parent project (header/license/deps-md), authored DEPENDENCIES.md telemetry table, rewrote ios/Runner/Info.plist with whenInUse-only location + ITSAppUsesNonExemptEncryption=false, created PrivacyInfo.xcprivacy with Required Reason API declarations
 - [Phase 01-foundation]: Plan 01-03: hand-rolled MirkViewportBbox replaces freezed-generated parent class; package:mirkfall imports rewritten to package:mirk_poc_debug; CI workflow lands at Wave 0 (red-then-green until Plan 07 hardens main.dart). — POC pubspec drops freezed per RESEARCH.md §Standard Stack §NOT included; preserving each donor file's import-style minimises diff for future verbatim re-syncs from parent; landing CI at Wave 0 lets Plan 07 see immediately whether gates job goes green on the first push.
 - [Phase 01-foundation]: Plan 01-01: adopted existing Flutter scaffold instead of running flutter create (Rule 3 deviation — scaffold from prior session matched user-approved bundle ID com.thongvan.mirkPocDebug). Strict-pinned Path A pubspec.yaml committed with test: 1.30.0 added per Plan 01-02 coordination flag. Constants port: 30 of parent's 880 constants — only what Phase 1 + BOOT-08 donor files reference. Asset bundle test for shader uses IPLR magic-byte verification (not loadString) because Flutter's shaders: block compiles to binary at build time. — scaffold-adoption avoids overwriting Plan 01-02 parallel work; test 1.30.0 enables Plan 01-02 tool tests; constants subset prevents Phase 2+ dead code; IPLR-aware test mirrors the runtime FragmentProgram.fromAsset idiom
+- [Phase 01-foundation]: Plan 01-05: buildPocAppBar PreferredSizeWidget factory + FpsCounterOverlay StatefulWidget landed (LOG-04 + PERF-01). 9 widget tests green, strict analyze clean, GOSL headers verified. Three Rule 1 deviations: (1) SharePlus.instance.share(ShareParams) replaces deprecated Share.shareXFiles in share_plus 12.0.2; (2) dropped unnecessary dart:ui FontFeature import; (3) AppLocalizations import via package:mirk_poc_debug/l10n (Plan 01-01 deferred-items pre-flagged this).
 
 ### Pending Todos
 
@@ -86,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T16:38:39.534Z
-Stopped at: Completed 01-01-PLAN.md (Flutter bootstrap — pubspec Path A + l10n + LICENSE + binary assets + constants subset; bundle ID com.thongvan.mirkPocDebug locked)
+Last session: 2026-04-30T16:48:38.379Z
+Stopped at: Completed 01-05-PLAN.md (buildPocAppBar + FpsCounterOverlay — LOG-04 + PERF-01)
 Resume file: None
