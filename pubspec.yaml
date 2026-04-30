@@ -1,0 +1,66 @@
+name: mirk_poc_debug
+description: "MirkFall fog-of-war POC — strict-pinned Flutter project per RESEARCH.md Path A."
+publish_to: 'none'
+
+# Project version + build number. Bumped via `flutter build` flags at release time.
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+  flutter: '>=3.41.0 <3.42.0'
+
+# All dependencies are STRICT-PINNED (no `^`, no ranges) per CLAUDE.md mandate
+# (BOOT-01) and RESEARCH.md §Final pubspec.yaml (Path A — flutter_map 7.0.2 chain).
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: 1.0.9
+
+  # Map rendering — Path A chain (planner-locked).
+  flutter_map: 7.0.2
+  vector_map_tiles: 8.0.0
+  vector_map_tiles_pmtiles: 1.5.0
+  vector_tile_renderer: 5.2.0
+  pmtiles: 1.2.0
+  latlong2: 0.9.1
+
+  # Permissions + GPS (Phase 1+).
+  permission_handler: 12.0.1
+  geolocator: 14.0.2
+
+  # File system + paths.
+  path_provider: 2.1.5
+  path: 1.9.1
+
+  # Routing + logging + share-sheet (Phase 1+).
+  go_router: 16.0.0
+  logging: 1.3.0
+  share_plus: 12.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: 6.0.0
+  yaml: 3.1.3
+  # Coordination with Plan 01-02: tool/test/check_*_test.dart files import
+  # `package:test/test.dart` for the `dart test` runner. Required for
+  # `dart test tool/test/` to resolve. Parent project carries the same pin.
+  test: 1.30.0
+
+flutter:
+  uses-material-design: true
+
+  # Required for `flutter gen-l10n` codegen (per Flutter docs). Plan 01-01
+  # Task 2 ships l10n.yaml + lib/l10n/app_*.arb so the synthetic
+  # AppLocalizations package becomes generable on `flutter pub get`.
+  generate: true
+
+  assets:
+    - assets/maps/Fra_Melun.pmtile
+
+  shaders:
+    - assets/shaders/atmospheric_fog.frag
