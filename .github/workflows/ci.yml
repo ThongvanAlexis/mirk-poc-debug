@@ -24,6 +24,16 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # Pre-format gen-l10n codegen output (lib/l10n/app_localizations*.dart).
+      # `flutter pub get` triggers `flutter gen-l10n` which writes the
+      # AppLocalizations Dart files into `lib/l10n/` (gitignored — Plan 01-01
+      # dropped the synthetic-package flag per Flutter 3.41 removal). The
+      # codegen output isn't pre-formatted to --line-length 160 by default,
+      # so `dart format --set-exit-if-changed .` would fail on a fresh CI
+      # checkout. Pre-formatting in-place keeps the format-check authoritative
+      # over hand-written code only.
+      - name: Pre-format gen-l10n codegen output
+        run: dart format --line-length 160 lib/l10n/app_localizations.dart lib/l10n/app_localizations_en.dart lib/l10n/app_localizations_fr.dart
       - name: Format check
         run: dart format --line-length 160 --set-exit-if-changed .
       - name: Analyzer
