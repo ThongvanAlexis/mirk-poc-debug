@@ -1,0 +1,20 @@
+{
+  "@@locale": "fr",
+  "appTitle": "MirkFall POC",
+  "@appTitle": { "description": "Application bar title shown on every screen" },
+
+  "permissionRationaleParagraph": "MirkFall a besoin de ta position pour révéler le brouillard de ta carte. Tout reste sur ton téléphone — aucun envoi.",
+  "@permissionRationaleParagraph": { "description": "Two-sentence rationale on the permission gate screen explaining locationWhenInUse use + on-device data" },
+
+  "permissionRationaleCta": "Autoriser la position",
+  "@permissionRationaleCta": { "description": "Primary CTA button label on the permission gate screen" },
+
+  "permissionDeniedParagraph": "Sans autorisation, MirkFall ne peut pas révéler la carte. Ouvre les Réglages pour l'activer.",
+  "@permissionDeniedParagraph": { "description": "Body text on the permission denied screen" },
+
+  "permissionDeniedOpenSettings": "Ouvrir les Réglages",
+  "@permissionDeniedOpenSettings": { "description": "Button label that opens iOS Settings via permission_handler.openAppSettings()" },
+
+  "shareLogsTooltip": "Partager les logs",
+  "@shareLogsTooltip": { "description": "Tooltip on the AppBar share IconButton" }
+}

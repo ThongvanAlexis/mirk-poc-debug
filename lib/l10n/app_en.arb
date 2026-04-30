@@ -1,0 +1,9 @@
+{
+  "@@locale": "en",
+  "appTitle": "MirkFall POC",
+  "permissionRationaleParagraph": "MirkFall needs your location to reveal the fog on your map. Everything stays on your phone — nothing is sent.",
+  "permissionRationaleCta": "Allow location",
+  "permissionDeniedParagraph": "Without permission, MirkFall cannot reveal the map. Open Settings to enable it.",
+  "permissionDeniedOpenSettings": "Open Settings",
+  "shareLogsTooltip": "Share logs"
+}

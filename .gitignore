@@ -35,6 +35,13 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Generated l10n output (synthetic-package was removed in Flutter 3.41+;
+# `flutter gen-l10n` now writes into lib/l10n/ alongside the .arb sources).
+# Generated files MUST NOT be committed — they are rebuilt on every
+# `flutter pub get` from the .arb files (Plan 01-01 Task 2 deviation note).
+lib/l10n/app_localizations.dart
+lib/l10n/app_localizations_*.dart
+
 # Symbolication related
 app.*.symbols
 
