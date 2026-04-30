@@ -130,72 +130,84 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Empty initially. Filled by the roadmap when phases are derived.
+Filled by the roadmap on 2026-04-30. Five phases:
+1. **Foundation** — bootstrap, CI, logger, share, FPS counter, permission gate
+2. **Map (no fog)** — PMTiles, gestures, blue dot, recenter; ≥ 40 fps no-fog gate
+3. **Fog of War — THE HYPOTHESIS** — fog layer, SDF, frame-delta probe, falsification walk
+4. **Wisp Particles** — world-locked wisps, cross-pipeline parity
+5. **Decision Gate** — final hardening, Pixel 4a sanity walk, formal POC verdict
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BOOT-01 | TBD | Pending |
-| BOOT-02 | TBD | Pending |
-| BOOT-03 | TBD | Pending |
-| BOOT-04 | TBD | Pending |
-| BOOT-05 | TBD | Pending |
-| BOOT-06 | TBD | Pending |
-| BOOT-07 | TBD | Pending |
-| BOOT-08 | TBD | Pending |
-| AUDIT-01 | TBD | Pending |
-| AUDIT-02 | TBD | Pending |
-| AUDIT-03 | TBD | Pending |
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
-| CI-03 | TBD | Pending |
-| CI-04 | TBD | Pending |
-| CI-05 | TBD | Pending |
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
-| AUTH-05 | TBD | Pending |
-| AUTH-06 | TBD | Pending |
-| MAP-01 | TBD | Pending |
-| MAP-02 | TBD | Pending |
-| MAP-03 | TBD | Pending |
-| MAP-04 | TBD | Pending |
-| MAP-05 | TBD | Pending |
-| MAP-06 | TBD | Pending |
-| LOC-01 | TBD | Pending |
-| LOC-02 | TBD | Pending |
-| LOC-03 | TBD | Pending |
-| LOC-04 | TBD | Pending |
-| LOC-05 | TBD | Pending |
-| FOG-01 | TBD | Pending |
-| FOG-02 | TBD | Pending |
-| FOG-03 | TBD | Pending |
-| FOG-04 | TBD | Pending |
-| FOG-05 | TBD | Pending |
-| FOG-06 | TBD | Pending |
-| FOG-07 | TBD | Pending |
-| FOG-08 | TBD | Pending |
-| WISP-01 | TBD | Pending |
-| WISP-02 | TBD | Pending |
-| WISP-03 | TBD | Pending |
-| WISP-04 | TBD | Pending |
-| LOG-01 | TBD | Pending |
-| LOG-02 | TBD | Pending |
-| LOG-03 | TBD | Pending |
-| LOG-04 | TBD | Pending |
-| LOG-05 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| PERF-05 | TBD | Pending |
-| PERF-06 | TBD | Pending |
+| BOOT-01 | Phase 1 | Pending |
+| BOOT-02 | Phase 1 | Pending |
+| BOOT-03 | Phase 1 | Pending |
+| BOOT-04 | Phase 1 | Pending |
+| BOOT-05 | Phase 1 | Pending |
+| BOOT-06 | Phase 1 | Pending |
+| BOOT-07 | Phase 1 | Pending |
+| BOOT-08 | Phase 1 | Pending |
+| AUDIT-01 | Phase 1 | Pending |
+| AUDIT-02 | Phase 1 | Pending |
+| AUDIT-03 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Pending |
+| CI-02 | Phase 1 | Pending |
+| CI-03 | Phase 1 | Pending |
+| CI-04 | Phase 1 | Pending |
+| CI-05 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| AUTH-05 | Phase 1 | Pending |
+| AUTH-06 | Phase 1 | Pending |
+| MAP-01 | Phase 2 | Pending |
+| MAP-02 | Phase 2 | Pending |
+| MAP-03 | Phase 2 | Pending |
+| MAP-04 | Phase 2 | Pending |
+| MAP-05 | Phase 2 | Pending |
+| MAP-06 | Phase 2 | Pending |
+| LOC-01 | Phase 2 | Pending |
+| LOC-02 | Phase 2 | Pending |
+| LOC-03 | Phase 2 | Pending |
+| LOC-04 | Phase 2 | Pending |
+| LOC-05 | Phase 2 | Pending |
+| FOG-01 | Phase 3 | Pending |
+| FOG-02 | Phase 3 | Pending |
+| FOG-03 | Phase 3 | Pending |
+| FOG-04 | Phase 3 | Pending |
+| FOG-05 | Phase 3 | Pending |
+| FOG-06 | Phase 3 | Pending |
+| FOG-07 | Phase 3 | Pending |
+| FOG-08 | Phase 3 | Pending |
+| WISP-01 | Phase 4 | Pending |
+| WISP-02 | Phase 4 | Pending |
+| WISP-03 | Phase 4 | Pending |
+| WISP-04 | Phase 4 | Pending |
+| LOG-01 | Phase 1 | Pending |
+| LOG-02 | Phase 1 | Pending |
+| LOG-03 | Phase 1 | Pending |
+| LOG-04 | Phase 1 | Pending |
+| LOG-05 | Phase 1 | Pending |
+| PERF-01 | Phase 1 | Pending |
+| PERF-02 | Phase 2 | Pending |
+| PERF-03 | Phase 3 | Pending |
+| PERF-04 | Phase 3 | Pending |
+| PERF-05 | Phase 3 | Pending |
+| PERF-06 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 56 total
-- Mapped to phases: 0 (filled by roadmap)
-- Unmapped: 56 ⚠️
+- Mapped to phases: 56
+- Unmapped: 0 ✓
+
+**Per-phase counts:**
+- Phase 1 (Foundation): 28 requirements (BOOT × 8, AUDIT × 3, CI × 5, AUTH × 6, LOG × 5, PERF-01)
+- Phase 2 (Map, no fog): 12 requirements (MAP × 6, LOC × 5, PERF-02)
+- Phase 3 (Fog — THE HYPOTHESIS): 11 requirements (FOG × 8, PERF-03/04/05)
+- Phase 4 (Wisps): 4 requirements (WISP × 4)
+- Phase 5 (Decision Gate): 1 requirement (PERF-06)
 
 ---
 *Requirements defined: 2026-04-30*
-*Last updated: 2026-04-30 after initial definition*
+*Last updated: 2026-04-30 — traceability filled by roadmapper (5 phases, 56/56 mapped)*
