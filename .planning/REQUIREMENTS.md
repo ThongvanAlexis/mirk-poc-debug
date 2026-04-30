@@ -9,13 +9,13 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Bootstrap
 
-- [ ] **BOOT-01**: Flutter project initialised with SDK pin `3.41.7` and Dart `3.11.x`; `pubspec.yaml` strictly version-pinned (no `^`); `pubspec.lock` committed
+- [x] **BOOT-01**: Flutter project initialised with SDK pin `3.41.7` and Dart `3.11.x`; `pubspec.yaml` strictly version-pinned (no `^`); `pubspec.lock` committed
 - [x] **BOOT-02**: Every `.dart` file in `lib/` and `test/` starts with the GOSL v1.0 copyright header (`// Copyright (c) 2026 THONGVAN Alexis` / `// Licensed under the Good Old Software License v1.0` / `// See LICENSE file for details`)
-- [ ] **BOOT-03**: `LICENSE` file at repo root contains the GOSL v1.0 text
-- [ ] **BOOT-04**: `analysis_options.yaml` enforces `strict-casts: true`, `strict-inference: true`, `strict-raw-types: true`; uses `flutter_lints 6.0.0`
-- [ ] **BOOT-05**: `dart format --line-length 160 --set-exit-if-changed .` passes
-- [ ] **BOOT-06**: `flutter analyze` passes with no warnings
-- [ ] **BOOT-07**: `Fra_Melun.pmtile` (4 MB MVT vector) bundled as a Flutter asset under `assets/maps/`
+- [x] **BOOT-03**: `LICENSE` file at repo root contains the GOSL v1.0 text
+- [x] **BOOT-04**: `analysis_options.yaml` enforces `strict-casts: true`, `strict-inference: true`, `strict-raw-types: true`; uses `flutter_lints 6.0.0`
+- [x] **BOOT-05**: `dart format --line-length 160 --set-exit-if-changed .` passes
+- [x] **BOOT-06**: `flutter analyze` passes with no warnings
+- [x] **BOOT-07**: `Fra_Melun.pmtile` (4 MB MVT vector) bundled as a Flutter asset under `assets/maps/`
 - [x] **BOOT-08**: Battle-tested files ported verbatim from MirkFall: `atmospheric_fog.frag`, `revealed_sdf_builder.dart`, `reveal_disc.dart`, `mirk_viewport_bbox.dart`, `tile_cell_iteration.dart`, `mirk_projection.dart`, `fog_shader_uniforms.dart`, `animation_helpers.dart`, plus relevant `kMirkFog*` / `kMetersPerDegreeLat` / `kEarthRadiusMeters` constants
 
 ### Dependency Audit
@@ -139,13 +139,13 @@ Filled by the roadmap on 2026-04-30. Five phases:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BOOT-01 | Phase 1 | Pending |
+| BOOT-01 | Phase 1 | Complete |
 | BOOT-02 | Phase 1 | Complete |
-| BOOT-03 | Phase 1 | Pending |
-| BOOT-04 | Phase 1 | Pending |
-| BOOT-05 | Phase 1 | Pending |
-| BOOT-06 | Phase 1 | Pending |
-| BOOT-07 | Phase 1 | Pending |
+| BOOT-03 | Phase 1 | Complete |
+| BOOT-04 | Phase 1 | Complete |
+| BOOT-05 | Phase 1 | Complete |
+| BOOT-06 | Phase 1 | Complete |
+| BOOT-07 | Phase 1 | Complete |
 | BOOT-08 | Phase 1 | Complete |
 | AUDIT-01 | Phase 1 | Complete |
 | AUDIT-02 | Phase 1 | Complete |
