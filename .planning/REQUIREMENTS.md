@@ -16,7 +16,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [ ] **BOOT-05**: `dart format --line-length 160 --set-exit-if-changed .` passes
 - [ ] **BOOT-06**: `flutter analyze` passes with no warnings
 - [ ] **BOOT-07**: `Fra_Melun.pmtile` (4 MB MVT vector) bundled as a Flutter asset under `assets/maps/`
-- [ ] **BOOT-08**: Battle-tested files ported verbatim from MirkFall: `atmospheric_fog.frag`, `revealed_sdf_builder.dart`, `reveal_disc.dart`, `mirk_viewport_bbox.dart`, `tile_cell_iteration.dart`, `mirk_projection.dart`, `fog_shader_uniforms.dart`, `animation_helpers.dart`, plus relevant `kMirkFog*` / `kMetersPerDegreeLat` / `kEarthRadiusMeters` constants
+- [x] **BOOT-08**: Battle-tested files ported verbatim from MirkFall: `atmospheric_fog.frag`, `revealed_sdf_builder.dart`, `reveal_disc.dart`, `mirk_viewport_bbox.dart`, `tile_cell_iteration.dart`, `mirk_projection.dart`, `fog_shader_uniforms.dart`, `animation_helpers.dart`, plus relevant `kMirkFog*` / `kMetersPerDegreeLat` / `kEarthRadiusMeters` constants
 
 ### Dependency Audit
 
@@ -26,11 +26,11 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### CI
 
-- [ ] **CI-01**: GitHub Actions workflow on every push to `main` runs three jobs: lint (ubuntu-latest), build-android (ubuntu-latest), build-ios (macos-latest)
-- [ ] **CI-02**: Lint job runs `flutter analyze`, `dart format --line-length 160 --set-exit-if-changed`, `flutter test`
-- [ ] **CI-03**: Build-android job produces a debug APK downloadable as a workflow artifact
-- [ ] **CI-04**: Build-ios job produces an unsigned IPA (sideloadable via SideStore) downloadable as a workflow artifact
-- [ ] **CI-05**: Both APK and IPA artifacts are visible from the GitHub Actions run page on every push
+- [x] **CI-01**: GitHub Actions workflow on every push to `main` runs three jobs: lint (ubuntu-latest), build-android (ubuntu-latest), build-ios (macos-latest)
+- [x] **CI-02**: Lint job runs `flutter analyze`, `dart format --line-length 160 --set-exit-if-changed`, `flutter test`
+- [x] **CI-03**: Build-android job produces a debug APK downloadable as a workflow artifact
+- [x] **CI-04**: Build-ios job produces an unsigned IPA (sideloadable via SideStore) downloadable as a workflow artifact
+- [x] **CI-05**: Both APK and IPA artifacts are visible from the GitHub Actions run page on every push
 
 ### Permissions
 
@@ -82,7 +82,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
 - [ ] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
 - [ ] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
-- [ ] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target. Phase 1 UAT exit gate: developer sideloads the IPA, taps share-logs, picks Mail, sends to themselves, verifies the email arrives with the gzipped log file as attachment. Verbal "approved" is the gate (no synthetic-log smoke test required per Phase 1 CONTEXT.md decision).
+- [x] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target. Phase 1 UAT exit gate: developer sideloads the IPA, taps share-logs, picks Mail, sends to themselves, verifies the email arrives with the gzipped log file as attachment. Verbal "approved" is the gate (no synthetic-log smoke test required per Phase 1 CONTEXT.md decision).
 
 ### Performance Instrumentation
 
@@ -146,15 +146,15 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | BOOT-05 | Phase 1 | Pending |
 | BOOT-06 | Phase 1 | Pending |
 | BOOT-07 | Phase 1 | Pending |
-| BOOT-08 | Phase 1 | Pending |
+| BOOT-08 | Phase 1 | Complete |
 | AUDIT-01 | Phase 1 | Complete |
 | AUDIT-02 | Phase 1 | Complete |
 | AUDIT-03 | Phase 1 | Complete |
-| CI-01 | Phase 1 | Pending |
-| CI-02 | Phase 1 | Pending |
-| CI-03 | Phase 1 | Pending |
-| CI-04 | Phase 1 | Pending |
-| CI-05 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Complete |
+| CI-02 | Phase 1 | Complete |
+| CI-03 | Phase 1 | Complete |
+| CI-04 | Phase 1 | Complete |
+| CI-05 | Phase 1 | Complete |
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
@@ -188,7 +188,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | LOG-02 | Phase 1 | Complete |
 | LOG-03 | Phase 1 | Pending |
 | LOG-04 | Phase 1 | Pending |
-| LOG-05 | Phase 1 | Pending |
+| LOG-05 | Phase 1 | Complete |
 | PERF-01 | Phase 1 | Pending |
 | PERF-02 | Phase 2 | Pending |
 | PERF-03 | Phase 3 | Pending |

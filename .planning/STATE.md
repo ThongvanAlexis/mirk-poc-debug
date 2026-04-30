@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-04-30T11:32:35.743Z"
+stopped_at: Completed 01-03-PLAN.md (BOOT-08 donor port + CI workflow + REQUIREMENTS.md wording; flutter analyze verification deferred to post-Wave-1)
+last_updated: "2026-04-30T11:33:26.419Z"
 last_activity: 2026-04-30 — Plan 01-04 complete (FileLogger + FileLoggerLifecycleObserver port + ~14 tests)
 progress:
   total_phases: 5
@@ -52,6 +52,7 @@ Progress: [█░░░░░░░░░] 14%
 *Updated after each plan completion*
 | Phase 01-foundation P04 | 4 min | 2 tasks | 5 files |
 | Phase 01-foundation P02 | 9 min | 3 tasks | 10 files |
+| Phase 01-foundation P03 | 30 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,7 @@ Recent decisions affecting current work:
 - Roadmapping: Phase 2 PERF-02 (≥ 40 fps no-fog on iPhone 17 Pro) is the hard gate before Phase 3 fog work begins; failing it forces label-thinning before the hypothesis is testable.
 - [Phase 01-foundation]: Plan 01-04: ported FileLogger verbatim with three POC adaptations (UTC ISO-8601 basic filename, hardcoded Level.ALL, shared_preferences dropped). Every other line preserved from parent — RandomAccessFile + flushSync per record, synchronous Stream.listen handler. ~14 tests authored across 3 files. — Production-fatal subsystem — parent's logger is the result of debugging two iOS-fatal bugs (jetsam page-cache loss, Stream.listen re-entrancy). Re-implementing from scratch would re-introduce both. Tests cover bootstrap, level, ms precision, idempotency, prune, FileSystemException handling (static-source assertion per W-4), UTC format, and lifecycle flush behaviour.
 - [Phase 01-foundation]: Plan 01-02: ported tool/* CI gates verbatim from parent project (header/license/deps-md), authored DEPENDENCIES.md telemetry table, rewrote ios/Runner/Info.plist with whenInUse-only location + ITSAppUsesNonExemptEncryption=false, created PrivacyInfo.xcprivacy with Required Reason API declarations
+- [Phase 01-foundation]: Plan 01-03: hand-rolled MirkViewportBbox replaces freezed-generated parent class; package:mirkfall imports rewritten to package:mirk_poc_debug; CI workflow lands at Wave 0 (red-then-green until Plan 07 hardens main.dart). — POC pubspec drops freezed per RESEARCH.md §Standard Stack §NOT included; preserving each donor file's import-style minimises diff for future verbatim re-syncs from parent; landing CI at Wave 0 lets Plan 07 see immediately whether gates job goes green on the first push.
 
 ### Pending Todos
 
@@ -82,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-30T11:32:35.740Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-04-30T11:33:26.417Z
+Stopped at: Completed 01-03-PLAN.md (BOOT-08 donor port + CI workflow + REQUIREMENTS.md wording; flutter analyze verification deferred to post-Wave-1)
 Resume file: None
