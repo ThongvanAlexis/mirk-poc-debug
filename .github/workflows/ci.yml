@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: Lint / License / Headers / Deps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Format check
+        run: dart format --line-length 160 --set-exit-if-changed .
+      - name: Analyzer
+        run: flutter analyze --fatal-infos --fatal-warnings
+      - name: GOSL header check
+        run: dart run tool/check_headers.dart
+      - name: License allow-list check
+        run: dart run tool/check_licenses.dart
+      - name: DEPENDENCIES.md freshness check
+        run: dart run tool/check_dependencies_md.dart
+      - name: Tool tests
+        run: dart test tool/test/
+      - name: Flutter tests
+        run: flutter test
+      - name: LICENSE file present + GOSL v1.0
+        run: |
+          test -f LICENSE
+          grep -q "Good Old Software License" LICENSE
+
+  android:
+    name: Build Android APK (debug)
+    needs: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mirk-poc-debug-android-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: Build iOS (no-codesign, sideloadable)
+    needs: gates
+    runs-on: macos-14
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Remove placeholder Podfile.lock (Windows-dev bootstrap)
+        working-directory: ios
+        run: |
+          if [ -f Podfile.lock ] && ! grep -q "^COCOAPODS:" Podfile.lock; then
+            echo "::warning::Placeholder Podfile.lock detected — removing before pod install"
+            rm -f Podfile.lock
+          fi
+      - name: CocoaPods install
+        working-directory: ios
+        run: pod install
+      - name: Build iOS (no-codesign)
+        run: flutter build ios --release --no-codesign
+      - name: Package unsigned IPA for sideloading
+        run: |
+          set -euo pipefail
+          BUILD_DIR="build/ios/iphoneos"
+          if [ ! -d "$BUILD_DIR/Runner.app" ]; then
+            echo "::error::Expected Runner.app under $BUILD_DIR after flutter build ios"
+            exit 1
+          fi
+          WORK_DIR="$(mktemp -d)"
+          mkdir "$WORK_DIR/Payload"
+          cp -R "$BUILD_DIR/Runner.app" "$WORK_DIR/Payload/"
+          (cd "$WORK_DIR" && zip -qr "$GITHUB_WORKSPACE/mirk-poc-debug-unsigned.ipa" Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mirk-poc-debug-ios-unsigned-ipa
+          path: mirk-poc-debug-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
