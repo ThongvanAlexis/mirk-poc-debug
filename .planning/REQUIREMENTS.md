@@ -10,7 +10,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 ### Bootstrap
 
 - [ ] **BOOT-01**: Flutter project initialised with SDK pin `3.41.7` and Dart `3.11.x`; `pubspec.yaml` strictly version-pinned (no `^`); `pubspec.lock` committed
-- [ ] **BOOT-02**: Every `.dart` file in `lib/` and `test/` starts with the GOSL v1.0 copyright header (`// Copyright (c) 2026 THONGVAN Alexis` / `// Licensed under the Good Old Software License v1.0` / `// See LICENSE file for details`)
+- [x] **BOOT-02**: Every `.dart` file in `lib/` and `test/` starts with the GOSL v1.0 copyright header (`// Copyright (c) 2026 THONGVAN Alexis` / `// Licensed under the Good Old Software License v1.0` / `// See LICENSE file for details`)
 - [ ] **BOOT-03**: `LICENSE` file at repo root contains the GOSL v1.0 text
 - [ ] **BOOT-04**: `analysis_options.yaml` enforces `strict-casts: true`, `strict-inference: true`, `strict-raw-types: true`; uses `flutter_lints 6.0.0`
 - [ ] **BOOT-05**: `dart format --line-length 160 --set-exit-if-changed .` passes
@@ -20,9 +20,9 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Dependency Audit
 
-- [ ] **AUDIT-01**: `DEPENDENCIES.md` at repo root lists every direct dependency with: name, pinned version, license, telemetry audit (auto network egress: yes/no, what it does), transitive license summary, maintenance signal (last release, contributors), platform compatibility (iOS + Android), audit date
-- [ ] **AUDIT-02**: CI fails the build if any direct or transitive dependency carries a non-acceptable license (allow-list: MIT, BSD-2/3, Apache 2.0, ISC, zlib, CC0, Unlicense)
-- [ ] **AUDIT-03**: Zero packages perform automatic network egress on app launch (no analytics, no crash reporting, no attribution SDKs, no remote config, no update checks)
+- [x] **AUDIT-01**: `DEPENDENCIES.md` at repo root lists every direct dependency with: name, pinned version, license, telemetry audit (auto network egress: yes/no, what it does), transitive license summary, maintenance signal (last release, contributors), platform compatibility (iOS + Android), audit date
+- [x] **AUDIT-02**: CI fails the build if any direct or transitive dependency carries a non-acceptable license (allow-list: MIT, BSD-2/3, Apache 2.0, ISC, zlib, CC0, Unlicense)
+- [x] **AUDIT-03**: Zero packages perform automatic network egress on app launch (no analytics, no crash reporting, no attribution SDKs, no remote config, no update checks)
 
 ### CI
 
@@ -38,8 +38,8 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [ ] **AUTH-02**: When the user accepts the rationale, the app requests `Permission.locationWhenInUse` via `permission_handler`
 - [ ] **AUTH-03**: On grant, the app navigates to the map screen via `context.go('/map')` (full pile reset — there's nowhere to go back to)
 - [ ] **AUTH-04**: On deny, the app shows a denied screen with a button that opens system settings via `permission_handler.openAppSettings()`
-- [ ] **AUTH-05**: `ios/Runner/Info.plist` contains `NSLocationWhenInUseUsageDescription` with a non-empty rationale string; no `NSLocationAlwaysAndWhenInUseUsageDescription` (out of scope)
-- [ ] **AUTH-06**: `ios/Runner/Info.plist` contains `ITSAppUsesNonExemptEncryption=false`
+- [x] **AUTH-05**: `ios/Runner/Info.plist` contains `NSLocationWhenInUseUsageDescription` with a non-empty rationale string; no `NSLocationAlwaysAndWhenInUseUsageDescription` (out of scope)
+- [x] **AUTH-06**: `ios/Runner/Info.plist` contains `ITSAppUsesNonExemptEncryption=false`
 
 ### Map
 
@@ -140,16 +140,16 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | BOOT-01 | Phase 1 | Pending |
-| BOOT-02 | Phase 1 | Pending |
+| BOOT-02 | Phase 1 | Complete |
 | BOOT-03 | Phase 1 | Pending |
 | BOOT-04 | Phase 1 | Pending |
 | BOOT-05 | Phase 1 | Pending |
 | BOOT-06 | Phase 1 | Pending |
 | BOOT-07 | Phase 1 | Pending |
 | BOOT-08 | Phase 1 | Pending |
-| AUDIT-01 | Phase 1 | Pending |
-| AUDIT-02 | Phase 1 | Pending |
-| AUDIT-03 | Phase 1 | Pending |
+| AUDIT-01 | Phase 1 | Complete |
+| AUDIT-02 | Phase 1 | Complete |
+| AUDIT-03 | Phase 1 | Complete |
 | CI-01 | Phase 1 | Pending |
 | CI-02 | Phase 1 | Pending |
 | CI-03 | Phase 1 | Pending |
@@ -159,8 +159,8 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
 | AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
-| AUTH-06 | Phase 1 | Pending |
+| AUTH-05 | Phase 1 | Complete |
+| AUTH-06 | Phase 1 | Complete |
 | MAP-01 | Phase 2 | Pending |
 | MAP-02 | Phase 2 | Pending |
 | MAP-03 | Phase 2 | Pending |
