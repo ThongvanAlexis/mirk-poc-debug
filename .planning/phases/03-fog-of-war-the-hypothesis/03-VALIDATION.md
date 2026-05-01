@@ -43,7 +43,23 @@ created: 2026-05-01
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| _TBD by planner_ | — | — | FOG-01..08, PERF-03..05 | unit / widget / manual | _per task_ | _per task_ | ⬜ pending |
+| 03-01-T1 | 03-01 | 1 | FOG-01..08, PERF-03..05 (scaffolds) | unit (constants/l10n) | `flutter analyze --fatal-infos lib/config/constants.dart lib/l10n/` | ✅ existing | ⬜ pending |
+| 03-01-T2 | 03-01 | 1 | FOG-01..08 (production stubs) | unit (analyze) | `flutter analyze --fatal-infos lib/` | ✅ existing | ⬜ pending |
+| 03-01-T3 | 03-01 | 1 | FOG-01..08 (RED test bed) | unit + widget | `flutter test --reporter expanded test/domain/revealed/ test/infrastructure/mirk/ test/presentation/widgets/fog_clip_path_test.dart test/presentation/widgets/frame_delta_probe_overlay_test.dart` | ❌ W0 (this task creates them) | ⬜ pending |
+| 03-02-T1 | 03-02 | 2 | FOG-01 | unit | `flutter test test/domain/revealed/reveal_disc_repository_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-02-T2 | 03-02 | 2 | FOG-02 (defence) | unit | `flutter test test/domain/revealed/distance_metres_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-03-T1 | 03-03 | 2 | FOG-03 (logger) | unit | `flutter test test/infrastructure/mirk/sdf_rebuild_logger_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-03-T2 | 03-03 | 2 | FOG-03 (cache) | unit | `flutter test test/infrastructure/mirk/sdf/sdf_cache_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-04-T1 | 03-04 | 2 | FOG-08 (probe core) | unit | `flutter test test/infrastructure/mirk/frame_delta_probe_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-05-T1 | 03-05 | 3 | FOG-04..07 (test seams) | unit (analyze) | `flutter analyze --fatal-infos test/_helpers/` | ✅ existing | ✅ green |
+| 03-05-T2 | 03-05 | 3 | FOG-04..07 (KEYSTONE) | widget | `flutter test test/presentation/widgets/fog_layer_test.dart test/presentation/widgets/fog_layer_camera_snapshot_test.dart test/presentation/widgets/fog_clip_path_test.dart -r expanded` | ✅ existing | ✅ green |
+| 03-06-T1 | 03-06 | 3 | FOG-08 (overlay) | widget | `flutter test test/presentation/widgets/frame_delta_probe_overlay_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-06-T2 | 03-06 | 3 | FOG-04..05 (sanity gate) | widget | `flutter test test/presentation/screens/shader_sanity_screen_test.dart test/presentation/widgets/poc_app_bar_test.dart -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-07-T1 | 03-07 | 4 | FOG-01 + FOG-04 + FOG-08 (integration) | widget | `flutter test test/presentation/screens/ -r expanded` | ❌ W0 (created by 03-01) | ⬜ pending |
+| 03-07-T2 | 03-07 | 4 | router production wiring | unit (analyze) | `flutter analyze --fatal-infos lib/presentation/router.dart` | ✅ existing | ⬜ pending |
+| 03-08-T1 | 03-08 | 5 | pre-walk automation gates | meta-test | `flutter test && flutter analyze --fatal-infos && dart format --line-length 160 --set-exit-if-changed lib/ test/` | full-suite | ⬜ pending |
+| 03-08-T2 | 03-08 | 5 | PERF-03, PERF-04, PERF-05 | <manual> | sideload IPA on iPhone 17 Pro, walk ≥ 5 min through Melun with ≥ 10 combined gestures + ≥ 3 recenter taps, observe FpsCounterOverlay + FrameDeltaProbeOverlay, share session log via Mail, grep `infrastructure.mirk.frame_delta` rollup lines, write subjective verdict | n/a (UAT walk) | ⬜ pending — manual gate per VALIDATION.md "Manual-Only Verifications" |
+| 03-08-T3 | 03-08 | 5 | falsification doc + REQUIREMENTS.md closure | unit (frontmatter) | `node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" frontmatter validate ".planning/phases/03-fog-of-war-the-hypothesis/03-08-PLAN.md" --schema plan` | full-suite | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

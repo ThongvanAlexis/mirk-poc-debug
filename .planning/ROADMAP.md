@@ -68,11 +68,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Falsification criteria for the hypothesis (Criterion A: frame-delta thresholds; Criterion B: subjective lock — Criterion C dropped per locked decisions) are written down in the repo before the walk and the walk evidence is appended to the same document at the end.
 **Plans**: 8 plans
   - [x] 03-01-PLAN.md — Wave 0 scaffolds: constants + l10n + production stubs + RED test files + falsification doc skeleton
-  - [ ] 03-02-PLAN.md — FOG-01 + FOG-02 defence: RevealDiscRepository + distanceMetres helper
-  - [ ] 03-03-PLAN.md — FOG-03: SdfCache (hash invalidation) + SdfRebuildLogger (1 Hz JSONL rollup)
-  - [ ] 03-04-PLAN.md — FOG-08: FrameDeltaProbe (Stopwatch monotonic, broadcast Stream<FrameDeltaRollup>, JSONL log)
-  - [ ] 03-05-PLAN.md — FOG-04..07: FogLayer + computeFogClipPath + KEYSTONE single-MapCamera-snapshot test
-  - [ ] 03-06-PLAN.md — FrameDeltaProbeOverlay (live HUD) + ShaderSanityScreen (pre-walk gate at /sanity)
+  - [x] 03-02-PLAN.md — FOG-01 + FOG-02 defence: RevealDiscRepository + distanceMetres helper
+  - [x] 03-03-PLAN.md — FOG-03: SdfCache (hash invalidation) + SdfRebuildLogger (1 Hz JSONL rollup)
+  - [x] 03-04-PLAN.md — FOG-08: FrameDeltaProbe (Stopwatch monotonic, broadcast Stream<FrameDeltaRollup>, JSONL log)
+  - [x] 03-05-PLAN.md — FOG-04..07: FogLayer + computeFogClipPath + KEYSTONE single-MapCamera-snapshot test
+  - [x] 03-06-PLAN.md — FrameDeltaProbeOverlay (live HUD) + ShaderSanityScreen (pre-walk gate at /sanity)
   - [ ] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
   - [ ] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict (PERF-03/04/05)
 
