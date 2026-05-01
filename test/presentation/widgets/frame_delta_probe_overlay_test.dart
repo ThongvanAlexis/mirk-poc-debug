@@ -47,11 +47,17 @@ void main() {
       ),
     );
 
-    // Inject deterministic deltas via Plan 03-04's debugRecordRawDelta seam:
-    //   * 10 samples of 8000 µs (8 ms)  → median ≤ 16 ms green threshold  → greenAccent
-    //   * Worst sample 40000 µs (40 ms) → p95 ∈ (32, 48] ms yellow band   → amberAccent
-    //   * Single 100000 µs (100 ms) sample → max > 72 ms red zone          → redAccent
-    for (var i = 0; i < 10; i++) {
+    // Inject deterministic deltas via Plan 03-04's debugRecordRawDelta seam.
+    // Distribution chosen so each line lands in a different colour band:
+    //   * 20 samples of 8000 µs (8 ms)  → median ≤ 16 ms green threshold  → greenAccent
+    //   * 1 sample of 40000 µs (40 ms)  → p95 ∈ (32, 48] ms yellow band   → amberAccent
+    //   * 1 sample of 100000 µs (100 ms)→ max > 72 ms red zone            → redAccent
+    //
+    // 22-sample buffer: floor(22 × 0.95) = 20 → sorted[20] = 40000 (yellow).
+    // The plan's original 12-sample distribution put p95 at index 11 = max,
+    // collapsing p95 onto max — fixed here to honour the plan's INTENT
+    // (three distinct colour bands).
+    for (var i = 0; i < 20; i++) {
       probe.debugRecordRawDelta(8000);
     }
     probe.debugRecordRawDelta(40000);
@@ -70,5 +76,11 @@ void main() {
 
     final maxText = tester.widget<Text>(find.textContaining(l10n.frameDeltaProbeMaxLabel));
     expect(maxText.style?.color, Colors.redAccent, reason: 'max 100 ms is in the red zone (> 72 ms)');
+
+    // Stop the periodic rollup timer before the widget tree is torn down —
+    // tester runs under fake_async, so a still-running periodic Timer would
+    // trip `!timersPending` in TestWidgetsFlutterBinding._verifyInvariants
+    // before addTearDown's async dispose runs.
+    probe.stop();
   });
 }
