@@ -55,8 +55,8 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **LOC-01**: After permission grant, the app subscribes to `Geolocator.getPositionStream` with a sensible accuracy/distance filter
 - [x] **LOC-02**: A blue dot (radius 7 px, fill `#2b7cd6`, white stroke 2 px) is rendered at the user's current position on the map and updates on each GPS fix
 - [x] **LOC-03**: The most-recent GPS fix is cached in memory as `_lastFix`; the app does NOT call `Geolocator.getLastKnownPosition()` (unreliable on iOS — known plugin issue)
-- [ ] **LOC-04**: A floating action button on the map screen animates the camera to `_lastFix` at zoom 15
-- [ ] **LOC-05**: When `_lastFix` is null (no fix yet received), the recenter button is disabled (or shows a spinner)
+- [x] **LOC-04**: A floating action button on the map screen animates the camera to `_lastFix` at zoom 15
+- [x] **LOC-05**: When `_lastFix` is null (no fix yet received), the recenter button is disabled (or shows a spinner)
 
 ### Fog of War
 
@@ -170,8 +170,8 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | LOC-01 | Phase 2 | Complete |
 | LOC-02 | Phase 2 | Complete |
 | LOC-03 | Phase 2 | Complete |
-| LOC-04 | Phase 2 | Pending |
-| LOC-05 | Phase 2 | Pending |
+| LOC-04 | Phase 2 | Complete |
+| LOC-05 | Phase 2 | Complete |
 | FOG-01 | Phase 3 | Pending |
 | FOG-02 | Phase 3 | Pending |
 | FOG-03 | Phase 3 | Pending |

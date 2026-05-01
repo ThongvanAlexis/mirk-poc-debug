@@ -3,15 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 02-03-PLAN.md (LOC-01/02/03)
-last_updated: "2026-05-01T09:55:03.865Z"
-last_activity: 2026-05-01 — Plan 02-03 complete (LOC-01/02/03; GeolocatorService + BlueDotMarker + comment-aware LOC-03 gate)
+last_activity_summary: Plans 02-02 + 02-03 + 02-04 closed (Wave 2 complete); Plan 02-05 (MapScreen wiring) unblocked
+stopped_at: Completed 02-04-PLAN.md (LOC-04 + LOC-05; RecenterFab + MapCompass)
+last_updated: "2026-05-01T10:01:39.897Z"
+last_activity: 2026-05-01 — Plan 02-04 complete (LOC-04 + LOC-05; RecenterFab + MapCompass; 18 GREEN tests)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 13
-  completed_plans: 10
-  percent: 77
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -26,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 2 of 5 (Map, no fog) — **IN PROGRESS**
-Plan: 2 of 6 in current phase — **COMPLETE** (MAP-01 PMTiles copy + gate-screen wiring)
-Status: Plans 02-02 + 02-03 closed (this plan + sibling Wave 2 slice); Plan 02-04 (RecenterFab + MapCompass) running in parallel; Plan 02-05 (MapScreen wiring) blocked on Wave 2
-Last activity: 2026-05-01 — Plan 02-02 complete (MAP-01 PMTiles copy + both-grant-paths gate-screen wiring + 14 GREEN tests)
+Plan: 4 of 6 in current phase — **COMPLETE** (LOC-04 + LOC-05; RecenterFab + MapCompass)
+Status: Plans 02-02 + 02-03 + 02-04 closed (Wave 2 fully complete); Plan 02-05 (MapScreen wiring) unblocked
+Last activity: 2026-05-01 — Plan 02-04 complete (LOC-04 + LOC-05; RecenterFab + MapCompass; 18 GREEN tests)
 
-Progress: [████████░░] 77% (10 of 13 plans complete; Phase 1 closed, Phase 2 3/6)
+Progress: [█████████░] 85% (11 of 13 plans complete; Phase 1 closed, Phase 2 4/6)
 
 ## Performance Metrics
 
@@ -60,6 +61,7 @@ Progress: [████████░░] 77% (10 of 13 plans complete; Phase 1
 | Phase 02-map-no-fog P01 | 59 min | 3 tasks | 21 files (16 created + 5 modified) |
 | Phase 02-map-no-fog P03 | 4 min | 2 tasks | 4 files |
 | Phase 02-map-no-fog P02 | 5 min | 2 tasks | 5 files |
+| Phase 02-map-no-fog P04 | 8 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -82,6 +84,7 @@ Recent decisions affecting current work:
 - [Phase 02-map-no-fog]: Plan 02-01: Wave 0 scaffold landed — 16 new files (7 production stubs + 9 RED test files) + 5 file edits (constants, l10n EN/FR, router /error route, MapScreen.fromServices stub). MapScreenServices immutable DTO (lib/domain/map/map_screen_services.dart) is the constructor-injection seam; ErrorScreen is the only fully-implemented Phase 2 production widget. 19 new constants (camera/zoom/pan envelope, animation timing, GPS distanceFilter, PMTiles paths, blue-dot spec). 5 new l10n keys (recenterTooltip, compassTooltip, errorScreenTitle/Body/DetailLabel) in EN + FR. LOC-03 static-source CI gate auto-discovered by existing `dart test tool/test/` step. flutter analyze clean across lib/test/tool. flutter test (30s/test): 48 passed (Phase 1 untouched + 1 trivial mounted-guard) / 27 RED Phase 2 assertions / 0 hangs. 2 deviations (Rule 3 — Blocking: MapScreen.fromServices named-constructor stub added so screen tests compile; Rule 1 — Bug: replaced synthetic temp-file pmtilesPath with literal placeholder string after first test run hung the suite for 10 min on vector_map_tiles parsing of empty file). Plan 02-02 (MAP-01 PMTiles copier impl + permission-gate wiring + @visibleForTesting testOverride seam) unblocked.
 - [Phase 02-map-no-fog]: Plan 02-03: GeolocatorService.stream() with pinned LocationSettings(accuracy: best, distanceFilter: 5) + Logger('domain.location') INFO emission. BlueDotMarker.build returns CircleMarker(7 px / #2B7CD6 / 2 px white stroke / pixels-not-metres) — every value sourced from kPocBlueDot* constants. LOC-03 static-source CI gate hardened to strip Dart // /// /* */ comments before substring scan, so the educational 'do NOT call `Geolocator.getLastKnownPosition`' docstring is preserved without false-positiving. Test seam: hand-rolled _CapturingGeolocatorPlatform fake (mirrors Phase 1 PermissionHandlerPlatform.instance pattern), zero new dev_dependencies. 2 deviations (Rule 3 - Blocking: comment-aware gate fix; Rule 3 - Blocking: wave-2 race amend to remove sibling's recenter_fab_test.dart from my Task 2 commit).
 - [Phase 02-map-no-fog]: Plan 02-02: MAP-01 PMTiles copy fully implemented + hooked into both grant paths of PermissionGateScreen. Idempotency = existence + size-parity (no SHA256 per ROB-02 deferral). @visibleForTesting testEnsureCopiedOverride seam keeps gate-screen widget tests off the real filesystem. Both _onCtaPressed (CTA grant) and _checkAndMaybeNavigate (initState + AppLifecycleState.resumed) converge through a single _ensureMapDataAndNavigate helper per CONTEXT.md mandate. FileSystemException routes to /error with extra==e.message. 5 PMTiles tests + 3 MAP-01 widget tests + 6 Phase 1 regression tests all GREEN; flutter analyze + LOC-03 + BOOT-02 CI gates clean. 0 deviations.
+- [Phase 02-map-no-fog]: Plan 02-04: RecenterFab (LOC-04 + LOC-05) + MapCompass landed. Hand-rolled AnimationController + CurvedAnimation listener pattern for both widgets — no flutter_map_animations dependency added. Top-level mapCompassShortestPathToNorth(double) helper exposes the formula ((-current + 540) % 360) - 180 and pins RESEARCH Open Question #2 with 6 unit tests (350°→+10°, 10°→-10°, 180°→±180°, 270°→+90°, etc.). MapEventRotate plumbing: production reads event.camera.rotation (degrees), test fake constructs real MapCamera(crs: const Epsg3857(), nonRotatedSize: kImpossibleSize, rotation: degrees). 18 GREEN tests (6 RecenterFab widget + 6 MapCompass widget + 6 helper unit). 3 deviations: 1 parallel-sibling git-state recovery (Task 1 RED commit absorbed into GREEN), 2 Wave-0 RED-test bug fixes (MapEventRotate noSuchMethod fake → real constructor; cancels-on-dispose baseline capture moved post-pumpAndSettle).
 
 ### Pending Todos
 
@@ -98,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T09:54:47.570Z
-Stopped at: Completed 02-03-PLAN.md (LOC-01/02/03)
+Last session: 2026-05-01T10:00:53.100Z
+Stopped at: Completed 02-04-PLAN.md (LOC-04 + LOC-05; RecenterFab + MapCompass)
 Resume file: None

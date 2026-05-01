@@ -49,10 +49,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Developer performs at least 10 pure pans, 10 pure pinch-zooms, and 10 combined pinch-zoom-and-pan gestures during the walk; the FPS counter shows pan-FPS ≥ 40 sustained on iPhone 17 Pro (PERF-02 gate). If this fails, Phase 3 does not start until label-thinning or another mitigation restores the baseline.
   4. Developer rapidly zooms out (z=15 → 8) and back in (z=8 → 15); tiles repaint without persistent blank flashes (brief decode flicker on cold cache is acceptable; sustained blanks are not).
 **Plans**: 6 plans
-  - [ ] 02-01-PLAN.md — Wave 0 scaffolds: constants + l10n + services DTO + /error route + production stubs + RED test files
-  - [ ] 02-02-PLAN.md — MAP-01: PmtilesAssetCopier impl + PermissionGateScreen ensureCopied hook (both grant paths)
-  - [ ] 02-03-PLAN.md — LOC-01/02/03: GeolocatorService impl + BlueDotMarker impl + LOC-03 static-source gate verified
-  - [ ] 02-04-PLAN.md — LOC-04/05: RecenterFab (500 ms easeInOut tween) + MapCompass (250 ms snap-to-north, shortest-path math)
+  - [x] 02-01-PLAN.md — Wave 0 scaffolds: constants + l10n + services DTO + /error route + production stubs + RED test files
+  - [x] 02-02-PLAN.md — MAP-01: PmtilesAssetCopier impl + PermissionGateScreen ensureCopied hook (both grant paths)
+  - [x] 02-03-PLAN.md — LOC-01/02/03: GeolocatorService impl + BlueDotMarker impl + LOC-03 static-source gate verified
+  - [x] 02-04-PLAN.md — LOC-04/05: RecenterFab (500 ms easeInOut tween) + MapCompass (250 ms snap-to-north, shortest-path math)
   - [ ] 02-05-PLAN.md — MAP-02..06: MapScreen rewrite — FlutterMap stack with VectorTileLayer + blue dot + compass + recenter FAB; router /map builder updated
   - [ ] 02-06-PLAN.md — PERF-02: sideload UAT walk on iPhone 17 Pro (verbal approved exit gate)
 
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
-| 2. Map (no fog) | 0/6 | Not started | - |
+| 2. Map (no fog) | 4/6 | In Progress | - |
 | 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |
 | 5. Decision Gate | 0/TBD | Not started | - |
