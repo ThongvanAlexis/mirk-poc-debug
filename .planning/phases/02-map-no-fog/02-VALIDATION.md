@@ -2,7 +2,7 @@
 phase: 02
 slug: map-no-fog
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-01
 ---
@@ -100,11 +100,11 @@ Production files (new, required for tests to compile):
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s (quick) / < 90s (full)
-- [ ] `nyquist_compliant: true` set in frontmatter once Wave 0 + Sign-Off review pass
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies _(checker-confirmed 2026-05-01)_
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify _(checker-confirmed 2026-05-01)_
+- [x] Wave 0 covers all MISSING references _(checker-confirmed 2026-05-01)_
+- [x] No watch-mode flags _(checker-confirmed 2026-05-01)_
+- [x] Feedback latency < 30s (quick) / < 90s (full)
+- [x] `nyquist_compliant: true` set in frontmatter _(flipped 2026-05-01 per checker dimension 8 review)_
 
-**Approval:** pending
+**Approval:** sign-off complete (pre-execution). `wave_0_complete: false` remains until Wave 0 actually runs.
