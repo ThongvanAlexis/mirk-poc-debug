@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mirk_poc_debug/infrastructure/pmtiles/pmtiles_asset_copier.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/permission_gate_screen.dart';
 import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
@@ -70,6 +71,15 @@ void main() {
   setUp(() {
     mock = _MockPermissionHandlerPlatform();
     PermissionHandlerPlatform.instance = mock;
+    // Phase 2 Plan 02: gate screen now calls PmtilesAssetCopier.ensureCopied
+    // on every grant path (CTA + lifecycle re-check). The override prevents
+    // the test from hitting the real getApplicationSupportDirectory + asset
+    // bundle, which would either flake or throw in the unit-test environment.
+    PmtilesAssetCopier.testEnsureCopiedOverride = () async => '/fake/maps/Fra_Melun.pmtile';
+  });
+
+  tearDown(() {
+    PmtilesAssetCopier.testEnsureCopiedOverride = null;
   });
 
   testWidgets('AUTH-01 — rationale screen renders icon + paragraph + CTA', (tester) async {
