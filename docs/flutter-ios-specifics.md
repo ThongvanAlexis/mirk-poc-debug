@@ -503,6 +503,213 @@ Conséquence pratique :
 
 ---
 
+## 5. Permission location 2-étapes (background tracking)
+
+**Quand l'utiliser :** dès que l'app a besoin du GPS quand l'écran est
+éteint ou l'app en background (tracking long, fog-of-war, fitness, suivi
+GPS continu). Notre POC Phase 1 N'EN A PAS BESOIN — elle reste
+foreground-only et utilise la chaîne 1-étape (`whenInUse` only). Le
+parent project `GOSL-MirkFall` utilise la chaîne 2-étapes pour révéler
+le fog pendant que le téléphone est dans la poche.
+
+### 5.1 Comportement iOS — pourquoi 2 prompts
+
+Sur iOS, la première `Permission.locationWhenInUse.request()` affiche le
+prompt système classique :
+
+```
+"App" Would Like to Use Your Location
+[ Allow Once ]  [ Allow While Using App ]  [ Don't Allow ]
+```
+
+Si l'utilisateur tape **"Allow While Using App"**, on a `whenInUse =
+granted`. À CE MOMENT, appeler `Permission.locationAlways.request()`
+déclenche un **deuxième prompt** :
+
+```
+Allow "App" to also use your location even when you are not
+using the app?
+[ Keep Only While Using ]  [ Change to Always Allow ]
+```
+
+iOS impose qu'on ne puisse PAS demander `locationAlways` directement
+dès le départ — il faut passer par `whenInUse` d'abord, sinon le 2e
+prompt ne s'affiche jamais (Apple's "trickle-up consent").
+
+### 5.2 Comportement Android — invariant ordre
+
+**Android 10+ (API 29+) :** appeler `Permission.locationAlways.request()`
+SANS avoir d'abord obtenu `Permission.locationWhenInUse.request()` est
+**silencieusement ignoré**. L'OS retourne `denied` sans afficher de
+prompt. Donc même si on ne ciblait que Android, l'ordre `whenInUse →
+always` reste obligatoire.
+
+**Android 13+ (API 33+) :** ajouter `Permission.notification` EN
+PREMIER. `POST_NOTIFICATIONS` est requis runtime pour TOUTE notification
+postée par l'app, y compris la notification persistante du foreground
+service de geolocator. Sans la perm, le service tourne mais
+l'utilisateur ne voit aucun indicator.
+
+**Android 14+ (SDK 34+) :** déclarer `FOREGROUND_SERVICE_LOCATION` dans
+le manifest. Sans ça, le foreground service de geolocator échoue
+silencieusement à démarrer, le flow location n'émet rien.
+
+### 5.3 Pattern Dart — chaîne séquentielle (du parent)
+
+```dart
+// lib/application/permissions/location_permission_flow.dart (parent)
+Future<LocationPermissionOutcome> requestLocationAlways() async {
+  // 1. Notification d'abord (Android 13+) — best-effort, denial ne
+  //    bloque PAS le flow (la session GPS marche, juste pas
+  //    d'indicator persistant). iOS = no-op, résolu instantanément
+  //    à `granted`.
+  try {
+    await Permission.notification.request();
+  } catch (e, st) {
+    _log.fine('notification_request_failed', e, st);
+  }
+
+  // 2. whenInUse — REQUIS avant Always sur Android 10+ ET sur iOS
+  //    (sinon le 2e prompt ne se déclenche pas).
+  final whenInUse = await Permission.locationWhenInUse.request();
+  if (whenInUse.isPermanentlyDenied) {
+    return LocationPermissionOutcome.permanentlyDenied;
+  }
+  if (!whenInUse.isGranted) {
+    return LocationPermissionOutcome.denied;
+  }
+
+  // 3. locationAlways — sur iOS déclenche le 2e prompt
+  //    "Change to Always Allow". Sur Android, déclenche le prompt
+  //    "Allow all the time".
+  final always = await Permission.locationAlways.request();
+  if (always.isGranted) {
+    return LocationPermissionOutcome.granted;
+  }
+  if (always.isPermanentlyDenied) {
+    return LocationPermissionOutcome.permanentlyDenied;
+  }
+  // L'utilisateur a accepté whenInUse mais décliné Always — l'app
+  // peut quand même tracker en foreground, mais doit warn que les
+  // sessions longues ne survivront pas à l'écran qui s'éteint.
+  return LocationPermissionOutcome.whileInUseOnly;
+}
+```
+
+### 5.4 Outcome enum (4 états distincts)
+
+```dart
+enum LocationPermissionOutcome {
+  granted,           // Always — full background tracking OK
+  whileInUseOnly,    // whenInUse OK mais Always refusé — warn long sessions
+  denied,            // re-request OK (pas encore en don't-ask-again)
+  permanentlyDenied, // deep-link `openAppSettings()` requis
+}
+```
+
+### 5.5 Dépendances Info.plist + Podfile
+
+```xml
+<!-- ios/Runner/Info.plist -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>... pourquoi on a besoin du GPS foreground (visible 1er prompt) ...</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>... pourquoi on a besoin du GPS background (visible 2e prompt) ...</string>
+<key>UIBackgroundModes</key>
+<array>
+  <string>location</string>   <!-- iOS background location updates -->
+  <string>fetch</string>       <!-- significant-change wake hook (watchdog) -->
+</array>
+```
+
+```ruby
+# ios/Podfile post_install
+config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+  '$(inherited)',
+  'PERMISSION_LOCATION=1',         # couvre whenInUse ET locationAlways
+  'PERMISSION_NOTIFICATIONS=1',    # POST_NOTIFICATIONS Android 13+
+]
+```
+
+**Note macros :** une SEULE macro `PERMISSION_LOCATION=1` couvre les
+deux permissions iOS (`locationWhenInUse` + `locationAlways`). Pas
+besoin d'une macro distincte pour `Always`.
+
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+```
+
+### 5.6 UI — écran denied + auto-resume hook
+
+Sur `permanentlyDenied` → pousser un écran `/permissions/denied` avec
+un bouton "Ouvrir les paramètres" qui appelle
+`openAppSettings()` (top-level fonction de `permission_handler`).
+
+L'écran denied implémente `WidgetsBindingObserver` et re-check
+`Permission.locationWhenInUse.status` à chaque
+`AppLifecycleState.resumed` (lecture-seule, ne déclenche pas de
+prompt) :
+
+```dart
+@override
+void didChangeAppLifecycleState(AppLifecycleState state) {
+  if (state != AppLifecycleState.resumed) return;
+  unawaited(_recheckPermissionAndMaybePop());
+}
+
+Future<void> _recheckPermissionAndMaybePop() async {
+  final status = await Permission.locationWhenInUse.status;
+  if (!status.isGranted) return;
+  if (context.canPop()) context.pop(true);
+  else context.go('/');
+}
+```
+
+Effet UX : l'utilisateur tape "Open Settings" → toggle Location ON
+dans iOS Settings → tape Back → l'app **auto-naviguer vers /map** sans
+qu'il ait à re-taper le bouton CTA. Zéro friction.
+
+### 5.7 Pièges iOS spécifiques au background tracking
+
+**"Ask Next Time Or When I Share" (provisional grant) = traiter comme
+denied.** iOS propose ce 3e bouton ("Allow Once" sur l'UI iOS récente)
+qui donne un grant ÉPHÉMÈRE — il expire à la fin de la session. Ne PAS
+s'appuyer dessus pour démarrer un tracking long. Le pattern
+recommandé : `if (status.isGranted && !status.isLimited)` ou similaire.
+
+**`AppleSettings` geolocator config — sinon iOS suspend après quelques minutes :**
+```dart
+const settings = AppleSettings(
+  accuracy: LocationAccuracy.best,
+  activityType: ActivityType.fitness,
+  pauseLocationUpdatesAutomatically: false,   // sinon pause silencieuse
+  showBackgroundLocationIndicator: true,       // iOS 14+ blue bar / Dynamic Island
+  allowBackgroundLocationUpdates: true,        // CRITIQUE
+);
+```
+
+**À NE JAMAIS combiner :** `startUpdatingLocation` continu avec
+`startMonitoringSignificantLocationChanges` en mode
+`LocationAccuracy.low`. iOS 16.4+ suspend l'app dans cette config
+(Apple forums thread #726945).
+
+**Background App Refresh OFF = silent kill.** Si l'utilisateur a
+désactivé BAR globalement ou pour l'app spécifiquement, iOS ne peut
+pas re-launcher l'app pour un event location en background. Surfacer
+l'état de BAR à session-start via method channel et warner.
+
+**Sandbox UUID rotation :** voir §3.10 — le path absolu du log change
+entre les launches après réinstall via SideStore. Logger le path actif
+au bootstrap pour permettre un cross-check à read-time.
+
+---
+
 ## TL;DR — checklist nouveau projet Flutter iOS
 
 À copier-coller au début d'un nouveau projet **avant la première sideload** :
@@ -522,3 +729,16 @@ Conséquence pratique :
       `--set-exit-if-changed` (§4.1)
 - [ ] Imports l10n: `package:<project>/l10n/...`, pas `flutter_gen` (§4.1)
 - [ ] `PrivacyInfo.xcprivacy` à jour avec les Required-Reason API codes (§4.3)
+
+**Si l'app a besoin de GPS background** (ajout au-dessus) :
+- [ ] `Info.plist` : `NSLocationAlwaysAndWhenInUseUsageDescription` +
+      `UIBackgroundModes: [location, fetch]` (§5.5)
+- [ ] Chaîne `notification → whenInUse → always` dans cet ordre
+      (silently-ignored sinon sur Android 10+) (§5.3)
+- [ ] `AppleSettings(allowBackgroundLocationUpdates: true,
+      pauseLocationUpdatesAutomatically: false, ...)` côté geolocator (§5.7)
+- [ ] `AndroidManifest` : `ACCESS_BACKGROUND_LOCATION` +
+      `FOREGROUND_SERVICE_LOCATION` (Android 14+) +
+      `POST_NOTIFICATIONS` (§5.5)
+- [ ] Écran `/permissions/denied` avec auto-resume hook
+      `WidgetsBindingObserver.didChangeAppLifecycleState` (§5.6)
