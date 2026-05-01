@@ -69,12 +69,7 @@ Widget _buildMapRoute(BuildContext context, GoRouterState state) {
       if (snap.hasError || pathOrNull == null) {
         return const Scaffold(body: Center(child: Text('Map data unavailable')));
       }
-      return MapScreen.fromServices(
-        MapScreenServices(
-          pmtilesPath: pathOrNull,
-          positionStreamFactory: GeolocatorService.stream,
-        ),
-      );
+      return MapScreen.fromServices(MapScreenServices(pmtilesPath: pathOrNull, positionStreamFactory: GeolocatorService.stream));
     },
   );
 }

@@ -28,25 +28,22 @@ class _RecordingMapController implements MapController {
   /// Build a synthetic MapCamera with the given rotation. Required because
   /// MapEventRotate.camera.rotation is what production reads to update its
   /// own bearing snapshot.
-  MapCamera _cameraWithRotation(double rotationDegrees) => MapCamera(
-        crs: const Epsg3857(),
-        center: const LatLng(48.5397, 2.6553),
-        zoom: 13,
-        rotation: rotationDegrees,
-        nonRotatedSize: MapCamera.kImpossibleSize,
-      );
+  MapCamera _cameraWithRotation(double rotationDegrees) =>
+      MapCamera(crs: const Epsg3857(), center: const LatLng(48.5397, 2.6553), zoom: 13, rotation: rotationDegrees, nonRotatedSize: MapCamera.kImpossibleSize);
 
   /// Push a synthetic MapEventRotate with the new bearing into the stream.
   /// Production widget filters on `is MapEventRotate` and reads
   /// `event.camera.rotation`.
   void emitRotateDegrees(double newRotationDegrees) {
     _currentRotationDegrees = newRotationDegrees;
-    _events.add(MapEventRotate(
-      id: null,
-      source: MapEventSource.mapController,
-      oldCamera: _cameraWithRotation(_currentRotationDegrees),
-      camera: _cameraWithRotation(newRotationDegrees),
-    ));
+    _events.add(
+      MapEventRotate(
+        id: null,
+        source: MapEventSource.mapController,
+        oldCamera: _cameraWithRotation(_currentRotationDegrees),
+        camera: _cameraWithRotation(newRotationDegrees),
+      ),
+    );
   }
 
   @override
@@ -60,8 +57,7 @@ class _RecordingMapController implements MapController {
   }
 
   @override
-  bool move(LatLng center, double zoom, {Offset offset = Offset.zero, String? id}) =>
-      throw UnimplementedError('Test fake: move not used by MapCompass');
+  bool move(LatLng center, double zoom, {Offset offset = Offset.zero, String? id}) => throw UnimplementedError('Test fake: move not used by MapCompass');
 
   // MoveAndRotateResult is a non-exported typedef in flutter_map 7.0.2 — see
   // lib/src/misc/move_and_rotate_result.dart. Spelling it as the structural
@@ -90,11 +86,11 @@ class _RecordingMapController implements MapController {
 }
 
 Widget _wrap(Widget child) => MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('en'),
-      home: Scaffold(body: child),
-    );
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  locale: const Locale('en'),
+  home: Scaffold(body: child),
+);
 
 void main() {
   group('mapCompassShortestPathToNorth (helper unit tests — RESEARCH Open Question #2)', () {
@@ -140,10 +136,12 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      expect(controller.rotateCalls.length, greaterThanOrEqualTo(5),
-          reason: 'A 250 ms animation MUST emit several intermediate rotates; >=5 confirms a real per-frame tween.');
-      expect(controller.rotateCalls.last, closeTo(0, 1e-6),
-          reason: 'Final rotate MUST land on north (0°).');
+      expect(
+        controller.rotateCalls.length,
+        greaterThanOrEqualTo(5),
+        reason: 'A 250 ms animation MUST emit several intermediate rotates; >=5 confirms a real per-frame tween.',
+      );
+      expect(controller.rotateCalls.last, closeTo(0, 1e-6), reason: 'Final rotate MUST land on north (0°).');
 
       controller.dispose();
     });
@@ -155,9 +153,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Initial transform: bearing 0 → angle = 0 → identity rotation.
-      Transform findGlyphTransform() => tester.widget<Transform>(
-            find.descendant(of: find.byType(IconButton), matching: find.byType(Transform)).first,
-          );
+      Transform findGlyphTransform() => tester.widget<Transform>(find.descendant(of: find.byType(IconButton), matching: find.byType(Transform)).first);
       final transformBefore = findGlyphTransform();
 
       // Simulate the camera rotating to 90°. Production should setState and
@@ -166,8 +162,11 @@ void main() {
       await tester.pumpAndSettle();
 
       final transformAfter = findGlyphTransform();
-      expect(transformAfter.transform, isNot(equals(transformBefore.transform)),
-          reason: 'MapEventRotate MUST trigger a setState that rebuilds the Transform with a new matrix.');
+      expect(
+        transformAfter.transform,
+        isNot(equals(transformBefore.transform)),
+        reason: 'MapEventRotate MUST trigger a setState that rebuilds the Transform with a new matrix.',
+      );
 
       controller.dispose();
     });
@@ -188,11 +187,13 @@ void main() {
       // Forward shortest path: bearings stay >= 350° during the tween (climbing
       // toward 360°), or land exactly on 360°. Backward path would visit 180°.
       for (final degree in controller.rotateCalls) {
-        expect(degree >= 350 - 1e-6 && degree <= 360 + 1e-6, isTrue,
-            reason: 'Shortest-path snap from 350° MUST stay in [350°, 360°], never visit ~180°. Got: $degree°.');
+        expect(
+          degree >= 350 - 1e-6 && degree <= 360 + 1e-6,
+          isTrue,
+          reason: 'Shortest-path snap from 350° MUST stay in [350°, 360°], never visit ~180°. Got: $degree°.',
+        );
       }
-      expect(controller.rotateCalls.last, closeTo(360, 1e-6),
-          reason: 'Final rotate MUST land at 360° (= 0° north on the unit circle).');
+      expect(controller.rotateCalls.last, closeTo(360, 1e-6), reason: 'Final rotate MUST land at 360° (= 0° north on the unit circle).');
 
       controller.dispose();
     });
@@ -206,8 +207,7 @@ void main() {
       await tester.tap(find.byType(IconButton), warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      expect(controller.rotateCalls, isEmpty,
-          reason: 'Tap with bearing already at 0° MUST be a no-op — no AnimationController spun up, no rotate emitted.');
+      expect(controller.rotateCalls, isEmpty, reason: 'Tap with bearing already at 0° MUST be a no-op — no AnimationController spun up, no rotate emitted.');
 
       controller.dispose();
     });
@@ -237,8 +237,11 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      expect(controller.rotateCalls.length, equals(callsAfterUnmountSettled),
-          reason: 'After unmount, no further rotate calls MUST be emitted — AnimationController + stream subscription disposed.');
+      expect(
+        controller.rotateCalls.length,
+        equals(callsAfterUnmountSettled),
+        reason: 'After unmount, no further rotate calls MUST be emitted — AnimationController + stream subscription disposed.',
+      );
 
       controller.dispose();
     });
@@ -250,8 +253,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final iconButton = tester.widget<IconButton>(find.byType(IconButton));
-      expect(iconButton.tooltip, equals('Reset bearing to north'),
-          reason: 'Tooltip MUST come from AppLocalizations.compassTooltip (en).');
+      expect(iconButton.tooltip, equals('Reset bearing to north'), reason: 'Tooltip MUST come from AppLocalizations.compassTooltip (en).');
 
       controller.dispose();
     });

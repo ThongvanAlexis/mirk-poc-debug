@@ -64,10 +64,7 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 );
 
 MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? streamFactory}) {
-  return MapScreenServices(
-    pmtilesPath: pmtilesPath,
-    positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
-  );
+  return MapScreenServices(pmtilesPath: pmtilesPath, positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty());
 }
 
 /// Pumps until the FlutterMap is mounted (PMTiles `fromSource` future

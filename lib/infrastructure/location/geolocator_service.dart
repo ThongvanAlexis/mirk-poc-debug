@@ -20,10 +20,7 @@ class GeolocatorService {
 
   /// Pinned settings — `accuracy: best` (~10 m on iPhone outdoors)
   /// + 5 m distance filter (CONTEXT-locked).
-  static const LocationSettings _settings = LocationSettings(
-    accuracy: LocationAccuracy.best,
-    distanceFilter: kPocGpsDistanceFilterMeters,
-  );
+  static const LocationSettings _settings = LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: kPocGpsDistanceFilterMeters);
 
   /// Returns a fresh stream — caller subscribes once per [MapScreen]
   /// instance (Pitfall 5: cancel the subscription in dispose).

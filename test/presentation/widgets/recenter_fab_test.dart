@@ -76,13 +76,7 @@ class _RecordingMapController implements MapController {
   MapCamera get camera {
     final LatLng center = moveCalls.isEmpty ? _initialCenter : moveCalls.last.center;
     final double zoom = moveCalls.isEmpty ? _initialZoom : moveCalls.last.zoom;
-    return MapCamera(
-      crs: const Epsg3857(),
-      center: center,
-      zoom: zoom,
-      rotation: 0,
-      nonRotatedSize: MapCamera.kImpossibleSize,
-    );
+    return MapCamera(crs: const Epsg3857(), center: center, zoom: zoom, rotation: 0, nonRotatedSize: MapCamera.kImpossibleSize);
   }
 
   @override
@@ -117,8 +111,11 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      expect(controller.moveCalls.length, greaterThanOrEqualTo(5),
-          reason: 'A 500 ms animation MUST emit several intermediate moves; >=5 confirms a real per-frame tween, not a single endpoint move.');
+      expect(
+        controller.moveCalls.length,
+        greaterThanOrEqualTo(5),
+        reason: 'A 500 ms animation MUST emit several intermediate moves; >=5 confirms a real per-frame tween, not a single endpoint move.',
+      );
 
       final last = controller.moveCalls.last;
       expect(last.center.latitude, closeTo(fix.latitude, 1e-6), reason: 'Final move MUST land on lastFix.latitude.');
@@ -161,8 +158,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final last = controller.moveCalls.last;
-      expect(last.center.latitude, closeTo(secondFix.latitude, 1e-6),
-          reason: 'Repeat-tap MUST retarget the newer fix, not finish the old animation.');
+      expect(last.center.latitude, closeTo(secondFix.latitude, 1e-6), reason: 'Repeat-tap MUST retarget the newer fix, not finish the old animation.');
       expect(last.center.longitude, closeTo(secondFix.longitude, 1e-6));
 
       controller.dispose();
@@ -188,8 +184,7 @@ void main() {
       // should be 48.5 (start 48 + 0.5 * delta 1.0). ±0.1 generous tolerance.
       expect(controller.moveCalls, isNotEmpty);
       final lastBeforeHalf = controller.moveCalls.last;
-      expect(lastBeforeHalf.center.latitude, inInclusiveRange(48.4, 48.6),
-          reason: 'easeInOut at t≈0.5 should land near midpoint (48.5 ±0.1).');
+      expect(lastBeforeHalf.center.latitude, inInclusiveRange(48.4, 48.6), reason: 'easeInOut at t≈0.5 should land near midpoint (48.5 ±0.1).');
 
       // Drain to settle so the test framework doesn't see an active timer.
       for (var elapsed = halfMs; elapsed <= kPocRecenterAnimationMs; elapsed += stepMs) {
@@ -211,8 +206,11 @@ void main() {
       await tester.pump();
       // One frame after tap: the AnimationController.forward + listener should
       // have emitted at least one move.
-      expect(controller.moveCalls, isNotEmpty,
-          reason: 'First pump after tap MUST yield at least one move; the tween listener fires on every frame including frame 0.');
+      expect(
+        controller.moveCalls,
+        isNotEmpty,
+        reason: 'First pump after tap MUST yield at least one move; the tween listener fires on every frame including frame 0.',
+      );
 
       // Drain to settle.
       for (var elapsed = 0; elapsed <= kPocRecenterAnimationMs; elapsed += 16) {
@@ -231,8 +229,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final fab = tester.widget<FloatingActionButton>(find.byType(FloatingActionButton));
-      expect(fab.tooltip, equals('Recenter on my position'),
-          reason: 'Tooltip MUST come from AppLocalizations.recenterTooltip (en).');
+      expect(fab.tooltip, equals('Recenter on my position'), reason: 'Tooltip MUST come from AppLocalizations.recenterTooltip (en).');
 
       controller.dispose();
     });

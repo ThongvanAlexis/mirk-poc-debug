@@ -98,11 +98,7 @@ void main() {
       final subscription = GeolocatorService.stream().listen((_) {});
       await Future<void>.delayed(Duration.zero);
 
-      expect(
-        mock.lastKnownPositionCallCount,
-        equals(0),
-        reason: 'LOC-03 forbids Geolocator.getLastKnownPosition (unreliable on iOS).',
-      );
+      expect(mock.lastKnownPositionCallCount, equals(0), reason: 'LOC-03 forbids Geolocator.getLastKnownPosition (unreliable on iOS).');
 
       await subscription.cancel();
     });

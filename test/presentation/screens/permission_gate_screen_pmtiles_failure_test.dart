@@ -119,11 +119,7 @@ void main() {
     await tester.pumpWidget(_wrap(_buildRouter()));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byType(ErrorScreen),
-      findsOneWidget,
-      reason: 'Pre-granted status path MUST also hit ensureCopied and route to /error on failure.',
-    );
+    expect(find.byType(ErrorScreen), findsOneWidget, reason: 'Pre-granted status path MUST also hit ensureCopied and route to /error on failure.');
     expect(find.text('read-only filesystem'), findsOneWidget);
   });
 

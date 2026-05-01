@@ -57,10 +57,7 @@ class _RecenterFabState extends State<RecenterFab> with TickerProviderStateMixin
     final t = CurvedAnimation(parent: c, curve: Curves.easeInOut);
     t.addListener(() {
       final v = t.value;
-      widget.mapController.move(
-        LatLng(fromLat + (toLat - fromLat) * v, fromLon + (toLon - fromLon) * v),
-        fromZoom + (toZoom - fromZoom) * v,
-      );
+      widget.mapController.move(LatLng(fromLat + (toLat - fromLat) * v, fromLon + (toLon - fromLon) * v), fromZoom + (toZoom - fromZoom) * v);
     });
     _controller = c;
     c.forward();

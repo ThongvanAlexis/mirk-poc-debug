@@ -63,10 +63,7 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 /// test optionally inject a position-stream factory (defaults to an empty
 /// stream so no fix arrives — exercises the LOC-05 disabled-FAB path).
 MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? streamFactory}) {
-  return MapScreenServices(
-    pmtilesPath: pmtilesPath,
-    positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
-  );
+  return MapScreenServices(pmtilesPath: pmtilesPath, positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty());
 }
 
 /// Pumps the screen and lets the async PMTiles `fromSource` settle.
@@ -237,10 +234,7 @@ void main() {
       expect(mapCompasses, findsOneWidget, reason: 'Plan 02-04 contract: a single MapCompass MUST be in the tree.');
 
       // Find the Positioned ancestor of the MapCompass.
-      final positioned = find.ancestor(
-        of: mapCompasses,
-        matching: find.byWidgetPredicate((w) => w is Positioned && w.top == 56.0 && w.right == 8.0),
-      );
+      final positioned = find.ancestor(of: mapCompasses, matching: find.byWidgetPredicate((w) => w is Positioned && w.top == 56.0 && w.right == 8.0));
       expect(positioned, findsOneWidget, reason: 'MapCompass MUST sit at top:56 right:8 (8 px below the 8-px-from-top FPS overlay).');
     });
 

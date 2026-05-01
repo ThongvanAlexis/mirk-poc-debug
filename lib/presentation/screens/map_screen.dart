@@ -90,16 +90,11 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _subscribeToPositions() {
-    _positionSubscription = widget.services.positionStreamFactory().listen(
-      (Position fix) {
-        if (!mounted) return;
-        setState(() => _lastFix = fix);
-        _log.info(
-          'Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m',
-        );
-      },
-      onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st),
-    );
+    _positionSubscription = widget.services.positionStreamFactory().listen((Position fix) {
+      if (!mounted) return;
+      setState(() => _lastFix = fix);
+      _log.info('Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m');
+    }, onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st));
   }
 
   Future<void> _loadTileProvider() async {
@@ -157,14 +152,8 @@ class _MapScreenState extends State<MapScreen> {
                 maxZoom: kPocMaxZoom,
                 cameraConstraint: CameraConstraint.contain(
                   bounds: LatLngBounds(
-                    const LatLng(
-                      kPocBboxLatMin - kPocPanBoundsPadDegrees,
-                      kPocBboxLonMin - kPocPanBoundsPadDegrees,
-                    ),
-                    const LatLng(
-                      kPocBboxLatMax + kPocPanBoundsPadDegrees,
-                      kPocBboxLonMax + kPocPanBoundsPadDegrees,
-                    ),
+                    const LatLng(kPocBboxLatMin - kPocPanBoundsPadDegrees, kPocBboxLonMin - kPocPanBoundsPadDegrees),
+                    const LatLng(kPocBboxLatMax + kPocPanBoundsPadDegrees, kPocBboxLonMax + kPocPanBoundsPadDegrees),
                   ),
                 ),
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
@@ -182,11 +171,7 @@ class _MapScreenState extends State<MapScreen> {
                   // best frame rate per RESEARCH §Pitfall 1.
                 ),
                 if (_lastFix != null)
-                  CircleLayer<Object>(
-                    circles: <CircleMarker<Object>>[
-                      BlueDotMarker.build(LatLng(_lastFix!.latitude, _lastFix!.longitude)),
-                    ],
-                  ),
+                  CircleLayer<Object>(circles: <CircleMarker<Object>>[BlueDotMarker.build(LatLng(_lastFix!.latitude, _lastFix!.longitude))]),
               ],
             ),
           const Positioned(top: _fpsTopPx, right: _overlayRightPx, child: FpsCounterOverlay()),
