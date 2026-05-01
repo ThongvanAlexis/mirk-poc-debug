@@ -19,6 +19,8 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 
@@ -66,7 +68,12 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 );
 
 MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? streamFactory}) {
-  return MapScreenServices(pmtilesPath: pmtilesPath, positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty());
+  return MapScreenServices(
+    pmtilesPath: pmtilesPath,
+    positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
+    discRepository: RevealDiscRepository(),
+    frameDeltaProbe: FrameDeltaProbe(),
+  );
 }
 
 /// Pumps until the FlutterMap is mounted (PMTiles `fromSource` future

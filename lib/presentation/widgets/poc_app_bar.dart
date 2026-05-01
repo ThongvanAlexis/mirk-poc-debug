@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -13,23 +14,30 @@ import 'package:share_plus/share_plus.dart';
 import '../../infrastructure/logging/file_logger.dart';
 import '../../l10n/app_localizations.dart';
 
-/// AppBar factory shared across every Phase 1 Scaffold (LOG-04).
+/// AppBar factory shared across every Phase 1+2+3 Scaffold (LOG-04 + Phase 3
+/// shader-sanity entry point).
 ///
-/// Returns a Material 3 AppBar with one share IconButton in `actions` whose
-/// onPressed gzips [FileLogger.activeFilename] to a temp `.gz` file and routes
-/// it through the system share sheet. The button's `onPressed` is null when
-/// no active log exists, leaving it visually disabled. When [title] is null
-/// the AppBar falls back to [AppLocalizations.appTitle].
+/// Returns a Material 3 AppBar with two action IconButtons in `actions`:
+///   1. `Icons.science` → navigates to `/sanity` via `context.go(...)`
+///      (Phase 3 pre-walk gate — see ShaderSanityScreen).
+///   2. `Icons.share` → gzips [FileLogger.activeFilename] to a temp `.gz`
+///      file and routes it through the system share sheet (LOG-04). The
+///      button's `onPressed` is null when no active log exists, leaving it
+///      visually disabled.
 ///
-/// Encapsulating the share button in this factory enforces the LOG-04
-/// contract — share is reachable from EVERY screen — via a single shared
-/// helper rather than duplicating the AppBar declaration in each Scaffold.
+/// When [title] is null the AppBar falls back to [AppLocalizations.appTitle].
+///
+/// Encapsulating both buttons in this factory enforces the LOG-04 contract —
+/// share is reachable from EVERY screen — and keeps the science action
+/// declaration in a single place (the only entry point to the /sanity
+/// pre-walk gate).
 PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
   final l10n = AppLocalizations.of(context)!;
   final activeFilename = FileLogger.activeFilename;
   return AppBar(
     title: Text(title ?? l10n.appTitle),
     actions: <Widget>[
+      IconButton(icon: const Icon(Icons.science), tooltip: l10n.shaderSanityTooltip, onPressed: () => context.go('/sanity')),
       IconButton(
         icon: const Icon(Icons.share),
         tooltip: l10n.shareLogsTooltip,

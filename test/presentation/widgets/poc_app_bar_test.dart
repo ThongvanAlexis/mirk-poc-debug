@@ -31,13 +31,17 @@ void main() {
 
   testWidgets('English tooltip is "Share logs"', (tester) async {
     await tester.pumpWidget(_wrap());
-    final iconButton = tester.widget<IconButton>(find.byType(IconButton));
+    // Phase 3 added a second IconButton (Icons.science → /sanity); narrow to
+    // the share button via its icon so this LOG-04 assertion keeps holding.
+    final shareIcon = find.ancestor(of: find.byIcon(Icons.share), matching: find.byType(IconButton));
+    final iconButton = tester.widget<IconButton>(shareIcon);
     expect(iconButton.tooltip, equals('Share logs'));
   });
 
   testWidgets('French tooltip is "Partager les logs"', (tester) async {
     await tester.pumpWidget(_wrap(locale: const Locale('fr')));
-    final iconButton = tester.widget<IconButton>(find.byType(IconButton));
+    final shareIcon = find.ancestor(of: find.byIcon(Icons.share), matching: find.byType(IconButton));
+    final iconButton = tester.widget<IconButton>(shareIcon);
     expect(iconButton.tooltip, equals('Partager les logs'));
   });
 

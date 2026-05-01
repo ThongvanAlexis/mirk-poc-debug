@@ -9,29 +9,36 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/location/geolocator_service.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 
 import 'screens/error_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/permission_denied_screen.dart';
 import 'screens/permission_gate_screen.dart';
+import 'screens/shader_sanity_screen.dart';
 
-/// Phase 1+2 GoRouter — four routes, every transition uses `context.go(...)`
+/// Phase 1+2+3 GoRouter — five routes, every transition uses `context.go(...)`
 /// (full pile reset, no back navigation per CONTEXT.md decision).
 ///
 /// Routes:
 ///   - `/`       → [PermissionGateScreen] (rationale + request CTA + lifecycle re-check)
 ///   - `/map`    → [MapScreen.fromServices] with production wiring (PMTiles
 ///                 path resolved via `getApplicationSupportDirectory()` +
-///                 `GeolocatorService.stream` factory)
+///                 `GeolocatorService.stream` factory + reveal-disc repository
+///                 + frame-delta probe)
 ///   - `/denied` → [PermissionDeniedScreen] (Open Settings; gate screen handles auto-resume)
 ///   - `/error`  → [ErrorScreen] (Phase 2; reached via `context.go('/error', extra: <String detail>)`)
+///   - `/sanity` → [ShaderSanityScreen] (Phase 3 pre-walk gate; tap science
+///                 icon in the AppBar to enter; renders the fog shader against
+///                 a synthetic SDF before the real walk in Plan 03-08)
 ///
 /// `initialLocation` is `/` so cold-launch always lands on the gate screen,
 /// which then short-circuits to `/map` via `context.go` if the permission was
 /// granted in a prior session (handled inside the gate screen's `initState`).
 ///
-/// Route order tracks the logical user flow (gate → map / denied / error).
+/// Route order tracks the logical user flow (gate → map / denied / error / sanity).
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   routes: <GoRoute>[
@@ -49,6 +56,7 @@ final GoRouter appRouter = GoRouter(
         return ErrorScreen(detail: detail);
       },
     ),
+    GoRoute(path: '/sanity', name: 'sanity', builder: (BuildContext context, GoRouterState state) => const ShaderSanityScreen()),
   ],
 );
 
@@ -69,7 +77,14 @@ Widget _buildMapRoute(BuildContext context, GoRouterState state) {
       if (snap.hasError || pathOrNull == null) {
         return const Scaffold(body: Center(child: Text('Map data unavailable')));
       }
-      return MapScreen.fromServices(MapScreenServices(pmtilesPath: pathOrNull, positionStreamFactory: GeolocatorService.stream));
+      return MapScreen.fromServices(
+        MapScreenServices(
+          pmtilesPath: pathOrNull,
+          positionStreamFactory: GeolocatorService.stream,
+          discRepository: RevealDiscRepository(),
+          frameDeltaProbe: FrameDeltaProbe(),
+        ),
+      );
     },
   );
 }

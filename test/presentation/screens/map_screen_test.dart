@@ -23,6 +23,8 @@ import 'package:vector_map_tiles/vector_map_tiles.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 import 'package:mirk_poc_debug/presentation/widgets/map_compass.dart';
@@ -63,9 +65,16 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 
 /// Builds fake services with the on-disk PMTiles temp file path. Lets each
 /// test optionally inject a position-stream factory (defaults to an empty
-/// stream so no fix arrives — exercises the LOC-05 disabled-FAB path).
+/// stream so no fix arrives — exercises the LOC-05 disabled-FAB path). The
+/// reveal-disc repository + frame-delta probe are constructed fresh per
+/// call (Phase 3 stubs — Plan 03-01 keystone).
 MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? streamFactory}) {
-  return MapScreenServices(pmtilesPath: pmtilesPath, positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty());
+  return MapScreenServices(
+    pmtilesPath: pmtilesPath,
+    positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
+    discRepository: RevealDiscRepository(),
+    frameDeltaProbe: FrameDeltaProbe(),
+  );
 }
 
 /// Pumps the screen and lets the async PMTiles `fromSource` settle.
