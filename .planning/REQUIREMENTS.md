@@ -43,7 +43,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Map
 
-- [ ] **MAP-01**: On first launch (after permission grant), `Fra_Melun.pmtile` is copied from `rootBundle` to `<getApplicationSupportDirectory()>/maps/Fra_Melun.pmtile` exactly once; subsequent launches detect the existing file and skip the copy
+- [x] **MAP-01**: On first launch (after permission grant), `Fra_Melun.pmtile` is copied from `rootBundle` to `<getApplicationSupportDirectory()>/maps/Fra_Melun.pmtile` exactly once; subsequent launches detect the existing file and skip the copy
 - [ ] **MAP-02**: The map screen renders the bundled PMTiles via `flutter_map 7.0.2` + `vector_map_tiles 8.0.0` + `vector_map_tiles_pmtiles 1.5.0`, with the renderer's default style
 - [ ] **MAP-03**: Initial camera centred on Melun (lat `48.5397`, lon `2.6553`, zoom `13`)
 - [ ] **MAP-04**: User can pan the map with one-finger drag
@@ -52,9 +52,9 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Location & Recenter
 
-- [ ] **LOC-01**: After permission grant, the app subscribes to `Geolocator.getPositionStream` with a sensible accuracy/distance filter
-- [ ] **LOC-02**: A blue dot (radius 7 px, fill `#2b7cd6`, white stroke 2 px) is rendered at the user's current position on the map and updates on each GPS fix
-- [ ] **LOC-03**: The most-recent GPS fix is cached in memory as `_lastFix`; the app does NOT call `Geolocator.getLastKnownPosition()` (unreliable on iOS — known plugin issue)
+- [x] **LOC-01**: After permission grant, the app subscribes to `Geolocator.getPositionStream` with a sensible accuracy/distance filter
+- [x] **LOC-02**: A blue dot (radius 7 px, fill `#2b7cd6`, white stroke 2 px) is rendered at the user's current position on the map and updates on each GPS fix
+- [x] **LOC-03**: The most-recent GPS fix is cached in memory as `_lastFix`; the app does NOT call `Geolocator.getLastKnownPosition()` (unreliable on iOS — known plugin issue)
 - [ ] **LOC-04**: A floating action button on the map screen animates the camera to `_lastFix` at zoom 15
 - [ ] **LOC-05**: When `_lastFix` is null (no fix yet received), the recenter button is disabled (or shows a spinner)
 
@@ -161,15 +161,15 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | AUTH-04 | Phase 1 | Complete |
 | AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
-| MAP-01 | Phase 2 | Pending |
+| MAP-01 | Phase 2 | Complete |
 | MAP-02 | Phase 2 | Pending |
 | MAP-03 | Phase 2 | Pending |
 | MAP-04 | Phase 2 | Pending |
 | MAP-05 | Phase 2 | Pending |
 | MAP-06 | Phase 2 | Pending |
-| LOC-01 | Phase 2 | Pending |
-| LOC-02 | Phase 2 | Pending |
-| LOC-03 | Phase 2 | Pending |
+| LOC-01 | Phase 2 | Complete |
+| LOC-02 | Phase 2 | Complete |
+| LOC-03 | Phase 2 | Complete |
 | LOC-04 | Phase 2 | Pending |
 | LOC-05 | Phase 2 | Pending |
 | FOG-01 | Phase 3 | Pending |
