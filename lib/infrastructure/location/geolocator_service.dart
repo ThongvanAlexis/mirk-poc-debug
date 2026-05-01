@@ -3,22 +3,37 @@
 // See LICENSE file for details
 
 import 'package:geolocator/geolocator.dart';
+import 'package:logging/logging.dart';
+
+import 'package:mirk_poc_debug/config/constants.dart';
 
 /// Wraps `Geolocator.getPositionStream` with the project-pinned
 /// [LocationSettings] (CONTEXT §GPS subscription).
 ///
-/// Real implementation lands in Plan 02-03 (LOC-01). This Wave 0 stub exists
-/// so `map_screen.dart` (Plan 02-05) and the LOC-01 test can import the symbol
-/// — the stub returns an empty stream so widget tests that pump `MapScreen`
-/// don't deadlock waiting for a fix that will never arrive.
+/// Subscribe exactly once per [MapScreen] lifecycle (initState subscribe,
+/// dispose cancel — Pitfall 5). Cache the latest [Position] in
+/// `_lastFix` per LOC-03; do NOT call `Geolocator.getLastKnownPosition`
+/// (unreliable on iOS — known plugin issue, enforced by the static-source
+/// CI gate at `tool/test/check_no_last_known_position_test.dart`).
 class GeolocatorService {
-  /// Returns a fresh stream of [Position] events. Subscribe once per
-  /// `MapScreen` instance.
+  static final Logger _log = Logger('domain.location');
+
+  /// Pinned settings — `accuracy: best` (~10 m on iPhone outdoors)
+  /// + 5 m distance filter (CONTEXT-locked).
+  static const LocationSettings _settings = LocationSettings(
+    accuracy: LocationAccuracy.best,
+    distanceFilter: kPocGpsDistanceFilterMeters,
+  );
+
+  /// Returns a fresh stream — caller subscribes once per [MapScreen]
+  /// instance (Pitfall 5: cancel the subscription in dispose).
   ///
-  /// Stub: returns `const Stream<Position>.empty()`. Real settings
-  /// (`LocationAccuracy.best`, `distanceFilter: kPocGpsDistanceFilterMeters`)
-  /// land in Plan 02-03 (LOC-01).
+  /// iOS `whenInUse` permission + no `UIBackgroundModes:location` in
+  /// Info.plist (Phase 1 AUTH-05) means iOS suspends the stream on
+  /// backgrounding automatically — no app-side pause-on-background
+  /// code needed (CONTEXT decision honoured).
   static Stream<Position> stream() {
-    return const Stream<Position>.empty();
+    _log.info('Subscribing to Geolocator.getPositionStream(accuracy=best, distanceFilter=$kPocGpsDistanceFilterMeters)');
+    return Geolocator.getPositionStream(locationSettings: _settings);
   }
 }
