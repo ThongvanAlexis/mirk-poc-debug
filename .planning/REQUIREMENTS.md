@@ -37,7 +37,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **AUTH-01**: On launch, the app shows a permission rationale screen explaining why `locationWhenInUse` is required for the fog-of-war
 - [x] **AUTH-02**: When the user accepts the rationale, the app requests `Permission.locationWhenInUse` via `permission_handler`
 - [x] **AUTH-03**: On grant, the app navigates to the map screen via `context.go('/map')` (full pile reset — there's nowhere to go back to)
-- [x] **AUTH-04**: On deny, the app shows a denied screen with a button that opens system settings via `permission_handler.openAppSettings()`
+- [x] **AUTH-04**: On deny, the app shows a denied screen with a button that opens system settings via `permission_handler.openAppSettings()` _(software-complete per Plan 01-06; Plan 01-07 sideload UAT confirmed deny → /denied → Open Settings → iOS Settings page works correctly. Cross-restart auto-resume routing bug — toggle Location ON in iOS Settings + return to app should auto-nav from /denied to /map but stays on /denied — deferred per `.planning/phases/01-foundation/deferred-items.md` and reference pattern in `docs/flutter-ios-specifics.md` §5.6. Not blocking POC closure.)_
 - [x] **AUTH-05**: `ios/Runner/Info.plist` contains `NSLocationWhenInUseUsageDescription` with a non-empty rationale string; no `NSLocationAlwaysAndWhenInUseUsageDescription` (out of scope)
 - [x] **AUTH-06**: `ios/Runner/Info.plist` contains `ITSAppUsesNonExemptEncryption=false`
 
@@ -80,7 +80,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 - [x] **LOG-01**: A logger configured via the `logging` package writes to `<getApplicationDocumentsDirectory()>/logs/yyyymmdd_hhmmss_logs.txt`, one file per app session
 - [x] **LOG-02**: Log level for the POC is `Level.ALL` (verbose); each log line is timestamped to millisecond precision
-- [ ] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
+- [x] **LOG-03**: The logger is initialised before any other module that might log (so initialisation failures are captured)
 - [x] **LOG-04**: A button in the app (visible from any screen — likely an app-bar action) opens the system share sheet via `share_plus 12.0.2`, attaching the current session's log file
 - [x] **LOG-05**: The share sheet works on a SideStore-sideloaded iOS build with the iOS Mail app as the share target. Phase 1 UAT exit gate: developer sideloads the IPA, taps share-logs, picks Mail, sends to themselves, verifies the email arrives with the gzipped log file as attachment. Verbal "approved" is the gate (no synthetic-log smoke test required per Phase 1 CONTEXT.md decision).
 
@@ -186,7 +186,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | WISP-04 | Phase 4 | Pending |
 | LOG-01 | Phase 1 | Complete |
 | LOG-02 | Phase 1 | Complete |
-| LOG-03 | Phase 1 | Pending |
+| LOG-03 | Phase 1 | Complete |
 | LOG-04 | Phase 1 | Complete |
 | LOG-05 | Phase 1 | Complete |
 | PERF-01 | Phase 1 | Complete |
@@ -212,6 +212,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 
 - **2026-04-30 (Phase 1 planning):** LOG-05 wording softened — dropped the prior 50-megabyte synthetic-logfile smoke-test specification per CONTEXT.md `Phase 1 UAT exit gate` decision. The replacement gate is verbal "approved" after a single sideload + Mail round-trip walk.
 - **2026-04-30 (Phase 1 planning, B-1 fix):** BOOT-01 SDK pin updated from `3.41.8` to `3.41.7` for parent code-donor parity per RESEARCH.md Open Question #1. The earlier 3.41.8 wording predated the planner's parent-parity lock; Plan 01 (`flutter create`) and Plan 03 Task 2 (CI workflow `flutter-version: '3.41.7'`) both reference 3.41.7. This wording change brings REQUIREMENTS.md into lockstep with both plans.
+- **2026-05-01 (Phase 1 closure, Plan 01-07 SUMMARY):** LOG-03 marked Complete after source review of `lib/main.dart` confirmed `await FileLogger.bootstrap()` runs BEFORE `WidgetsBinding.instance.addObserver(FileLoggerLifecycleObserver())` and BEFORE `runApp(MirkPocApp)`. AUTH-04 carries a deferred-bug note (cross-restart auto-resume routing bug; software-complete per Plan 01-06, sideload UAT confirms manual deny + Open Settings flow works; cross-restart auto-nav from /denied to /map after iOS Settings toggle does not fire — deferred per user's POC-scope call). Phase 1 closes with all 28 requirement IDs addressed; AUTH-04 alone carries the documented limitation.
 
 ---
 *Requirements defined: 2026-04-30*

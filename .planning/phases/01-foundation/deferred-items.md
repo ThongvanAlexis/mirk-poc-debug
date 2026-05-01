@@ -92,3 +92,78 @@ flutter analyze --fatal-infos --fatal-warnings      # expected red until items 1
 `lib/main.dart` from `flutter create` remains in place — Plan 07 replaces it
 with the proper bootstrap and GOSL header. Until then, `tool/check_headers`
 will flag it as expected (per Plan 01-02 + Plan 01-03 SUMMARY notes).
+
+---
+
+## AUTH-04 — auto-resume routing bug after iOS Settings round-trip (Plan 01-07 sideload UAT)
+
+**Discovered:** Plan 01-07 LOG-05 sideload UAT on iPhone 17 Pro (2026-04-30).
+**Status:** AUTH-04 software is implemented per Plan 01-06 spec (lifecycle
+observer + recheck), but the cross-restart Settings → app return code path
+fails to auto-navigate from `/denied` to `/map`. Marked complete-with-known-
+limitation rather than blocking Phase 1 closure (POC scope, GPS revocation
+during a GPS POC is artificial; user's pragmatic call).
+
+### Symptom
+
+UAT walk steps 12-14 of Plan 01-07's `<how-to-verify>`:
+
+1. Cold-restart with permission revoked to "Never" in iOS Settings →
+   app correctly lands on `/denied` with the rationale + Open-Settings button.
+2. Tap CTA → iOS opens the app's Settings page (no in-app prompt because
+   the perm is in a hard-deny state — expected).
+3. Toggle Location to "While Using" in iOS Settings → tap Back to return
+   to the POC.
+4. **Expected:** lifecycle `resumed` event fires → `_recheckPermissionAndMaybePop`
+   reads granted → auto-navigate to `/map` (zero extra taps).
+5. **Actual:** the app stays on the `/denied` screen. No auto-nav. User
+   has to cold-restart the app (which then correctly routes to `/map` via
+   the gate screen's `initState` check).
+
+### Diagnostic notes
+
+- The lifecycle observer DOES fire — earlier UAT logs from the gate
+  screen contain `didChangeAppLifecycleState=resumed: granted` records,
+  so the `WidgetsBindingObserver.didChangeAppLifecycleState` callback
+  is wired correctly on `PermissionGateScreen`.
+- The likely root cause is on **`PermissionDeniedScreen`** specifically:
+  when the app cold-restarts directly into `/denied` (because the gate's
+  `initState` check sees `permanentlyDenied`/`denied` and routes there),
+  the route stack becomes `[/denied]` only — there's no parent `/` route
+  to pop back to.
+- The denied screen's recheck pattern uses
+  `if (context.canPop()) context.pop(true); else context.go('/');`
+  per `docs/flutter-ios-specifics.md` §5.6. After the cold-restart edge
+  case, `canPop()` returns `false` → fallback `context.go('/')` runs →
+  the gate screen mounts → its `initState` re-reads the (now-granted)
+  permission → SHOULD `context.go('/map')`. One of these steps drops the
+  navigation, possibly because the gate screen's `initState` runs before
+  the lifecycle `resumed` propagates fully, or because the recheck Future
+  is racing against the `go('/')` route swap.
+
+### Fix candidates (when revisited)
+
+- Add a microtask delay (`await Future<void>.delayed(Duration.zero)`) before
+  the `context.go('/')` fallback to let the lifecycle event settle.
+- Read `Permission.locationWhenInUse.status` in `PermissionDeniedScreen`'s
+  own resume handler and `context.go('/map')` directly (skip the `pop`/`/`
+  bounce entirely on the cold-restart edge case).
+- Wrap the navigation in a `WidgetsBinding.instance.addPostFrameCallback`
+  to ensure the route swap happens after the current frame.
+
+### Reference
+
+Working pattern (parent project, where the cold-restart edge case is
+also handled cleanly): `docs/flutter-ios-specifics.md` §5.6 — UI écran
+denied + auto-resume hook.
+
+### Why deferred
+
+POC is for debugging Phase 1 specifics, not a production app. The
+intended UAT flow is **grant on first launch** (which works perfectly
+end-to-end). Revoking GPS perms while testing a POC that needs GPS
+is artificial. Plan 01-07's primary success criteria (first-launch
+grant → /map → share-logs → Mail round-trip) all PASS. Re-investigating
+this bug is on hold until either (a) a downstream phase exercises the
+cross-restart re-grant flow, or (b) a future debug session decides the
+POC's polish budget can absorb it.

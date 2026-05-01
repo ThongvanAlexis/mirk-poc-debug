@@ -12,7 +12,7 @@ This POC answers one architectural question: does rendering the MirkFall map, fo
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Bootstrap, CI, logger, share, FPS counter, permission gate — first walkable IPA
+- [x] **Phase 1: Foundation** - Bootstrap, CI, logger, share, FPS counter, permission gate — first walkable IPA
 - [ ] **Phase 2: Map (no fog)** - PMTiles, gestures, blue dot, recenter; no-fog FPS gate before fog work
 - [ ] **Phase 3: Fog of War — THE HYPOTHESIS** - Same-Canvas fog layer + frame-delta probe + falsification walk
 - [ ] **Phase 4: Wisp Particles** - World-locked wisps composited in the same paint pass as fog
@@ -31,13 +31,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Developer taps the share-logs button, picks Mail, and the session's `yyyymmdd_hhmmss_logs.txt` arrives in their inbox with byte-count matching the on-device file (50 MB synthetic-log smoke test passed at least once with a content-marker at byte 47 MB present in the received attachment).
   5. CI license-check job fails any future PR that introduces a non-allowlisted license (allowlist: MIT, BSD-2/3, Apache 2.0, ISC, zlib, CC0, Unlicense); first-pass `DEPENDENCIES.md` rows present for every direct dependency in `pubspec.yaml`, with telemetry audit showing zero automatic network egress at app launch.
 **Plans**: 7 plans
-  - [ ] 01-01-PLAN.md — Bootstrap: pubspec, analysis_options, LICENSE, l10n scaffold, donor constants + binary assets
-  - [ ] 01-02-PLAN.md — Tooling: port tool/check_* + tool/test/* scripts, DEPENDENCIES.md skeleton, iOS Info.plist + PrivacyInfo.xcprivacy
-  - [ ] 01-03-PLAN.md — BOOT-08 donor source files port, three-job CI workflow, REQUIREMENTS.md LOG-05 wording update
-  - [ ] 01-04-PLAN.md — FileLogger + FileLoggerLifecycleObserver port-with-three-POC-adaptations + tests
+  - [x] 01-01-PLAN.md — Bootstrap: pubspec, analysis_options, LICENSE, l10n scaffold, donor constants + binary assets
+  - [x] 01-02-PLAN.md — Tooling: port tool/check_* + tool/test/* scripts, DEPENDENCIES.md skeleton, iOS Info.plist + PrivacyInfo.xcprivacy
+  - [x] 01-03-PLAN.md — BOOT-08 donor source files port, three-job CI workflow, REQUIREMENTS.md LOG-05 wording update
+  - [x] 01-04-PLAN.md — FileLogger + FileLoggerLifecycleObserver port-with-three-POC-adaptations + tests
   - [x] 01-05-PLAN.md — buildPocAppBar share-logs helper + FpsCounterOverlay (ProMotion-aware) + widget tests
-  - [ ] 01-06-PLAN.md — PermissionGateScreen (lifecycle resume re-check) + PermissionDeniedScreen + widget tests
-  - [ ] 01-07-PLAN.md — main wiring: lib/main.dart + app.dart + router.dart + MapScreen placeholder + LOG-05 manual UAT checkpoint
+  - [x] 01-06-PLAN.md — PermissionGateScreen (lifecycle resume re-check) + PermissionDeniedScreen + widget tests
+  - [x] 01-07-PLAN.md — main wiring: lib/main.dart + app.dart + router.dart + MapScreen placeholder + LOG-05 manual UAT checkpoint
 
 ### Phase 2: Map (no fog)
 **Goal**: A walkable map that loads `Fra_Melun.pmtile` from `getApplicationSupportDirectory()`, accepts pan/zoom/combined gestures, shows a blue dot following GPS, and recentres on demand — sustaining ≥ 40 fps on iPhone 17 Pro without fog. This is the gate that decides whether `vector_map_tiles` 8.0.0 is performant enough on this PMTiles at zoom 13–15 to make the Phase 3 hypothesis test meaningful.
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 6/7 | In Progress | - |
+| 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 0/TBD | Not started | - |
 | 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |
