@@ -105,7 +105,7 @@ This plan accumulated 4 task-level commits across the staging + walk + closure c
 
 4. **`8b4255d docs(02-06): record PERF-02 PASS — sustained ~120 fps during walk on iPhone 17 Pro`** — Task 2: filled `02-UAT.md` Walk Evidence + Verdict sections with the developer's verbatim verdict and light-touch PASS record; status frontmatter `testing` → `passed`.
 
-5. **Plan-metadata commit (Task 3 — closure docs):** `<TBD>` — created this SUMMARY + `deferred-items.md`, flipped PERF-02 to Complete in REQUIREMENTS.md, marked Phase 2 row Complete in ROADMAP.md, advanced STATE.md to Phase 2 closed.
+5. **`8dc7fa2 docs(02-06): close Plan 02-06 — PERF-02 verified, Phase 2 complete`** — Task 3: created this SUMMARY + `deferred-items.md`, flipped PERF-02 to Complete in REQUIREMENTS.md, marked Phase 2 row Complete in ROADMAP.md, advanced STATE.md to Phase 2 closed.
 
 **Notable cross-plan context:**
 
@@ -193,7 +193,7 @@ All claimed files exist on disk; all claimed task commits exist in git history.
 - `5d8b067` (Pre-walk format pass — dart format --line-length 160 on Phase 2 files) — FOUND
 - `9abd2d3` (Pre-walk UAT template authored — falsification thresholds locked) — FOUND
 - `8b4255d` (Task 2: PERF-02 PASS evidence recorded in 02-UAT.md) — FOUND
-- Plan-metadata closure commit (Task 3): created right after this SUMMARY is written.
+- `8dc7fa2` (Task 3: Plan-metadata closure commit — REQUIREMENTS, ROADMAP, STATE, this SUMMARY, deferred-items) — FOUND
 
 **Cross-plan commit:**
 
