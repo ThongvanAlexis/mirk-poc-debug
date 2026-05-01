@@ -50,9 +50,7 @@ void main() {
         locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: ShaderSanityScreen(
-          programLoaderOverride: () async => throw StateError('shader load failed'),
-        ),
+        home: ShaderSanityScreen(programLoaderOverride: () async => throw StateError('shader load failed')),
       ),
     );
     await tester.pumpAndSettle();
