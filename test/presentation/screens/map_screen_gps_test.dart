@@ -22,6 +22,8 @@ import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 
+import '../../_helpers/swallow_vector_map_tiles_cancellation.dart';
+
 /// Mirrors the path-provider mock from `map_screen_test.dart` — vector_map_tiles
 /// calls `getTemporaryDirectory()` lazily for its tile cache; the mock points
 /// every accessor at a per-run temp directory.
@@ -107,6 +109,7 @@ void main() {
 
   group('MapScreen GPS lifecycle (LOC-01)', () {
     testWidgets('initState subscribes via positionStreamFactory exactly once', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       var factoryCallCount = 0;
       final controller = StreamController<Position>.broadcast();
       addTearDown(controller.close);
@@ -125,6 +128,7 @@ void main() {
     });
 
     testWidgets('dispose cancels the GPS subscription', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       final controller = StreamController<Position>.broadcast();
       addTearDown(controller.close);
 
@@ -141,6 +145,7 @@ void main() {
     });
 
     testWidgets('a new fix triggers setState and renders the blue dot', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       final controller = StreamController<Position>.broadcast();
       addTearDown(controller.close);
 
@@ -163,6 +168,7 @@ void main() {
     });
 
     testWidgets('mounted guard: emitting a fix after dispose does NOT throw', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       final controller = StreamController<Position>.broadcast();
       addTearDown(controller.close);
 

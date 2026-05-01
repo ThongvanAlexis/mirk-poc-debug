@@ -27,6 +27,8 @@ import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 import 'package:mirk_poc_debug/presentation/widgets/map_compass.dart';
 
+import '../../_helpers/swallow_vector_map_tiles_cancellation.dart';
+
 /// In-test [PathProviderPlatform] override pointing every directory accessor
 /// at a single throwaway temp directory. vector_map_tiles' `cacheStorageResolver`
 /// calls `getTemporaryDirectory()` on first tile fetch; without this mock the
@@ -121,6 +123,7 @@ void main() {
 
   group('MapScreen.fromServices', () {
     testWidgets('VectorTileLayer wired with kPocTileProviderSourceKey source key', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -139,6 +142,7 @@ void main() {
     });
 
     testWidgets('initial camera at Melun (kPocInitialCameraLat, kPocInitialCameraLon) and z13', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -148,6 +152,7 @@ void main() {
     });
 
     testWidgets('InteractionOptions enables all flags', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -156,6 +161,7 @@ void main() {
     });
 
     testWidgets('pinch zoom flag is set (sub-flag of all)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -164,6 +170,7 @@ void main() {
     });
 
     testWidgets('combined gestures race disabled (default)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -172,6 +179,7 @@ void main() {
     });
 
     testWidgets('min/max zoom locked to kPocMinZoom..kPocMaxZoom (10..15)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -181,6 +189,7 @@ void main() {
     });
 
     testWidgets('CameraConstraint contains the padded Melun bbox', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -201,6 +210,7 @@ void main() {
     });
 
     testWidgets('LOC-02: blue dot is absent when no fix has arrived', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -213,6 +223,7 @@ void main() {
     });
 
     testWidgets('LOC-05: recenter FAB is disabled when no fix has arrived', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -223,6 +234,7 @@ void main() {
     });
 
     testWidgets('compass widget rendered top-right under FPS overlay', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
@@ -239,6 +251,7 @@ void main() {
     });
 
     testWidgets('dispose returns void synchronously (no async dispose)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
       // Type-level + behavioural test: pumping the screen and unmounting MUST
       // run dispose synchronously. Asserting the State.dispose method has
       // return type `void Function()` (not `Future<void> Function()`) is
