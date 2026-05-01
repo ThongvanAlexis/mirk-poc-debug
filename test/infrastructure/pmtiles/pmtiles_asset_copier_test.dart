@@ -69,6 +69,7 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('pmtiles_copier_test_');
     PathProviderPlatform.instance = _MockPathProviderPlatform(tempDir.path);
     _installFakeAssetHandler(null);
+    PmtilesAssetCopier.testEnsureCopiedOverride = null;
 
     logRecords = <LogRecord>[];
     Logger.root.level = Level.ALL;
@@ -76,6 +77,7 @@ void main() {
   });
 
   tearDown(() async {
+    PmtilesAssetCopier.testEnsureCopiedOverride = null;
     await logSub.cancel();
     try {
       if (await tempDir.exists()) {
@@ -161,5 +163,34 @@ void main() {
       final severeLines = logRecords.where((r) => r.level >= Level.SEVERE && r.loggerName == 'infrastructure.pmtiles');
       expect(severeLines, isNotEmpty, reason: 'FileSystemException path MUST log at SEVERE before rethrowing.');
     });
+
+    test('testEnsureCopiedOverride short-circuits real filesystem + asset access', () async {
+      // Counting fake — proves zero filesystem operations slipped through.
+      var pathProviderCallCount = 0;
+      PathProviderPlatform.instance = _CountingPathProviderPlatform(() {
+        pathProviderCallCount++;
+      });
+
+      PmtilesAssetCopier.testEnsureCopiedOverride = () async => '/fake/path';
+      final copied = await PmtilesAssetCopier.ensureCopied();
+
+      expect(copied, equals('/fake/path'), reason: 'Override return value MUST flow through unmodified.');
+      expect(pathProviderCallCount, equals(0), reason: 'Override MUST short-circuit BEFORE any path-provider lookup.');
+      expect(logRecords, isEmpty, reason: 'Override path emits no log lines.');
+    });
   });
+}
+
+/// Counting [PathProviderPlatform] for the override short-circuit test —
+/// proves the override path never touches the platform interface.
+class _CountingPathProviderPlatform extends PathProviderPlatform with MockPlatformInterfaceMixin {
+  _CountingPathProviderPlatform(this._onCall);
+
+  final void Function() _onCall;
+
+  @override
+  Future<String?> getApplicationSupportPath() async {
+    _onCall();
+    return null;
+  }
 }
