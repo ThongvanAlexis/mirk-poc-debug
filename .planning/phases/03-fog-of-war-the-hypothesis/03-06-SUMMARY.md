@@ -84,6 +84,8 @@ Each task was committed atomically per TDD discipline:
 3. **Task 2 RED — failing ShaderSanityScreen tests** — `35320dc`
 4. **Task 2 GREEN — ShaderSanityScreen implementation** — `3da0753`
 
+**Plan metadata:** `3f61ab0` (`docs(03-06): complete FrameDeltaProbeOverlay + ShaderSanityScreen plan` — SUMMARY.md, STATE.md, REQUIREMENTS.md, 03-06-PLAN.md)
+
 ## Files Created/Modified
 
 - `lib/presentation/widgets/frame_delta_probe_overlay.dart` — Modified (Wave 0 stub → full implementation). Subscribes to `widget.probe.rollups` in initState; cancels in dispose. `_colorFor(micros, green, yellow)` maps each metric to greenAccent / amberAccent / redAccent. `_line()` row builder uses `FontFeature.tabularFigures()` for stable digit width.
