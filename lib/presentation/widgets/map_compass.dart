@@ -54,7 +54,17 @@ class _MapCompassState extends State<MapCompass> with TickerProviderStateMixin {
     super.initState();
     // Seed bearing from the controller's current camera so a screen mounted
     // with a non-zero initial bearing renders correctly on the first frame.
-    _bearingDegrees = widget.mapController.camera.rotation;
+    // The real flutter_map MapControllerImpl throws "FlutterMap widget
+    // rendered at least once" when `.camera` is read before the FlutterMap
+    // has produced its first frame, which can happen if the parent mounts
+    // this widget on the same frame the FlutterMap enters the tree. Tolerate
+    // that by falling back to bearing 0 — the very next MapEventRotate will
+    // overwrite it via setState anyway.
+    try {
+      _bearingDegrees = widget.mapController.camera.rotation;
+    } on Object {
+      _bearingDegrees = 0;
+    }
     _eventSubscription = widget.mapController.mapEventStream.listen((MapEvent event) {
       if (event is! MapEventRotate) return;
       if (!mounted) return;
