@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 3 Plan 01 complete — Wave 0 scaffold landed (12 production stubs + 12 RED test files + constants/l10n/router/AppBar wiring + falsification skeleton); Wave 1 unblocked
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-05-01T14:54:42Z"
+status: completed
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-05-01T15:09:57.313Z"
 last_activity: 2026-05-01 — Plan 03-01 complete (Wave 0 keystone — 12 production stubs returning UnimplementedError/SizedBox.shrink + 12 RED test files + Phase 3 constants block + 5 l10n keys + /sanity route + AppBar Icons.science action + 03-FALSIFICATION.md skeleton; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 21
-  completed_plans: 14
+  completed_plans: 17
   percent: 67
 ---
 
@@ -64,6 +64,9 @@ Progress: [██████▋   ] 67% (14 of 21 plans complete: Phase 1 + Pha
 | Phase 02-map-no-fog P05 | 21 min | 1 tasks | 5 files |
 | Phase 02-map-no-fog P06 | ~50 min (planning + UAT walk + closure docs) | 3 tasks (1 auto + 1 checkpoint:human-verify + 1 auto) | 5 files (1 created + 4 modified) |
 | Phase 03-fog-of-war-the-hypothesis P01 | 16 min | 3 tasks (3 auto, 0 checkpoints) | 28 files (16 created + 5 production-file edits + 3 test-file edits + 4 generated/gitignored l10n synth) |
+| Phase 03-fog-of-war-the-hypothesis P02 | 5 min | 2 tasks | 2 files |
+| Phase 03-fog-of-war-the-hypothesis P04 | 4 min | 1 tasks | 2 files |
+| Phase 03-fog-of-war-the-hypothesis P03 | 5 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 02-map-no-fog]: Plan 02-05: MapScreen Phase-1 placeholder rewritten as full StatefulWidget — FlutterMap + VectorTileLayer (ProtomapsThemes.lightV3, source key 'protomaps') + conditional CircleLayer/BlueDot + RecenterFab + MapCompass + FpsCounterOverlay all composed; synchronous void dispose with fire-and-forget cancel/close; production /map route via FutureBuilder around getApplicationSupportDirectory; tests use tester.runAsync for real dart:io archive open + path_provider mock for vector_map_tiles cache resolver. 2 deviations: Rule 1 — MapCompass.initState try/catches camera read so it can mount on the same frame as FlutterMap (Plan 02-04 latent bug surfaced only in screen-level composition); Rule 3 — tester.pump doesn't advance real dart:io futures, switched to tester.runAsync. — Plan 02-04's all-fakes unit tests masked the camera-read crash; pump-the-real-tree integration tests catch this class of bug. Plan-prescribed _ProductionMapScreen factory removed (plan called it awkward; router builder constructs MapScreen.fromServices directly). Theme prefix vtr.Theme via 'as vtr' import — symmetric with vector_map_tiles' own 'hide Theme' pattern. Archive-close test seam deferred (real archive opens reliably from temp file in tests; dispose-cancels-GPS-subscription test proves dispose path runs).
 - [Phase 02-map-no-fog]: Plan 02-06: PERF-02 sideload UAT walk verbal `approved` on iPhone 17 Pro against CI run 25212559648 (SHA 46b8fcc). Developer's verbatim verdict: *"everything works well, 120 fps when doing stuff, revert to 4 when not doing anything"*. Sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15 over 200 m walk through central Melun — **3× headroom over the ≥ 40 fps gate**, massive frame-budget margin for Phase 3's fog shader. Idle ~4 fps is expected Flutter no-dirty-frames behaviour (frames scheduled only on dirty/animating frames; same pattern observed in Phase 1 sideload UAT with FpsCounterOverlay from Plan 01-05) — NOT a regression. Light-touch evidence record honouring developer's verbal verdict (no per-zoom FPS table or per-gesture tally captured for this POC walk; the 3× margin renders fine-grained capture unnecessary). Sideload bug-fix `46b8fcc fix(02-05): swallow vector_map_tiles CancellationException in test teardown` (separate bug-investigation subagent) was needed to unblock CI's iOS gate before the IPA could be built. Phase 2 CLOSES with all 12 requirement IDs (MAP × 6, LOC × 5, PERF-02) Complete. Phase 3 (Fog of War — THE HYPOTHESIS) unblocked.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-01: Wave 0 keystone scaffold landed — 12 production stubs (RevealDiscRepository, distanceMetres, SdfCache, SdfRebuildLogger, FrameDeltaProbe + FrameDeltaRollup, FogLayer, computeFogClipPath, FrameDeltaProbeOverlay, ShaderSanityScreen) returning UnimplementedError or SizedBox.shrink + 12 RED test files (1 GREEN day-1 slot-count gate, 13 RED behavioural assertions, 6 skipped pending Plan 03-05/06/07 test seams) + Phase 3 constants block (10 new constants — kPocRevealDiscRadiusMeters, kPocFrameDeltaProbeOverlayTopPx/RightPx, log rollup cadences, ring buffer cap, sanity screen synthetic radius, frame-delta probe colour-coding thresholds, fog shader asset path) + 5 l10n keys EN+FR (shaderSanityTooltip, frameDeltaProbe{Median,P95,Max}Label, shaderSanityScreenTitle) + GoRouter `/sanity` route → ShaderSanityScreen + AppBar `Icons.science` action button (visual order [science][share]) + 03-FALSIFICATION.md skeleton (Criteria A + B written; evidence + verdict empty pending Plan 03-08). MapScreenServices DTO extended with required `discRepository` + `frameDeltaProbe` fields; production /map route + every test call site updated. flutter analyze --fatal-infos lib/+test/ clean; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED — exact falsification contract Wave 0 promised. 5 deviations: 4 Rule 3 - Blocking (testWidgets `skip:` is `bool?` not `String` in flutter_test 3.41 — reasons embedded in test description; MapCamera.nonRotatedSize is `Point<double>` not `ui.Size`; dart:ui FragmentShader is a base class — fog_layer_test.dart simplified to skipped placeholder pointing at Plan 03-05 production-side test seam; poc_app_bar tooltip queries narrowed via `find.ancestor(of: byIcon(Icons.share), matching: IconButton)` so LOG-04 share-tooltip assertion still holds with the new science button), 1 Rule 1 - Bug (multi-line `// ignore:` directive on `_rebuildLogger` did not suppress `unused_field` — restructured to single-line ignore directly above the field with rationale moved into a `///` docstring). Wave 1 unblocked: Plans 03-02..03-04 each consume specific stubs and flip specific RED tests to GREEN.
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-04: FOG-08 FrameDeltaProbe full implementation landed — Stopwatch-backed monotonic clock + 240-cap FIFO ring buffer + idempotent 1-Hz Timer.periodic + broadcast StreamController<FrameDeltaRollup> + JSONL emission via Logger('infrastructure.mirk.frame_delta'). Dual-clock discipline pinned: Stopwatch.elapsedMicroseconds for ALL delta math (immune to NTP correction during 5-min walk per RESEARCH.md Pitfall 4), DateTime.now() ONLY for the epochSecond rollup tag (REQUIRED for grep-correlation with SdfRebuildLogger). Test #7 asserts epochSecond magnitude > 1.7e9 to defend the invariant — anyone 'simplifying' to a single Stopwatch-derived clock would fail on first run. @visibleForTesting debugRecordRawDelta seam keeps production methods (recordCameraSnapshot/recordFogUniformPopulation) untouched while letting tests assert ±0 µs precision. Defence-in-depth: non-monotonic snapshotMicros clamps delta at 0 (math.max), never throws — paint path bug-tolerant. JSONL line emits all 8 keys (epochSecond + sampleCount + 4 µs stats + 3 ms convenience getters at 3-decimal) for parser parity with SdfRebuildLogger. 7 RED → 7 GREEN; 1 deviation (Rule 1 - Bug: removed unnecessary dart:async import in test file, transitively re-exported via flutter_test). Wave 1 (Plans 03-02..03-04) COMPLETE; Plan 03-05 unblocked.
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-02: RevealDiscRepository (FOG-01) + distanceMetres (FOG-02) shipped — in-memory ChangeNotifier with defensive-copy snapshot via List.unmodifiable(_discs) (paint-time safe under concurrent mutation); top-level Haversine helper using kEarthRadiusMeters (single source of truth across revealed-domain code, mirrors donor reveal_disc.dart). 5 RED → GREEN flips (3 repo + 2 distanceMetres). 1 Rule 2 deviation: hoisted 180.0 inline literal into _degreesPerHalfTurn private constant for CLAUDE.md no-magic-numbers compliance. Both surfaces unblock Plan 03-05 FogLayer (snapshot iteration) and Plan 03-07 MapScreen integration (append + move-distance gate).
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-03: SdfCache hash key composes Object.hash(viewport, Object.hashAll(discHashes), discs.length); per-disc lat/lon quantised to 1e6 (~10 cm), radius to 1e3 (1 mm), tames consecutive-frame floating-point drift at the same GPS fix. SdfRebuildLogger exposes injectable rollupInterval (defaults to kPocSdfLogRollupSeconds=1s); stop() flushes pending samples synchronously to guard against losing the final rollup if MapScreen.dispose runs mid-window. Logger.root.level = Level.ALL required in test setUpAll() (mirrors Phase 1+2 pattern) — package:logging defaults to Level.WARNING, swallowing INFO rollup lines. Beyond-plan stop-flush test added (3 SdfRebuildLogger tests total) to pin the synchronous final-flush contract; rollupInterval seam dropped active-rollup test from 1100 ms to 250 ms (4x faster suite).
 
 ### Pending Todos
 
@@ -106,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T14:54:42Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-05-01T15:09:57.237Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None

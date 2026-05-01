@@ -60,9 +60,9 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Fog of War
 
-- [ ] **FOG-01**: On each GPS fix, a `RevealDisc(lat, lon, 25 m)` is added to an in-memory disc list (no database) _(Plan 03-01 Wave 0: stub landed; behaviour ships in Plan 03-02)_
-- [ ] **FOG-02**: A 256×256 R-channel midpoint-128 SDF (`ui.Image`) is built from the disc list via `RevealedSdfBuilder.buildFromDiscs`, with distance computed in **metres**, not pixels (so circles stay circular at all latitudes) _(Plan 03-01 Wave 0: distanceMetres stub landed; behaviour ships in Plan 03-02)_
-- [ ] **FOG-03**: The SDF is rebuilt when the disc list changes; the rebuild runs on the UI isolate (acceptable for `< 100` discs at `< 16 ms`); a debug log records each rebuild's duration _(Plan 03-01 Wave 0: SdfCache + SdfRebuildLogger stubs landed; behaviour ships in Plan 03-03)_
+- [x] **FOG-01**: On each GPS fix, a `RevealDisc(lat, lon, 25 m)` is added to an in-memory disc list (no database) _(Plan 03-01 Wave 0: stub landed; behaviour ships in Plan 03-02)_
+- [x] **FOG-02**: A 256×256 R-channel midpoint-128 SDF (`ui.Image`) is built from the disc list via `RevealedSdfBuilder.buildFromDiscs`, with distance computed in **metres**, not pixels (so circles stay circular at all latitudes) _(Plan 03-01 Wave 0: distanceMetres stub landed; behaviour ships in Plan 03-02)_
+- [x] **FOG-03**: The SDF is rebuilt when the disc list changes; the rebuild runs on the UI isolate (acceptable for `< 100` discs at `< 16 ms`); a debug log records each rebuild's duration _(Plan 03-01 Wave 0: SdfCache + SdfRebuildLogger stubs landed; behaviour ships in Plan 03-03)_
 - [ ] **FOG-04**: A `FogLayer` widget is registered as a `flutter_map` custom layer that paints into the same Canvas as the tile layer _(Plan 03-01 Wave 0: FogLayer stub landed; paint behaviour ships in Plan 03-05)_
 - [ ] **FOG-05**: Inside `FogLayer.paint()`, the 41 float uniforms + 1 sampler of `atmospheric_fog.frag` are populated; identity sdfRect (`0, 0, 1, 1`) is passed because the SDF and the viewport share the same coordinate space _(Plan 03-01 Wave 0: slot-count gate test pinned at 41; population behaviour ships in Plan 03-05)_
 - [ ] **FOG-06**: The clip path (world rect minus disc circles, in screen coordinates) is computed and applied via `canvas.clipPath`; the shader is then drawn via `canvas.drawRect(viewport, Paint()..shader = fogShader)` _(Plan 03-01 Wave 0: computeFogClipPath stub landed; geometry ships in Plan 03-05)_
