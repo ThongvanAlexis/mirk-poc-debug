@@ -73,7 +73,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-04-PLAN.md — FOG-08: FrameDeltaProbe (Stopwatch monotonic, broadcast Stream<FrameDeltaRollup>, JSONL log)
   - [x] 03-05-PLAN.md — FOG-04..07: FogLayer + computeFogClipPath + KEYSTONE single-MapCamera-snapshot test
   - [x] 03-06-PLAN.md — FrameDeltaProbeOverlay (live HUD) + ShaderSanityScreen (pre-walk gate at /sanity)
-  - [ ] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
+  - [x] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
   - [ ] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict (PERF-03/04/05)
 
 ### Phase 4: Wisp Particles

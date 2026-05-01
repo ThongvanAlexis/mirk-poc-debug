@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-05-01T15:30:48.083Z"
-last_activity: "2026-05-01 — Plan 03-05 complete (FogLayer + computeFogClipPath + FogShaderRenderer interface + production _FragmentShaderFogRenderer impl + RecordingFogShaderRenderer test seam landed; FOG-04 + FOG-07 KEYSTONE + 3 FOG-06 clip-path tests all GREEN; Phase 3 RED count = 0; 4 deviations — 2 Rule 3 - Blocking for flutter_map 7.0.2 + dart:ui base FragmentShader, 2 Rule 1 - Bug for find.descendant + dart format; full suite 123 GREEN / 2 SKIPPED / 0 RED; Wave 2 COMPLETE alongside parallel sibling 03-06; Plan 03-07 unblocked)"
+stopped_at: Completed 03-07-PLAN.md
+last_updated: "2026-05-01T17:07:52.237Z"
+last_activity: "2026-05-01 — Plan 03-07 complete (MapScreen Phase 2 placeholder rewritten as Phase 2+3 production assembly: every GPS fix appends a 25 m RevealDisc with hand-rolled `rvd_<us>_<u32>_<counter>` ID; FogLayer mounts as a child of FlutterMap between VectorTileLayer and the blue-dot CircleLayer; FrameDeltaProbeOverlay sits at top:104 right:8; FrameDeltaProbe + SdfCache + SdfRebuildLogger lifecycles owned by initState/dispose; async shader load gates FogLayer mount with graceful no-fog fallback. Published `fogProgramLoaderOverride` test seam on MapScreenServices DTO. 3 deviations; full suite 126 GREEN / 0 SKIPPED / 0 RED)"
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 21
-  completed_plans: 19
-  percent: 90
+  completed_plans: 20
+  percent: 95
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 2 COMPLETE)
-Plan: 5 of 8 in Phase 3 — **COMPLETE** (FogLayer + computeFogClipPath + FogShaderRenderer interface — FOG-04..07 keystone + FOG-08 wire); Plan 06 also COMPLETE (sibling parallel)
-Status: Phase 3 Wave 1 (Plans 03-02..03-04) ALL COMPLETE. Wave 2 (Plans 03-05 FogLayer + 03-06 overlay/sanity) ALL COMPLETE. Plan 03-07 (MapScreen integration — wires FogLayer into MapScreen body Stack between tile layer and blue-dot CircleLayer; GPS-fix → RevealDiscRepository.append → SDF cache miss → repaint) unblocked. Plan 03-08 (sideload UAT walk per CONTEXT.md falsification criteria A + B) unblocked once 03-07 lands.
-Last activity: 2026-05-01 — Plan 03-05 complete (FogLayer + computeFogClipPath + FogShaderRenderer interface + production _FragmentShaderFogRenderer impl + RecordingFogShaderRenderer test seam landed; FOG-04 + FOG-07 KEYSTONE + 3 FOG-06 clip-path tests all GREEN; Phase 3 RED count = 0; 4 deviations; full suite 123 GREEN / 2 SKIPPED / 0 RED)
+Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 4 — production assembly COMPLETE)
+Plan: 7 of 8 in Phase 3 — **COMPLETE** (MapScreen × Phase 3 integration — FOG-01 disc-append-per-fix + FOG-04 same-Canvas FogLayer mount + FOG-08 probe overlay all wired into the production /map screen)
+Status: Phase 3 Waves 1+2+3 ALL COMPLETE. Wave 4 (Plan 03-07 MapScreen integration) COMPLETE. Plan 03-08 (sideload UAT walk per CONTEXT.md falsification criteria A + B) unblocked. The IPA built from `main` after 03-07 metadata commit IS the artefact the developer sideloads on iPhone 17 Pro.
+Last activity: 2026-05-01 — Plan 03-07 complete (MapScreen Phase 2 placeholder rewritten as Phase 2+3 production assembly: every GPS fix appends a 25 m RevealDisc with hand-rolled `rvd_<us>_<u32>_<counter>` ID; FogLayer mounts as a child of FlutterMap between VectorTileLayer and the blue-dot CircleLayer; FrameDeltaProbeOverlay sits at top:104 right:8; FrameDeltaProbe + SdfCache + SdfRebuildLogger lifecycles owned by initState/dispose; async shader load gates FogLayer mount with graceful no-fog fallback. Published `fogProgramLoaderOverride` test seam on MapScreenServices DTO. 3 deviations; full suite 126 GREEN / 0 SKIPPED / 0 RED)
 
-Progress: [█████████░] 90% (19 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..06 complete, Plans 03-07 + 03-08 + Phases 4–5 remaining)
+Progress: [█████████░] 95% (20 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..07 complete, Plan 03-08 + Phases 4–5 remaining)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [█████████░] 90% (19 of 21 plans complete: Phase 1
 | Phase 03-fog-of-war-the-hypothesis P03 | 5 min | 2 tasks | 3 files |
 | Phase 03-fog-of-war-the-hypothesis P06 | 7 min | 2 (TDD: 4 commits) tasks | 4 files (2 production + 2 test) files |
 | Phase 03-fog-of-war-the-hypothesis P05 | 14 min | 2 tasks | 6 files |
+| Phase 03-fog-of-war-the-hypothesis P07 | 90 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,7 @@ Recent decisions affecting current work:
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-03: SdfCache hash key composes Object.hash(viewport, Object.hashAll(discHashes), discs.length); per-disc lat/lon quantised to 1e6 (~10 cm), radius to 1e3 (1 mm), tames consecutive-frame floating-point drift at the same GPS fix. SdfRebuildLogger exposes injectable rollupInterval (defaults to kPocSdfLogRollupSeconds=1s); stop() flushes pending samples synchronously to guard against losing the final rollup if MapScreen.dispose runs mid-window. Logger.root.level = Level.ALL required in test setUpAll() (mirrors Phase 1+2 pattern) — package:logging defaults to Level.WARNING, swallowing INFO rollup lines. Beyond-plan stop-flush test added (3 SdfRebuildLogger tests total) to pin the synchronous final-flush contract; rollupInterval seam dropped active-rollup test from 1100 ms to 250 ms (4x faster suite).
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-06: FrameDeltaProbeOverlay (FOG-08 user-facing) + ShaderSanityScreen pre-walk gate landed. Overlay subscribes to probe.rollups and renders 3 colour-coded lines (med/p95/max) at 1 Hz cadence — no internal Timer; cadence inherited from probe rollup emission. Pre-rollup placeholder uses dash so 'no samples yet' differs from 'samples = 0'. ShaderSanityScreen loads atmospheric_fog.frag + builds synthetic 80 m disc SDF + paints fog through FogShaderUniforms.setAll (same call shape as FogLayer). programLoaderOverride constructor seam isolates FragmentProgram.fromAsset from headless test runners. 5 RED → 5 GREEN: 2 overlay (placeholder + colour bands) + 3 sanity (loading spinner + error state + FR title). 3 deviations: Rule 1 test data fix (10→20 samples so floor(22*0.95)=20 places p95 in yellow, not collapsing onto max), Rule 3 fake_async pending-Timer fix (explicit probe.stop() inline), Rule 1 unused dart:ui import. Plan 03-07 (MapScreen Stack composition) and Plan 03-08 (sideload UAT walk) unblocked.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-05: FogLayer + computeFogClipPath + FogShaderRenderer interface landed (FOG-04..07 keystone + FOG-08 wire). FOG-07 KEYSTONE test GREEN — readCount==1 initial, +1 per forced rebuild over 3 rebuilds, mechanically defends against BUG-014 white-ellipse symptom. Painter holds LIVE Stopwatch BY REFERENCE; paint() reads elapsedMicroseconds fresh per call (anti-frozen-uTime, PERF-03 prerequisite). 4 deviations: 2 Rule 3 - Blocking (flutter_map 7.0.2 actual API differs from plan — size:Point<double> + latLngToScreenPoint not size:Size + latLngToScreenOffset; dart:ui 3.41 FragmentShader is base — made FogLayer.shader nullable, tests pass null), 1 Rule 1 - Bug (FOG-04 test direction — find.descendant not find.ancestor; FlutterMap does NOT auto-wrap children in MobileLayerTransformer per flutter_map widget.dart lines 97-108), 1 Rule 1 - Bug (dart format reflowed lines + auto-fixed prefer_const_constructors). Phase 3 RED count: 0 (was 2 fog_clip_path tests; both flipped GREEN + 1 added). Plan 03-07 unblocked.
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-07: MapScreen × Phase 3 production assembly. Hand-rolled disc ID rvd_<microsSinceEpoch>_<randomU32>_<counter> per RESEARCH §Open Question 4 (no ulid dep). fogProgramLoaderOverride field added to MapScreenServices DTO — same constructor-injection seam as Plan 03-06 ShaderSanityScreen.programLoaderOverride; production wiring leaves null. Graceful no-fog fallback on shader load failure (catch + log severe + leave _fogShader null + FogLayer never mounts) — pre-walk /sanity gate prevents shipping broken IPA. In-body teardown for fog tests touching FrameDeltaProbe broadcast StreamController (addTearDown + cancel-in-flight overlay subscription = 10-min hang under flutter_test 3.41). 3 deviations — 2 Rule 3 - Blocking [program loader hang, addTearDown hang], 1 Rule 1 - Bug [dart format reflow]; full suite 126 GREEN / 0 SKIPPED / 0 RED.
 
 ### Pending Todos
 
@@ -116,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T15:30:33.139Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-05-01T17:07:41.272Z
+Stopped at: Completed 03-07-PLAN.md
 Resume file: None
