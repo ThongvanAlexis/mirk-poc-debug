@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 2 closed; PERF-02 PASS with 3× headroom over the ≥ 40 fps gate; Phase 3 fog hypothesis unblocked
-stopped_at: Phase 3 context gathered
-last_updated: "2026-05-01T13:20:06.316Z"
-last_activity: 2026-05-01 — Plan 02-06 complete (PERF-02 PASS verbal approved on iPhone 17 Pro; sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15; Phase 2 closes with all 12 requirement IDs Complete)
+status: Phase 3 Plan 01 complete — Wave 0 scaffold landed (12 production stubs + 12 RED test files + constants/l10n/router/AppBar wiring + falsification skeleton); Wave 1 unblocked
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-05-01T14:54:42Z"
+last_activity: 2026-05-01 — Plan 03-01 complete (Wave 0 keystone — 12 production stubs returning UnimplementedError/SizedBox.shrink + 12 RED test files + Phase 3 constants block + 5 l10n keys + /sanity route + AppBar Icons.science action + 03-FALSIFICATION.md skeleton; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 21
+  completed_plans: 14
+  percent: 67
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 2 of 5 (Map, no fog) — **CLOSED**; next is Phase 3 (Fog of War — THE HYPOTHESIS)
-Plan: 6 of 6 in Phase 2 — **COMPLETE** (PERF-02 sideload UAT verbal `approved`)
-Status: Phase 2 closed; PERF-02 PASS with 3× headroom over the ≥ 40 fps gate; Phase 3 fog hypothesis unblocked
-Last activity: 2026-05-01 — Plan 02-06 complete (PERF-02 PASS verbal approved on iPhone 17 Pro; sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15; Phase 2 closes with all 12 requirement IDs Complete)
+Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 0 scaffold complete)
+Plan: 1 of 8 in Phase 3 — **COMPLETE** (Wave 0 keystone)
+Status: Phase 3 Plan 01 complete — 12 production stubs + 12 RED test files + constants/l10n/router/AppBar wiring + falsification skeleton landed; Wave 1 (Plans 03-02..03-04) unblocked
+Last activity: 2026-05-01 — Plan 03-01 complete (Wave 0 keystone — 12 production stubs returning UnimplementedError/SizedBox.shrink + 12 RED test files + Phase 3 constants block + 5 l10n keys + /sanity route + AppBar Icons.science action + 03-FALSIFICATION.md skeleton; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED)
 
-Progress: [██████████] 100% (13 of 13 plans complete across closed phases; Phase 1 + Phase 2 closed, Phases 3–5 to be planned)
+Progress: [██████▋   ] 67% (14 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plan 01 complete, Phases 3–5 remaining plans pending)
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100% (13 of 13 plans complete across 
 | Phase 02-map-no-fog P04 | 8 min | 2 tasks | 4 files |
 | Phase 02-map-no-fog P05 | 21 min | 1 tasks | 5 files |
 | Phase 02-map-no-fog P06 | ~50 min (planning + UAT walk + closure docs) | 3 tasks (1 auto + 1 checkpoint:human-verify + 1 auto) | 5 files (1 created + 4 modified) |
+| Phase 03-fog-of-war-the-hypothesis P01 | 16 min | 3 tasks (3 auto, 0 checkpoints) | 28 files (16 created + 5 production-file edits + 3 test-file edits + 4 generated/gitignored l10n synth) |
 
 ## Accumulated Context
 
@@ -88,6 +89,7 @@ Recent decisions affecting current work:
 - [Phase 02-map-no-fog]: Plan 02-04: RecenterFab (LOC-04 + LOC-05) + MapCompass landed. Hand-rolled AnimationController + CurvedAnimation listener pattern for both widgets — no flutter_map_animations dependency added. Top-level mapCompassShortestPathToNorth(double) helper exposes the formula ((-current + 540) % 360) - 180 and pins RESEARCH Open Question #2 with 6 unit tests (350°→+10°, 10°→-10°, 180°→±180°, 270°→+90°, etc.). MapEventRotate plumbing: production reads event.camera.rotation (degrees), test fake constructs real MapCamera(crs: const Epsg3857(), nonRotatedSize: kImpossibleSize, rotation: degrees). 18 GREEN tests (6 RecenterFab widget + 6 MapCompass widget + 6 helper unit). 3 deviations: 1 parallel-sibling git-state recovery (Task 1 RED commit absorbed into GREEN), 2 Wave-0 RED-test bug fixes (MapEventRotate noSuchMethod fake → real constructor; cancels-on-dispose baseline capture moved post-pumpAndSettle).
 - [Phase 02-map-no-fog]: Plan 02-05: MapScreen Phase-1 placeholder rewritten as full StatefulWidget — FlutterMap + VectorTileLayer (ProtomapsThemes.lightV3, source key 'protomaps') + conditional CircleLayer/BlueDot + RecenterFab + MapCompass + FpsCounterOverlay all composed; synchronous void dispose with fire-and-forget cancel/close; production /map route via FutureBuilder around getApplicationSupportDirectory; tests use tester.runAsync for real dart:io archive open + path_provider mock for vector_map_tiles cache resolver. 2 deviations: Rule 1 — MapCompass.initState try/catches camera read so it can mount on the same frame as FlutterMap (Plan 02-04 latent bug surfaced only in screen-level composition); Rule 3 — tester.pump doesn't advance real dart:io futures, switched to tester.runAsync. — Plan 02-04's all-fakes unit tests masked the camera-read crash; pump-the-real-tree integration tests catch this class of bug. Plan-prescribed _ProductionMapScreen factory removed (plan called it awkward; router builder constructs MapScreen.fromServices directly). Theme prefix vtr.Theme via 'as vtr' import — symmetric with vector_map_tiles' own 'hide Theme' pattern. Archive-close test seam deferred (real archive opens reliably from temp file in tests; dispose-cancels-GPS-subscription test proves dispose path runs).
 - [Phase 02-map-no-fog]: Plan 02-06: PERF-02 sideload UAT walk verbal `approved` on iPhone 17 Pro against CI run 25212559648 (SHA 46b8fcc). Developer's verbatim verdict: *"everything works well, 120 fps when doing stuff, revert to 4 when not doing anything"*. Sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15 over 200 m walk through central Melun — **3× headroom over the ≥ 40 fps gate**, massive frame-budget margin for Phase 3's fog shader. Idle ~4 fps is expected Flutter no-dirty-frames behaviour (frames scheduled only on dirty/animating frames; same pattern observed in Phase 1 sideload UAT with FpsCounterOverlay from Plan 01-05) — NOT a regression. Light-touch evidence record honouring developer's verbal verdict (no per-zoom FPS table or per-gesture tally captured for this POC walk; the 3× margin renders fine-grained capture unnecessary). Sideload bug-fix `46b8fcc fix(02-05): swallow vector_map_tiles CancellationException in test teardown` (separate bug-investigation subagent) was needed to unblock CI's iOS gate before the IPA could be built. Phase 2 CLOSES with all 12 requirement IDs (MAP × 6, LOC × 5, PERF-02) Complete. Phase 3 (Fog of War — THE HYPOTHESIS) unblocked.
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-01: Wave 0 keystone scaffold landed — 12 production stubs (RevealDiscRepository, distanceMetres, SdfCache, SdfRebuildLogger, FrameDeltaProbe + FrameDeltaRollup, FogLayer, computeFogClipPath, FrameDeltaProbeOverlay, ShaderSanityScreen) returning UnimplementedError or SizedBox.shrink + 12 RED test files (1 GREEN day-1 slot-count gate, 13 RED behavioural assertions, 6 skipped pending Plan 03-05/06/07 test seams) + Phase 3 constants block (10 new constants — kPocRevealDiscRadiusMeters, kPocFrameDeltaProbeOverlayTopPx/RightPx, log rollup cadences, ring buffer cap, sanity screen synthetic radius, frame-delta probe colour-coding thresholds, fog shader asset path) + 5 l10n keys EN+FR (shaderSanityTooltip, frameDeltaProbe{Median,P95,Max}Label, shaderSanityScreenTitle) + GoRouter `/sanity` route → ShaderSanityScreen + AppBar `Icons.science` action button (visual order [science][share]) + 03-FALSIFICATION.md skeleton (Criteria A + B written; evidence + verdict empty pending Plan 03-08). MapScreenServices DTO extended with required `discRepository` + `frameDeltaProbe` fields; production /map route + every test call site updated. flutter analyze --fatal-infos lib/+test/ clean; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED — exact falsification contract Wave 0 promised. 5 deviations: 4 Rule 3 - Blocking (testWidgets `skip:` is `bool?` not `String` in flutter_test 3.41 — reasons embedded in test description; MapCamera.nonRotatedSize is `Point<double>` not `ui.Size`; dart:ui FragmentShader is a base class — fog_layer_test.dart simplified to skipped placeholder pointing at Plan 03-05 production-side test seam; poc_app_bar tooltip queries narrowed via `find.ancestor(of: byIcon(Icons.share), matching: IconButton)` so LOG-04 share-tooltip assertion still holds with the new science button), 1 Rule 1 - Bug (multi-line `// ignore:` directive on `_rebuildLogger` did not suppress `unused_field` — restructured to single-line ignore directly above the field with rationale moved into a `///` docstring). Wave 1 unblocked: Plans 03-02..03-04 each consume specific stubs and flip specific RED tests to GREEN.
 
 ### Pending Todos
 
@@ -104,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T13:20:06.313Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-fog-of-war-the-hypothesis/03-CONTEXT.md
+Last session: 2026-05-01T14:54:42Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None

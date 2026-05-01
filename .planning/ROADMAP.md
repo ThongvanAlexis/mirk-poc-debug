@@ -66,7 +66,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Frame-delta probe (FOG-08) over the same walk reports rolling median camera-to-fog-paint delta ≤ 16 ms, p95 ≤ 32 ms, max ≤ 48 ms across the ≥ 10 combined gestures (PERF-04). The probe values are visible on the on-screen overlay and persisted to the session log.
   4. Developer's subjective verdict at the end of the walk: no visible fog slide-then-snap, no white-ellipse artefact during fast pinch-zoom, no perceptible reveal-hole lag behind the blue dot, and no inversion at any zoom level (PERF-05).
   5. Falsification criteria for the hypothesis (Criterion A: frame-delta thresholds; Criterion B: subjective lock — Criterion C dropped per locked decisions) are written down in the repo before the walk and the walk evidence is appended to the same document at the end.
-**Plans**: TBD
+**Plans**: 8 plans
+  - [x] 03-01-PLAN.md — Wave 0 scaffolds: constants + l10n + production stubs + RED test files + falsification doc skeleton
+  - [ ] 03-02-PLAN.md — FOG-01 + FOG-02 defence: RevealDiscRepository + distanceMetres helper
+  - [ ] 03-03-PLAN.md — FOG-03: SdfCache (hash invalidation) + SdfRebuildLogger (1 Hz JSONL rollup)
+  - [ ] 03-04-PLAN.md — FOG-08: FrameDeltaProbe (Stopwatch monotonic, broadcast Stream<FrameDeltaRollup>, JSONL log)
+  - [ ] 03-05-PLAN.md — FOG-04..07: FogLayer + computeFogClipPath + KEYSTONE single-MapCamera-snapshot test
+  - [ ] 03-06-PLAN.md — FrameDeltaProbeOverlay (live HUD) + ShaderSanityScreen (pre-walk gate at /sanity)
+  - [ ] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
+  - [ ] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict (PERF-03/04/05)
 
 ### Phase 4: Wisp Particles
 **Goal**: Composite the wisp particle system after the fog in the same Canvas, with positions stored in `LatLng` (world space) and projected to screen via the same `MapCamera` snapshot the fog uses. Confirms that the same-Canvas discipline established in Phase 3 generalises to a second visual layer — the cross-pipeline parity check that completes the code-donor package for porting back to MirkFall.
@@ -99,7 +107,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
-| 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
+| 3. Fog of War — THE HYPOTHESIS | 1/8 | In Progress | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |
 | 5. Decision Gate | 0/TBD | Not started | - |
 

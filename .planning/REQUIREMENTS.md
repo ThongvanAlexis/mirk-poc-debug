@@ -60,14 +60,14 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Fog of War
 
-- [ ] **FOG-01**: On each GPS fix, a `RevealDisc(lat, lon, 25 m)` is added to an in-memory disc list (no database)
-- [ ] **FOG-02**: A 256×256 R-channel midpoint-128 SDF (`ui.Image`) is built from the disc list via `RevealedSdfBuilder.buildFromDiscs`, with distance computed in **metres**, not pixels (so circles stay circular at all latitudes)
-- [ ] **FOG-03**: The SDF is rebuilt when the disc list changes; the rebuild runs on the UI isolate (acceptable for `< 100` discs at `< 16 ms`); a debug log records each rebuild's duration
-- [ ] **FOG-04**: A `FogLayer` widget is registered as a `flutter_map` custom layer that paints into the same Canvas as the tile layer
-- [ ] **FOG-05**: Inside `FogLayer.paint()`, the 41 float uniforms + 1 sampler of `atmospheric_fog.frag` are populated; identity sdfRect (`0, 0, 1, 1`) is passed because the SDF and the viewport share the same coordinate space
-- [ ] **FOG-06**: The clip path (world rect minus disc circles, in screen coordinates) is computed and applied via `canvas.clipPath`; the shader is then drawn via `canvas.drawRect(viewport, Paint()..shader = fogShader)`
-- [ ] **FOG-07**: All inputs to the per-frame fog draw — SDF rect, clip path, viewport size, shader uniforms — derive from the **same `MapCamera` snapshot**, captured atomically at the start of paint (prevents BUG-014's combined-zoom-pan failure mode from re-emerging in the new pipeline)
-- [ ] **FOG-08**: A frame-delta self-debug probe records, per frame: timestamp of the latest map camera update, timestamp of the fog uniform population, the delta between them; rolling median, p95, and max are exposed via the logger and an on-screen overlay
+- [ ] **FOG-01**: On each GPS fix, a `RevealDisc(lat, lon, 25 m)` is added to an in-memory disc list (no database) _(Plan 03-01 Wave 0: stub landed; behaviour ships in Plan 03-02)_
+- [ ] **FOG-02**: A 256×256 R-channel midpoint-128 SDF (`ui.Image`) is built from the disc list via `RevealedSdfBuilder.buildFromDiscs`, with distance computed in **metres**, not pixels (so circles stay circular at all latitudes) _(Plan 03-01 Wave 0: distanceMetres stub landed; behaviour ships in Plan 03-02)_
+- [ ] **FOG-03**: The SDF is rebuilt when the disc list changes; the rebuild runs on the UI isolate (acceptable for `< 100` discs at `< 16 ms`); a debug log records each rebuild's duration _(Plan 03-01 Wave 0: SdfCache + SdfRebuildLogger stubs landed; behaviour ships in Plan 03-03)_
+- [ ] **FOG-04**: A `FogLayer` widget is registered as a `flutter_map` custom layer that paints into the same Canvas as the tile layer _(Plan 03-01 Wave 0: FogLayer stub landed; paint behaviour ships in Plan 03-05)_
+- [ ] **FOG-05**: Inside `FogLayer.paint()`, the 41 float uniforms + 1 sampler of `atmospheric_fog.frag` are populated; identity sdfRect (`0, 0, 1, 1`) is passed because the SDF and the viewport share the same coordinate space _(Plan 03-01 Wave 0: slot-count gate test pinned at 41; population behaviour ships in Plan 03-05)_
+- [ ] **FOG-06**: The clip path (world rect minus disc circles, in screen coordinates) is computed and applied via `canvas.clipPath`; the shader is then drawn via `canvas.drawRect(viewport, Paint()..shader = fogShader)` _(Plan 03-01 Wave 0: computeFogClipPath stub landed; geometry ships in Plan 03-05)_
+- [ ] **FOG-07**: All inputs to the per-frame fog draw — SDF rect, clip path, viewport size, shader uniforms — derive from the **same `MapCamera` snapshot**, captured atomically at the start of paint (prevents BUG-014's combined-zoom-pan failure mode from re-emerging in the new pipeline) _(Plan 03-01 Wave 0: keystone test skeleton landed; single-snapshot enforcement ships in Plan 03-05)_
+- [ ] **FOG-08**: A frame-delta self-debug probe records, per frame: timestamp of the latest map camera update, timestamp of the fog uniform population, the delta between them; rolling median, p95, and max are exposed via the logger and an on-screen overlay _(Plan 03-01 Wave 0: FrameDeltaProbe + FrameDeltaProbeOverlay stubs landed; ring buffer + rollup timer ship in Plan 03-04, overlay rendering ships in Plan 03-06)_
 
 ### Wisp Particles
 
@@ -172,14 +172,14 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | LOC-03 | Phase 2 | Complete |
 | LOC-04 | Phase 2 | Complete |
 | LOC-05 | Phase 2 | Complete |
-| FOG-01 | Phase 3 | Pending |
-| FOG-02 | Phase 3 | Pending |
-| FOG-03 | Phase 3 | Pending |
-| FOG-04 | Phase 3 | Pending |
-| FOG-05 | Phase 3 | Pending |
-| FOG-06 | Phase 3 | Pending |
-| FOG-07 | Phase 3 | Pending |
-| FOG-08 | Phase 3 | Pending |
+| FOG-01 | Phase 3 | Pending (P03-01 stub; P03-02 behaviour) |
+| FOG-02 | Phase 3 | Pending (P03-01 stub; P03-02 behaviour) |
+| FOG-03 | Phase 3 | Pending (P03-01 stub; P03-03 behaviour) |
+| FOG-04 | Phase 3 | Pending (P03-01 stub; P03-05 paint) |
+| FOG-05 | Phase 3 | Pending (P03-01 slot-gate test; P03-05 paint) |
+| FOG-06 | Phase 3 | Pending (P03-01 stub; P03-05 geometry) |
+| FOG-07 | Phase 3 | Pending (P03-01 keystone test skeleton; P03-05 enforcement) |
+| FOG-08 | Phase 3 | Pending (P03-01 stub; P03-04 ring buffer; P03-06 overlay) |
 | WISP-01 | Phase 4 | Pending |
 | WISP-02 | Phase 4 | Pending |
 | WISP-03 | Phase 4 | Pending |
