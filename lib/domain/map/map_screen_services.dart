@@ -2,6 +2,8 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:logging/logging.dart';
@@ -14,15 +16,16 @@ import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 /// Production wiring: built once in the router / `app.dart` after the PMTiles
 /// copy completes (Plan 02-02). Test wiring: each widget test constructs fakes
 /// (fake stream factory, on-disk synthetic file, captured logger, in-memory
-/// disc repository, no-op probe).
+/// disc repository, no-op probe, Completer-backed program loader).
 ///
-/// DTO justification: this is a true value object — five fields with distinct
+/// DTO justification: this is a true value object — six fields with distinct
 /// origins (filesystem path produced by the copier, factory closure produced
 /// by the geolocator service, optional logger override produced by tests,
 /// reveal-disc repository owned by the screen lifetime, frame-delta probe
-/// owned by the screen lifetime). Lets `MapScreen` accept ONE positional
-/// `services` arg instead of five, and lets tests pump
-/// `MapScreen.fromServices(fakeServices)` cleanly without hidden globals.
+/// owned by the screen lifetime, optional fog-program loader override for
+/// tests). Lets `MapScreen` accept ONE positional `services` arg instead of
+/// six, and lets tests pump `MapScreen.fromServices(fakeServices)` cleanly
+/// without hidden globals.
 @immutable
 class MapScreenServices {
   const MapScreenServices({
@@ -31,6 +34,7 @@ class MapScreenServices {
     required this.discRepository,
     required this.frameDeltaProbe,
     this.logger,
+    this.fogProgramLoaderOverride,
   });
 
   /// Absolute filesystem path to the PMTiles archive — guaranteed to exist by
@@ -61,4 +65,19 @@ class MapScreenServices {
   /// custom logger (e.g. for asserting that the GPS lifecycle logs at the
   /// expected verbosity).
   final Logger? logger;
+
+  /// Optional fog `FragmentProgram` loader override (FOG-04 test seam).
+  ///
+  /// Production wiring leaves this null and `MapScreen` falls back to
+  /// `ui.FragmentProgram.fromAsset(kPocFogShaderAssetPath)`. Widget tests
+  /// inject a `Completer<ui.FragmentProgram>().future` so the load future
+  /// stays pending under test control (the real platform loader hangs
+  /// indefinitely in headless `flutter test` — same constraint pinned by
+  /// `ShaderSanityScreen.programLoaderOverride` in Plan 03-06).
+  ///
+  /// The widget tests' Completer is left unresolved on purpose: the
+  /// production path tests assert the `_fogShader == null` state (FogLayer
+  /// does not mount). Resolving the Completer would require a real
+  /// `ui.FragmentProgram`, which `dart:ui 3.41` does not let us subclass.
+  final Future<ui.FragmentProgram> Function()? fogProgramLoaderOverride;
 }

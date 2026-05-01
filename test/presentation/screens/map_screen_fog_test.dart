@@ -3,6 +3,7 @@
 // See LICENSE file for details
 
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,14 @@ import '../../_helpers/swallow_vector_map_tiles_cancellation.dart';
 ///     `test/presentation/screens/shader_sanity_screen_test.dart` (Plan 03-06).
 ///   * Verified end-to-end via the pre-walk `/sanity` smoke screen + the
 ///     sideload UAT walk in Plan 03-08.
+///
+/// Teardown discipline pinned by Plan 03-07 deviation note: probe.dispose()
+/// + emitter.close() are awaited IN BODY (after the screen unmounts) rather
+/// than through `addTearDown`. The StreamController.close() future appears
+/// to occasionally not resolve under flutter_test's tearDown scheduler when
+/// the probe's broadcast controller has had a now-cancelled overlay
+/// listener — awaiting close() inside the body is deterministic and avoids
+/// the 10-min timeout we hit in CI.
 
 /// Builds a Position with fixed values — only lat/lon vary in these tests.
 Position _position({required double lat, required double lon}) => Position(
@@ -58,6 +67,11 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 /// temp directory open across test bodies (Windows file-lock teardown error).
 const String _nonExistentPmtilesPath = '/non/existent/test.pmtile';
 
+/// Builds a never-completing fog-program loader. The real
+/// `ui.FragmentProgram.fromAsset` hangs in headless `flutter test` (no
+/// shader compiler) — same constraint pinned by `ShaderSanityScreen.programLoaderOverride`.
+Future<ui.FragmentProgram> _pendingFogProgram() => Completer<ui.FragmentProgram>().future;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -66,15 +80,14 @@ void main() {
       installVectorMapTilesCancellationFilterForBody();
       final repo = RevealDiscRepository();
       final probe = FrameDeltaProbe();
-      addTearDown(() async => probe.dispose());
       final emitter = StreamController<Position>.broadcast();
-      addTearDown(emitter.close);
 
       final services = MapScreenServices(
         pmtilesPath: _nonExistentPmtilesPath,
         positionStreamFactory: () => emitter.stream,
         discRepository: repo,
         frameDeltaProbe: probe,
+        fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
       // No need to wait for the FlutterMap — the GPS subscribe path is set up
@@ -96,20 +109,25 @@ void main() {
       await tester.pump();
       expect(repo.snapshot(), hasLength(2), reason: 'second fix → second disc appended');
       expect(repo.snapshot().last.id, isNot(repo.snapshot().first.id), reason: 'each disc has a unique ID');
+
+      // In-body teardown — see top-of-file deviation note for rationale.
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pump();
+      await emitter.close();
+      await probe.dispose();
     });
 
     testWidgets('FOG-08: FrameDeltaProbeOverlay mounted at top:kPocFrameDeltaProbeOverlayTopPx right:kPocFrameDeltaProbeOverlayRightPx', (tester) async {
       installVectorMapTilesCancellationFilterForBody();
       final probe = FrameDeltaProbe();
-      addTearDown(() async => probe.dispose());
       final emitter = StreamController<Position>.broadcast();
-      addTearDown(emitter.close);
 
       final services = MapScreenServices(
         pmtilesPath: _nonExistentPmtilesPath,
         positionStreamFactory: () => emitter.stream,
         discRepository: RevealDiscRepository(),
         frameDeltaProbe: probe,
+        fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
       await tester.pump();
@@ -119,31 +137,34 @@ void main() {
 
       final positioned = find.ancestor(
         of: overlay,
-        matching: find.byWidgetPredicate(
-          (w) => w is Positioned && w.top == kPocFrameDeltaProbeOverlayTopPx && w.right == kPocFrameDeltaProbeOverlayRightPx,
-        ),
+        matching: find.byWidgetPredicate((w) => w is Positioned && w.top == kPocFrameDeltaProbeOverlayTopPx && w.right == kPocFrameDeltaProbeOverlayRightPx),
       );
       expect(
         positioned,
         findsOneWidget,
-        reason: 'overlay MUST sit at top:$kPocFrameDeltaProbeOverlayTopPx right:$kPocFrameDeltaProbeOverlayRightPx '
+        reason:
+            'overlay MUST sit at top:$kPocFrameDeltaProbeOverlayTopPx right:$kPocFrameDeltaProbeOverlayRightPx '
             '(directly below the FpsCounterOverlay+MapCompass cluster)',
       );
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pump();
+      await emitter.close();
+      await probe.dispose();
     });
 
     testWidgets('FOG-01: a fix arriving AFTER dispose does NOT throw and does NOT append', (tester) async {
       installVectorMapTilesCancellationFilterForBody();
       final repo = RevealDiscRepository();
       final probe = FrameDeltaProbe();
-      addTearDown(() async => probe.dispose());
       final emitter = StreamController<Position>.broadcast();
-      addTearDown(emitter.close);
 
       final services = MapScreenServices(
         pmtilesPath: _nonExistentPmtilesPath,
         positionStreamFactory: () => emitter.stream,
         discRepository: repo,
         frameDeltaProbe: probe,
+        fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
       await tester.pump();
@@ -156,6 +177,9 @@ void main() {
       emitter.add(_position(lat: 48.5500, lon: 2.6700));
       await tester.pump();
       expect(repo.snapshot(), isEmpty, reason: 'fix-after-dispose MUST be a no-op (subscription cancelled)');
+
+      await emitter.close();
+      await probe.dispose();
     });
   });
 }

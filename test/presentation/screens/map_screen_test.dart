@@ -9,6 +9,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -30,6 +31,12 @@ import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 import 'package:mirk_poc_debug/presentation/widgets/map_compass.dart';
 
 import '../../_helpers/swallow_vector_map_tiles_cancellation.dart';
+
+/// Pending fog-program loader — keeps `MapScreen._loadFogShader` parked on a
+/// Completer so the headless test runner never hits the real
+/// `ui.FragmentProgram.fromAsset` (which hangs without a shader compiler).
+/// Same constraint as `ShaderSanityScreen.programLoaderOverride`.
+Future<ui.FragmentProgram> _pendingFogProgram() => Completer<ui.FragmentProgram>().future;
 
 /// In-test [PathProviderPlatform] override pointing every directory accessor
 /// at a single throwaway temp directory. vector_map_tiles' `cacheStorageResolver`
@@ -67,13 +74,16 @@ Widget _wrap(MapScreenServices services) => MaterialApp(
 /// test optionally inject a position-stream factory (defaults to an empty
 /// stream so no fix arrives — exercises the LOC-05 disabled-FAB path). The
 /// reveal-disc repository + frame-delta probe are constructed fresh per
-/// call (Phase 3 stubs — Plan 03-01 keystone).
+/// call (Phase 3 stubs — Plan 03-01 keystone). The fog-program loader is
+/// always pending so MapScreen never hits the real
+/// `ui.FragmentProgram.fromAsset` (headless tests have no shader compiler).
 MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? streamFactory}) {
   return MapScreenServices(
     pmtilesPath: pmtilesPath,
     positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
     discRepository: RevealDiscRepository(),
     frameDeltaProbe: FrameDeltaProbe(),
+    fogProgramLoaderOverride: _pendingFogProgram,
   );
 }
 

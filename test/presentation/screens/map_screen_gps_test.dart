@@ -7,6 +7,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -25,6 +26,9 @@ import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 
 import '../../_helpers/swallow_vector_map_tiles_cancellation.dart';
+
+/// Pending fog-program loader — see comment in `map_screen_test.dart`.
+Future<ui.FragmentProgram> _pendingFogProgram() => Completer<ui.FragmentProgram>().future;
 
 /// Mirrors the path-provider mock from `map_screen_test.dart` — vector_map_tiles
 /// calls `getTemporaryDirectory()` lazily for its tile cache; the mock points
@@ -73,6 +77,7 @@ MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? st
     positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
     discRepository: RevealDiscRepository(),
     frameDeltaProbe: FrameDeltaProbe(),
+    fogProgramLoaderOverride: _pendingFogProgram,
   );
 }
 

@@ -3,6 +3,8 @@
 // See LICENSE file for details
 
 import 'dart:async';
+import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -19,43 +21,71 @@ import 'package:vector_tile_renderer/vector_tile_renderer.dart' as vtr;
 
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
 import 'package:mirk_poc_debug/presentation/widgets/blue_dot_marker.dart';
+import 'package:mirk_poc_debug/presentation/widgets/fog_layer.dart';
 import 'package:mirk_poc_debug/presentation/widgets/fps_counter_overlay.dart';
+import 'package:mirk_poc_debug/presentation/widgets/frame_delta_probe_overlay.dart';
 import 'package:mirk_poc_debug/presentation/widgets/map_compass.dart';
 import 'package:mirk_poc_debug/presentation/widgets/poc_app_bar.dart';
 import 'package:mirk_poc_debug/presentation/widgets/recenter_fab.dart';
 
-/// The Phase 2 walkable map screen (route `/map`).
+/// The Phase 2+3 walkable map screen (route `/map`).
 ///
 /// Renders the bundled `Fra_Melun.pmtile` archive via flutter_map +
 /// vector_map_tiles + `ProtomapsThemes.lightV3()`, with a GPS-driven blue
-/// dot, an always-visible compass (top-right, under the FPS counter), and
-/// a Material recenter FAB (bottom-right). Layout matches `02-CONTEXT.md`
-/// Decisions section.
+/// dot, an always-visible compass (top-right, under the FPS counter), the
+/// Phase 3 fog of war (FogLayer rendered as a child of the same FlutterMap —
+/// FOG-04 same-Canvas keystone), the frame-delta probe overlay (FOG-08), and
+/// a Material recenter FAB (bottom-right). Layout matches `02-CONTEXT.md` +
+/// `03-CONTEXT.md` Decisions sections.
 ///
-/// Lifecycle invariants:
-///   - PMTiles file already on disk by the time this screen mounts (the
-///     gate screen's `_ensureMapDataAndNavigate` copy hook from Plan 02-02
-///     guarantees this; Pitfall 6).
+/// ## Phase 3 wiring (Plan 03-07)
+///
+///   - **FOG-01**: every GPS fix appends a 25 m disc to
+///     `services.discRepository`. The hand-rolled disc ID is
+///     `rvd_<microsSinceEpoch>_<randomU32>_<counter>` per RESEARCH §Open
+///     Question 4 (no `ulid` dependency).
+///   - **FOG-04**: the `FogLayer` mounts inside the FlutterMap children list,
+///     between the `VectorTileLayer` and the blue-dot `CircleLayer`. The
+///     same-Canvas paint is the architectural answer to BUG-014 (parallel
+///     layers fall behind by exactly one frame).
+///   - **FOG-08**: `FrameDeltaProbeOverlay` sits at
+///     `top:kPocFrameDeltaProbeOverlayTopPx (104)`,
+///     `right:kPocFrameDeltaProbeOverlayRightPx (8)` — directly below the
+///     FpsCounterOverlay (top:8) + MapCompass (top:56) cluster.
+///
+/// ## Lifecycle invariants
+///
+///   - PMTiles file already on disk by mount time (gate-screen guarantee).
 ///   - Position stream subscribed exactly once (initState), cancelled in
 ///     dispose (Pitfall 5).
 ///   - PmTilesArchive opened in initState, closed in dispose (Pitfall 2 —
 ///     file-handle leak prevention).
-///   - `dispose()` is synchronous (Flutter contract); the `cancel()` and
-///     `close()` Futures are fire-and-forget — see [_MapScreenState.dispose]
-///     for the rationale.
+///   - `FrameDeltaProbe.start()` called in initState; `dispose()`
+///     fire-and-forget in `dispose()` (Future-returning).
+///   - `SdfCache` + `SdfRebuildLogger` constructed in initState, both
+///     released in dispose.
+///   - Fog shader loaded async via `ui.FragmentProgram.fromAsset(
+///     kPocFogShaderAssetPath)`; on failure the FogLayer simply does not
+///     mount (graceful degradation — the pre-walk `/sanity` smoke test +
+///     03-FALSIFICATION.md Plan 03-08 gate catches a broken shader before
+///     sideload).
+///   - `dispose()` is synchronous (Flutter contract); the Future-returning
+///     cancel/close calls are fire-and-forget — see [_MapScreenState.dispose]
+///     for rationale.
 ///   - Theme built ONCE via `late final` (RESEARCH §Anti-patterns — NOT
 ///     per-build).
 class MapScreen extends StatefulWidget {
   /// Test / DI constructor — accepts a [MapScreenServices] value object so
-  /// tests can pump fakes (synthetic stream, on-disk PMTiles temp file).
-  /// Production path is the same constructor: the router's `/map` builder
-  /// resolves the live PMTiles path + binds `GeolocatorService.stream` and
-  /// passes the resulting [MapScreenServices] here.
+  /// tests can pump fakes (synthetic stream, on-disk PMTiles temp file,
+  /// in-memory disc repository, no-op probe).
   const MapScreen.fromServices(this.services, {super.key});
 
   /// Constructor-injected services (PMTiles path + GPS stream factory +
-  /// optional logger override).
+  /// reveal-disc repository + frame-delta probe + optional logger override).
   final MapScreenServices services;
 
   @override
@@ -71,11 +101,25 @@ class _MapScreenState extends State<MapScreen> {
 
   static final Logger _defaultLogger = Logger('presentation.map');
 
+  /// Random source for the disc-ID `randomU32` slot. Single instance per
+  /// screen so we don't pay `Random()` initialisation per fix.
+  final Random _random = Random();
+
   final MapController _mapController = MapController();
   late final vtr.Theme _theme;
   Position? _lastFix;
   StreamSubscription<Position>? _positionSubscription;
   PmTilesVectorTileProvider? _tileProvider;
+
+  // Phase 3 state.
+  ui.FragmentShader? _fogShader;
+  SdfCache? _sdfCache;
+  SdfRebuildLogger? _sdfRebuildLogger;
+
+  /// Per-screen-lifetime monotonically incrementing counter folded into the
+  /// disc ID so two fixes within the same microsecond still produce distinct
+  /// IDs (defence-in-depth — the ulid replacement contract).
+  int _discCounter = 0;
 
   Logger get _log => widget.services.logger ?? _defaultLogger;
 
@@ -85,8 +129,12 @@ class _MapScreenState extends State<MapScreen> {
     // Built ONCE; per-build allocation is a documented anti-pattern in
     // RESEARCH §Anti-patterns (rebuild churn dominates frame budget at z15).
     _theme = ProtomapsThemes.lightV3();
+    _sdfRebuildLogger = SdfRebuildLogger()..start();
+    _sdfCache = SdfCache(rebuildLogger: _sdfRebuildLogger!);
+    widget.services.frameDeltaProbe.start();
     _subscribeToPositions();
     unawaited(_loadTileProvider());
+    unawaited(_loadFogShader());
   }
 
   void _subscribeToPositions() {
@@ -94,7 +142,56 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       setState(() => _lastFix = fix);
       _log.info('Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m');
+      // FOG-01: every fix → 25 m disc appended to the in-memory repository.
+      // FogLayer (via discRepository.addListener) picks up the change on its
+      // next build, the SDF cache busts on the new hash, the new disc joins
+      // the analytic SDF, and the next paint reveals the new spot.
+      _discCounter++;
+      widget.services.discRepository.append(
+        RevealDisc(
+          id: _handRolledDiscId(),
+          sessionId: kPocPlaceholderSessionId,
+          lat: fix.latitude,
+          lon: fix.longitude,
+          radiusMeters: kPocRevealDiscRadiusMeters,
+          fixedAtUtc: DateTime.now().toUtc(),
+        ),
+      );
     }, onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st));
+  }
+
+  /// Hand-rolled disc ID per RESEARCH §Open Question 4 — no `ulid` dep.
+  ///
+  /// Format: `rvd_<microsSinceEpoch>_<randomU32>_<counter>`. The triple
+  /// (timestamp, random u32, monotonic counter) makes a within-process
+  /// collision impossible during a 5-minute walk (~50 fixes); the prefix
+  /// matches the parent project's `RevealDisc.id` convention.
+  String _handRolledDiscId() {
+    final r = _random.nextInt(_discIdRandomU32Modulus);
+    final us = DateTime.now().microsecondsSinceEpoch;
+    return 'rvd_${us}_${r}_$_discCounter';
+  }
+
+  /// Loads the Phase 3 fog fragment program from the asset bundle. On any
+  /// failure (asset missing, malformed bytecode), logs `severe` and leaves
+  /// `_fogShader` null — the FogLayer simply does not mount, the user sees
+  /// a no-fog map, and the pre-walk `/sanity` smoke test (Plan 03-06) +
+  /// the falsification gate (Plan 03-08) prevent shipping a broken IPA.
+  ///
+  /// Test seam: when `services.fogProgramLoaderOverride` is non-null, the
+  /// override drives the load instead of `ui.FragmentProgram.fromAsset`.
+  /// Widget tests use a `Completer<ui.FragmentProgram>().future` to keep
+  /// the load pending — the real platform loader hangs indefinitely in
+  /// headless `flutter test` (same constraint as `ShaderSanityScreen`).
+  Future<void> _loadFogShader() async {
+    try {
+      final loader = widget.services.fogProgramLoaderOverride ?? () => ui.FragmentProgram.fromAsset(kPocFogShaderAssetPath);
+      final program = await loader();
+      if (!mounted) return;
+      setState(() => _fogShader = program.fragmentShader());
+    } on Object catch (e, st) {
+      _log.severe('Failed to load fog shader (Pitfall 3 — pre-walk /sanity should have caught this)', e, st);
+    }
   }
 
   Future<void> _loadTileProvider() async {
@@ -119,16 +216,21 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     // Synchronous void dispose (Flutter contract: framework never awaits).
-    // The Future-returning cancel/close calls are fire-and-forget — they
-    // release their underlying resources as soon as the call lands; the
-    // returned Future merely signals completion of any final cleanup,
-    // which we don't gate on. Awaiting here would NOT make this safer
-    // (the framework still wouldn't wait), it would only make a future
-    // regression to async dispose less visible.
+    // The Future-returning cancel/close/dispose calls are fire-and-forget —
+    // they release their underlying resources as soon as the call lands; the
+    // returned Future merely signals completion of any final cleanup, which
+    // we don't gate on. Awaiting here would NOT make this safer (the
+    // framework still wouldn't wait), it would only make a future regression
+    // to async dispose less visible.
     unawaited(_positionSubscription?.cancel() ?? Future<void>.value());
     _positionSubscription = null;
     unawaited(_tileProvider?.archive.close() ?? Future<void>.value());
     _tileProvider = null;
+    _sdfCache?.dispose();
+    _sdfCache = null;
+    _sdfRebuildLogger?.stop();
+    _sdfRebuildLogger = null;
+    unawaited(widget.services.frameDeltaProbe.dispose());
     _mapController.dispose();
     super.dispose();
   }
@@ -170,6 +272,20 @@ class _MapScreenState extends State<MapScreen> {
                   // layerMode left at default VectorTileLayerMode.raster —
                   // best frame rate per RESEARCH §Pitfall 1.
                 ),
+                // FOG-04 same-Canvas keystone — FogLayer is a CHILD of the
+                // SAME FlutterMap as the tile layer, never a sibling. Mounts
+                // only once both _fogShader and _sdfCache are non-null
+                // (sdfCache is non-null from initState; the fog shader load
+                // is async — first frames before resolution show a no-fog
+                // map). Order in the children list = z-order: tiles → fog →
+                // blue dot.
+                if (_fogShader != null && _sdfCache != null)
+                  FogLayer(
+                    discRepository: widget.services.discRepository,
+                    shader: _fogShader,
+                    sdfCache: _sdfCache!,
+                    frameDeltaProbe: widget.services.frameDeltaProbe,
+                  ),
                 if (_lastFix != null)
                   CircleLayer<Object>(circles: <CircleMarker<Object>>[BlueDotMarker.build(LatLng(_lastFix!.latitude, _lastFix!.longitude))]),
               ],
@@ -187,8 +303,28 @@ class _MapScreenState extends State<MapScreen> {
               right: _overlayRightPx,
               child: MapCompass(mapController: _mapController),
             ),
+          // FOG-08 user-facing — sits BELOW FpsCounterOverlay (top:8) and
+          // MapCompass (top:56). Mounts unconditionally so the walker sees
+          // "no samples yet" placeholder before the first probe rollup,
+          // rather than wondering whether the overlay is wired at all.
+          Positioned(
+            top: kPocFrameDeltaProbeOverlayTopPx,
+            right: kPocFrameDeltaProbeOverlayRightPx,
+            child: FrameDeltaProbeOverlay(probe: widget.services.frameDeltaProbe),
+          ),
         ],
       ),
     );
   }
 }
+
+/// Modulus for the `randomU32` slot of the hand-rolled disc ID. `Random.nextInt`
+/// is exclusive on the bound; `1 << 32 == 4_294_967_296` gives the full u32
+/// range `[0, 2^32)`.
+const int _discIdRandomU32Modulus = 1 << 32;
+
+/// Placeholder session ID for the POC. Phase 3 ships in-memory only with no
+/// session lifecycle — every disc carries this literal so [RevealDisc.mergeWith]
+/// asserts cleanly during any future compaction work, and so post-walk
+/// debugging can grep the JSONL log for the POC tag.
+const String kPocPlaceholderSessionId = 'poc';
