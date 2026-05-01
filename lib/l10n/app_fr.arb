@@ -31,5 +31,20 @@
   "@errorScreenBody": { "description": "Body paragraph on the /error screen explaining the non-recoverable failure" },
 
   "errorScreenDetailLabel": "Détails :",
-  "@errorScreenDetailLabel": { "description": "Label preceding the underlying error message on the /error screen" }
+  "@errorScreenDetailLabel": { "description": "Label preceding the underlying error message on the /error screen" },
+
+  "shaderSanityTooltip": "Ouvrir l'écran de vérification du shader",
+  "@shaderSanityTooltip": { "description": "Tooltip on the AppBar Icons.science action button — entry point to the /sanity pre-walk gate" },
+
+  "frameDeltaProbeMedianLabel": "méd",
+  "@frameDeltaProbeMedianLabel": { "description": "Median label on the FrameDeltaProbe overlay (top-right HUD)" },
+
+  "frameDeltaProbeP95Label": "p95",
+  "@frameDeltaProbeP95Label": { "description": "p95 label on the FrameDeltaProbe overlay" },
+
+  "frameDeltaProbeMaxLabel": "max",
+  "@frameDeltaProbeMaxLabel": { "description": "max label on the FrameDeltaProbe overlay" },
+
+  "shaderSanityScreenTitle": "Vérification du shader",
+  "@shaderSanityScreenTitle": { "description": "AppBar title on the /sanity pre-walk gate screen" }
 }

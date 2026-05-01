@@ -10,5 +10,10 @@
   "compassTooltip": "Reset bearing to north",
   "errorScreenTitle": "Map setup failed",
   "errorScreenBody": "The map data could not be prepared on this device.",
-  "errorScreenDetailLabel": "Details:"
+  "errorScreenDetailLabel": "Details:",
+  "shaderSanityTooltip": "Open shader sanity screen",
+  "frameDeltaProbeMedianLabel": "med",
+  "frameDeltaProbeP95Label": "p95",
+  "frameDeltaProbeMaxLabel": "max",
+  "shaderSanityScreenTitle": "Shader sanity"
 }

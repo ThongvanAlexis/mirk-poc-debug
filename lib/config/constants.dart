@@ -269,3 +269,54 @@ const double kPocBlueDotStrokePx = 2;
 
 /// Blue-dot fill ARGB. Apple-Maps-style azure (0xFF2B7CD6).
 const int kPocBlueDotFillArgb = 0xFF2B7CD6;
+
+// ─── Phase 3: Fog of War (the hypothesis) ────────────────────────────
+// Reveal disc lifecycle (FOG-01).
+
+/// Radius in metres of the disc spawned at every GPS fix (FOG-01).
+const double kPocRevealDiscRadiusMeters = 25.0;
+
+/// Synthetic disc radius for the shader-sanity screen — one disc at the
+/// viewport centre, large enough that the reveal hole is visible at typical
+/// device sizes.
+const double kPocSanityScreenSyntheticDiscRadiusMeters = 80.0;
+
+// Frame-delta probe (FOG-08) — overlay placement + log cadence + buffer.
+
+/// Top-px placement of the FrameDeltaProbeOverlay (right-aligned HUD cluster
+/// — FpsCounterOverlay top:8, MapCompass top:56, this overlay top:104).
+const double kPocFrameDeltaProbeOverlayTopPx = 104;
+
+/// Right-px placement (matches FpsCounterOverlay + MapCompass).
+const double kPocFrameDeltaProbeOverlayRightPx = 8;
+
+/// Cadence of the per-second JSONL rollup for the frame-delta probe.
+const int kPocFrameDeltaLogRollupSeconds = 1;
+
+/// Cadence of the per-second JSONL rollup for the SDF rebuild logger.
+const int kPocSdfLogRollupSeconds = 1;
+
+/// Ring-buffer cap on raw probe samples (2 s × 120 Hz = 240).
+const int kPocFrameDeltaBufferMaxSamples = 240;
+
+/// Probe colour-coding thresholds (microseconds) — median axis. Green ≤ first,
+/// yellow ≤ second, red > second. Green is the Criterion A target (16 ms);
+/// yellow is +50 % over green, red is anything above.
+const int kPocFrameDeltaMedianGreenMicros = 16000;
+const int kPocFrameDeltaMedianYellowMicros = 24000;
+
+/// Probe colour-coding thresholds (microseconds) — p95 axis. Green is the
+/// Criterion A target (32 ms); yellow is +50 % over green.
+const int kPocFrameDeltaP95GreenMicros = 32000;
+const int kPocFrameDeltaP95YellowMicros = 48000;
+
+/// Probe colour-coding thresholds (microseconds) — max axis. Green is the
+/// Criterion A target (48 ms); yellow is +50 % over green.
+const int kPocFrameDeltaMaxGreenMicros = 48000;
+const int kPocFrameDeltaMaxYellowMicros = 72000;
+
+// Fog shader asset path (FOG-04..06).
+
+/// rootBundle key for the volumetric fog `.frag`. Must match
+/// `pubspec.yaml` `flutter.shaders` entry exactly.
+const String kPocFogShaderAssetPath = 'assets/shaders/atmospheric_fog.frag';
