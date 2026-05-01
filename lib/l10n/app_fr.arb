@@ -16,5 +16,20 @@
   "@permissionDeniedOpenSettings": { "description": "Button label that opens iOS Settings via permission_handler.openAppSettings()" },
 
   "shareLogsTooltip": "Partager les logs",
-  "@shareLogsTooltip": { "description": "Tooltip on the AppBar share IconButton" }
+  "@shareLogsTooltip": { "description": "Tooltip on the AppBar share IconButton" },
+
+  "recenterTooltip": "Recentrer sur ma position",
+  "@recenterTooltip": { "description": "Tooltip on the recenter FAB (Phase 2 LOC-04)" },
+
+  "compassTooltip": "Réorienter au nord",
+  "@compassTooltip": { "description": "Tooltip on the compass widget (Phase 2 — tap snaps bearing to 0°)" },
+
+  "errorScreenTitle": "Échec de la préparation de la carte",
+  "@errorScreenTitle": { "description": "Title on the /error screen reached via context.go('/error', extra: detail)" },
+
+  "errorScreenBody": "Les données cartographiques n'ont pas pu être préparées sur cet appareil.",
+  "@errorScreenBody": { "description": "Body paragraph on the /error screen explaining the non-recoverable failure" },
+
+  "errorScreenDetailLabel": "Détails :",
+  "@errorScreenDetailLabel": { "description": "Label preceding the underlying error message on the /error screen" }
 }

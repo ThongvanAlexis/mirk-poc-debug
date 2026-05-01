@@ -180,3 +180,92 @@ const double kMirkFogBoundaryEdgeBand = 0.17;
 /// "Watercolour pigment pool" boost — multiplier applied to fog density inside
 /// the boundary bleed band.
 const double kMirkFogBoundaryDensityBoost = 0.15;
+
+// ─── Phase 2: Map (no fog) ────────────────────────────────────────────
+// Initial camera + zoom envelope (CONTEXT §Map camera bounds & gestures).
+
+/// Initial camera latitude — Melun town centre (Phase 2 walk theatre).
+const double kPocInitialCameraLat = 48.5397;
+
+/// Initial camera longitude — Melun town centre.
+const double kPocInitialCameraLon = 2.6553;
+
+/// Zoom level on first map render. Mid-range so the user immediately sees both
+/// road network and labels without panning.
+const double kPocInitialZoom = 13;
+
+/// Zoom level used by the recenter FAB animation target (LOC-04). Tighter than
+/// initial so a "where am I?" tap zooms in rather than just re-centring.
+const double kPocRecenterZoom = 15;
+
+/// Minimum allowed zoom — clamps user pinch-out so the camera cannot escape
+/// the bbox into world view (where the bundled PMTiles archive has no tiles).
+const double kPocMinZoom = 10;
+
+/// Maximum allowed zoom — clamps pinch-in so the camera cannot zoom past the
+/// archive's deepest level (PMTiles bake stops at z15).
+const double kPocMaxZoom = 15;
+
+// Pan bounds — Melun bbox + soft pad (CONTEXT §Pan bounds).
+
+/// Pan bound: minimum latitude (Melun bbox south edge).
+const double kPocBboxLatMin = 48.50;
+
+/// Pan bound: maximum latitude (Melun bbox north edge).
+const double kPocBboxLatMax = 48.57;
+
+/// Pan bound: minimum longitude (Melun bbox west edge).
+const double kPocBboxLonMin = 2.60;
+
+/// Pan bound: maximum longitude (Melun bbox east edge).
+const double kPocBboxLonMax = 2.72;
+
+/// Soft pad in degrees applied around the Melun bbox so the user sees a small
+/// rubber-band region before the camera hard-stops.
+const double kPocPanBoundsPadDegrees = 0.02;
+
+// Animation timing (CONTEXT §Recenter FAB UX, §Compass UI).
+
+/// Recenter-FAB animation duration in milliseconds (LOC-04 — 500 ms target).
+const int kPocRecenterAnimationMs = 500;
+
+/// Compass snap-to-north animation duration in milliseconds.
+const int kPocCompassAnimationMs = 250;
+
+// GPS subscription (CONTEXT §GPS subscription).
+
+/// Distance filter (metres) on `Geolocator.getPositionStream` — the OS only
+/// emits a new fix when the device has moved at least this far. 5 m matches
+/// CONTEXT.md's spec; lower values would burn battery without meaningfully
+/// improving the blue-dot smoothness at z13–15.
+const int kPocGpsDistanceFilterMeters = 5;
+
+// PMTiles asset (CONTEXT §PMTiles copy lifecycle).
+
+/// Bundled rootBundle key for the Melun PMTiles archive (asset side of the
+/// copy). Must stay in lock-step with `pubspec.yaml` `flutter.assets:` list.
+const String kPmtilesAssetPath = 'assets/maps/Fra_Melun.pmtile';
+
+/// Filesystem basename used both as the copy destination filename AND as the
+/// idempotency key (size-match check on second launch).
+const String kPmtilesBasename = 'Fra_Melun.pmtile';
+
+/// Subdirectory under `getApplicationSupportDirectory()` where the copied
+/// archive lives. Isolates map data from logs and other infrastructure caches.
+const String kPmtilesMapsSubdir = 'maps';
+
+/// Tile-provider source-key. Must match the source name baked into the
+/// vector_map_tiles `ProtomapsThemes.lightV3()` style bundle (RESEARCH §Pitfall
+/// 3 — mismatch yields a silent empty layer).
+const String kPocTileProviderSourceKey = 'protomaps';
+
+// Blue dot (LOC-02 — CONTEXT §Blue dot rendering).
+
+/// Blue-dot radius in pixels (NOT metres — see [kPocBlueDotUseRadiusInMeter]).
+const double kPocBlueDotRadiusPx = 7;
+
+/// Blue-dot stroke width in pixels.
+const double kPocBlueDotStrokePx = 2;
+
+/// Blue-dot fill ARGB. Apple-Maps-style azure (0xFF2B7CD6).
+const int kPocBlueDotFillArgb = 0xFF2B7CD6;

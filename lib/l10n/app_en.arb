@@ -5,5 +5,10 @@
   "permissionRationaleCta": "Allow location",
   "permissionDeniedParagraph": "Without permission, MirkFall cannot reveal the map. Open Settings to enable it.",
   "permissionDeniedOpenSettings": "Open Settings",
-  "shareLogsTooltip": "Share logs"
+  "shareLogsTooltip": "Share logs",
+  "recenterTooltip": "Recenter on my position",
+  "compassTooltip": "Reset bearing to north",
+  "errorScreenTitle": "Map setup failed",
+  "errorScreenBody": "The map data could not be prepared on this device.",
+  "errorScreenDetailLabel": "Details:"
 }
