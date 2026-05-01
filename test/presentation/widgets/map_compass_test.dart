@@ -155,17 +155,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Initial transform: bearing 0 → angle = 0 → identity rotation.
-      Transform _findGlyphTransform() => tester.widget<Transform>(
+      Transform findGlyphTransform() => tester.widget<Transform>(
             find.descendant(of: find.byType(IconButton), matching: find.byType(Transform)).first,
           );
-      final transformBefore = _findGlyphTransform();
+      final transformBefore = findGlyphTransform();
 
       // Simulate the camera rotating to 90°. Production should setState and
       // re-render the Transform with a non-identity matrix.
       controller.emitRotateDegrees(90);
       await tester.pumpAndSettle();
 
-      final transformAfter = _findGlyphTransform();
+      final transformAfter = findGlyphTransform();
       expect(transformAfter.transform, isNot(equals(transformBefore.transform)),
           reason: 'MapEventRotate MUST trigger a setState that rebuilds the Transform with a new matrix.');
 
@@ -220,17 +220,24 @@ void main() {
       await tester.tap(find.byType(IconButton), warnIfMissed: false);
       // Pump a fraction of the tween so it's still in flight.
       await tester.pump(const Duration(milliseconds: 50));
-      final callsBeforeUnmount = controller.rotateCalls.length;
 
-      // Unmount: pump a different tree.
+      // Unmount: pump a different tree. The State.dispose runs during this
+      // pumpWidget, and the framework may flush one final tick of the prior
+      // tween listener before the controller actually goes inert. Capture the
+      // count AFTER unmount has fully settled — only post-settle additions
+      // would prove the tween is still alive (i.e. dispose leaked).
       await tester.pumpWidget(_wrap(const SizedBox.shrink()));
-      // Pump enough time that the prior 250 ms tween would have completed.
+      await tester.pumpAndSettle();
+      final callsAfterUnmountSettled = controller.rotateCalls.length;
+
+      // Pump enough time that the prior 250 ms tween would have completed if
+      // it had survived the dispose.
       for (var elapsed = 0; elapsed <= kPocCompassAnimationMs + 50; elapsed += 16) {
         await tester.pump(const Duration(milliseconds: 16));
       }
       await tester.pumpAndSettle();
 
-      expect(controller.rotateCalls.length, equals(callsBeforeUnmount),
+      expect(controller.rotateCalls.length, equals(callsAfterUnmountSettled),
           reason: 'After unmount, no further rotate calls MUST be emitted — AnimationController + stream subscription disposed.');
 
       controller.dispose();
