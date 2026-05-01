@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-05-01T15:09:57.313Z"
-last_activity: 2026-05-01 — Plan 03-01 complete (Wave 0 keystone — 12 production stubs returning UnimplementedError/SizedBox.shrink + 12 RED test files + Phase 3 constants block + 5 l10n keys + /sanity route + AppBar Icons.science action + 03-FALSIFICATION.md skeleton; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED)
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-05-01T15:10:00Z"
+last_activity: 2026-05-01 — Plan 03-04 complete (FOG-08 FrameDeltaProbe ring buffer + 1-Hz JSONL rollup landed; 7 frame_delta tests RED→GREEN; dual-clock invariant pinned by code dartdoc + test #7; Wave 1 COMPLETE; flutter test now +114 GREEN / ~6 SKIPPED / -2 RED — only fog_clip_path FOG-06 remains pending Plan 03-05)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 21
   completed_plans: 17
-  percent: 67
+  percent: 81
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 0 scaffold complete)
-Plan: 1 of 8 in Phase 3 — **COMPLETE** (Wave 0 keystone)
-Status: Phase 3 Plan 01 complete — 12 production stubs + 12 RED test files + constants/l10n/router/AppBar wiring + falsification skeleton landed; Wave 1 (Plans 03-02..03-04) unblocked
-Last activity: 2026-05-01 — Plan 03-01 complete (Wave 0 keystone — 12 production stubs returning UnimplementedError/SizedBox.shrink + 12 RED test files + Phase 3 constants block + 5 l10n keys + /sanity route + AppBar Icons.science action + 03-FALSIFICATION.md skeleton; flutter test reports +97 GREEN / ~6 SKIPPED / -13 RED)
+Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 1 complete)
+Plan: 4 of 8 in Phase 3 — **COMPLETE** (FOG-08 FrameDeltaProbe ring buffer + 1-Hz rollup)
+Status: Phase 3 Wave 1 (Plans 03-02 distanceMetres + 03-03 SdfCache/SdfRebuildLogger + 03-04 FrameDeltaProbe) ALL COMPLETE; Wave 2 (Plans 03-05 FogLayer + 03-06 overlay + 03-07 sanity screen) unblocked; only 2 RED tests remain (FOG-06 fog_clip_path scheduled for Plan 03-05)
+Last activity: 2026-05-01 — Plan 03-04 complete (FOG-08 FrameDeltaProbe ring buffer + 1-Hz JSONL rollup landed; 7 frame_delta tests RED→GREEN; dual-clock invariant pinned by code dartdoc + test #7; Wave 1 COMPLETE; flutter test now +114 GREEN / ~6 SKIPPED / -2 RED — only fog_clip_path FOG-06 remains pending Plan 03-05)
 
-Progress: [██████▋   ] 67% (14 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plan 01 complete, Phases 3–5 remaining plans pending)
+Progress: [████████░░] 81% (17 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..04 complete, Plans 03-05..03-08 + Phases 4–5 remaining)
 
 ## Performance Metrics
 
