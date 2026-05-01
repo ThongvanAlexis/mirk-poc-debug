@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_activity_summary: Plans 02-02 + 02-03 + 02-04 closed (Wave 2 complete); Plan 02-05 (MapScreen wiring) unblocked
-stopped_at: Completed 02-04-PLAN.md (LOC-04 + LOC-05; RecenterFab + MapCompass)
-last_updated: "2026-05-01T10:01:39.897Z"
-last_activity: 2026-05-01 — Plan 02-04 complete (LOC-04 + LOC-05; RecenterFab + MapCompass; 18 GREEN tests)
+last_activity_summary: Plan 02-05 closed (MAP-02..06 + LOC-02 visibility; MapScreen FlutterMap stack wired); Plan 02-06 (final integration) unblocked
+stopped_at: Completed 02-05-PLAN.md (MAP-02..06; MapScreen FlutterMap stack wired)
+last_updated: "2026-05-01T10:29:57.860Z"
+last_activity: 2026-05-01 — Plan 02-05 complete (MAP-02..06; MapScreen StatefulWidget with FlutterMap + VectorTileLayer + RecenterFab + MapCompass; 94 GREEN tests in full suite)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 2 of 5 (Map, no fog) — **IN PROGRESS**
-Plan: 4 of 6 in current phase — **COMPLETE** (LOC-04 + LOC-05; RecenterFab + MapCompass)
-Status: Plans 02-02 + 02-03 + 02-04 closed (Wave 2 fully complete); Plan 02-05 (MapScreen wiring) unblocked
-Last activity: 2026-05-01 — Plan 02-04 complete (LOC-04 + LOC-05; RecenterFab + MapCompass; 18 GREEN tests)
+Plan: 5 of 6 in current phase — **COMPLETE** (MAP-02..06 + LOC-02 visibility; MapScreen FlutterMap stack wired)
+Status: Plan 02-05 closed (Wave 3 — MapScreen wiring complete); Plan 02-06 (final integration + walk validation) unblocked
+Last activity: 2026-05-01 — Plan 02-05 complete (MAP-02..06; MapScreen StatefulWidget with FlutterMap + VectorTileLayer + RecenterFab + MapCompass; 94 GREEN tests in full suite)
 
-Progress: [█████████░] 85% (11 of 13 plans complete; Phase 1 closed, Phase 2 4/6)
+Progress: [█████████░] 92% (12 of 13 plans complete; Phase 1 closed, Phase 2 5/6)
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 85% (11 of 13 plans complete; Phase 1
 | Phase 02-map-no-fog P03 | 4 min | 2 tasks | 4 files |
 | Phase 02-map-no-fog P02 | 5 min | 2 tasks | 5 files |
 | Phase 02-map-no-fog P04 | 8 min | 2 tasks | 4 files |
+| Phase 02-map-no-fog P05 | 21 min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Recent decisions affecting current work:
 - [Phase 02-map-no-fog]: Plan 02-03: GeolocatorService.stream() with pinned LocationSettings(accuracy: best, distanceFilter: 5) + Logger('domain.location') INFO emission. BlueDotMarker.build returns CircleMarker(7 px / #2B7CD6 / 2 px white stroke / pixels-not-metres) — every value sourced from kPocBlueDot* constants. LOC-03 static-source CI gate hardened to strip Dart // /// /* */ comments before substring scan, so the educational 'do NOT call `Geolocator.getLastKnownPosition`' docstring is preserved without false-positiving. Test seam: hand-rolled _CapturingGeolocatorPlatform fake (mirrors Phase 1 PermissionHandlerPlatform.instance pattern), zero new dev_dependencies. 2 deviations (Rule 3 - Blocking: comment-aware gate fix; Rule 3 - Blocking: wave-2 race amend to remove sibling's recenter_fab_test.dart from my Task 2 commit).
 - [Phase 02-map-no-fog]: Plan 02-02: MAP-01 PMTiles copy fully implemented + hooked into both grant paths of PermissionGateScreen. Idempotency = existence + size-parity (no SHA256 per ROB-02 deferral). @visibleForTesting testEnsureCopiedOverride seam keeps gate-screen widget tests off the real filesystem. Both _onCtaPressed (CTA grant) and _checkAndMaybeNavigate (initState + AppLifecycleState.resumed) converge through a single _ensureMapDataAndNavigate helper per CONTEXT.md mandate. FileSystemException routes to /error with extra==e.message. 5 PMTiles tests + 3 MAP-01 widget tests + 6 Phase 1 regression tests all GREEN; flutter analyze + LOC-03 + BOOT-02 CI gates clean. 0 deviations.
 - [Phase 02-map-no-fog]: Plan 02-04: RecenterFab (LOC-04 + LOC-05) + MapCompass landed. Hand-rolled AnimationController + CurvedAnimation listener pattern for both widgets — no flutter_map_animations dependency added. Top-level mapCompassShortestPathToNorth(double) helper exposes the formula ((-current + 540) % 360) - 180 and pins RESEARCH Open Question #2 with 6 unit tests (350°→+10°, 10°→-10°, 180°→±180°, 270°→+90°, etc.). MapEventRotate plumbing: production reads event.camera.rotation (degrees), test fake constructs real MapCamera(crs: const Epsg3857(), nonRotatedSize: kImpossibleSize, rotation: degrees). 18 GREEN tests (6 RecenterFab widget + 6 MapCompass widget + 6 helper unit). 3 deviations: 1 parallel-sibling git-state recovery (Task 1 RED commit absorbed into GREEN), 2 Wave-0 RED-test bug fixes (MapEventRotate noSuchMethod fake → real constructor; cancels-on-dispose baseline capture moved post-pumpAndSettle).
+- [Phase 02-map-no-fog]: Plan 02-05: MapScreen Phase-1 placeholder rewritten as full StatefulWidget — FlutterMap + VectorTileLayer (ProtomapsThemes.lightV3, source key 'protomaps') + conditional CircleLayer/BlueDot + RecenterFab + MapCompass + FpsCounterOverlay all composed; synchronous void dispose with fire-and-forget cancel/close; production /map route via FutureBuilder around getApplicationSupportDirectory; tests use tester.runAsync for real dart:io archive open + path_provider mock for vector_map_tiles cache resolver. 2 deviations: Rule 1 — MapCompass.initState try/catches camera read so it can mount on the same frame as FlutterMap (Plan 02-04 latent bug surfaced only in screen-level composition); Rule 3 — tester.pump doesn't advance real dart:io futures, switched to tester.runAsync. — Plan 02-04's all-fakes unit tests masked the camera-read crash; pump-the-real-tree integration tests catch this class of bug. Plan-prescribed _ProductionMapScreen factory removed (plan called it awkward; router builder constructs MapScreen.fromServices directly). Theme prefix vtr.Theme via 'as vtr' import — symmetric with vector_map_tiles' own 'hide Theme' pattern. Archive-close test seam deferred (real archive opens reliably from temp file in tests; dispose-cancels-GPS-subscription test proves dispose path runs).
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T10:00:53.100Z
-Stopped at: Completed 02-04-PLAN.md (LOC-04 + LOC-05; RecenterFab + MapCompass)
+Last session: 2026-05-01T10:29:18.059Z
+Stopped at: Completed 02-05-PLAN.md (MAP-02..06; MapScreen FlutterMap stack wired)
 Resume file: None

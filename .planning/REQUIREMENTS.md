@@ -44,11 +44,11 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 ### Map
 
 - [x] **MAP-01**: On first launch (after permission grant), `Fra_Melun.pmtile` is copied from `rootBundle` to `<getApplicationSupportDirectory()>/maps/Fra_Melun.pmtile` exactly once; subsequent launches detect the existing file and skip the copy
-- [ ] **MAP-02**: The map screen renders the bundled PMTiles via `flutter_map 7.0.2` + `vector_map_tiles 8.0.0` + `vector_map_tiles_pmtiles 1.5.0`, with the renderer's default style
-- [ ] **MAP-03**: Initial camera centred on Melun (lat `48.5397`, lon `2.6553`, zoom `13`)
-- [ ] **MAP-04**: User can pan the map with one-finger drag
-- [ ] **MAP-05**: User can zoom the map with pinch gesture
-- [ ] **MAP-06**: User can perform combined pan+zoom (pinch + drag simultaneously) and the map responds smoothly
+- [x] **MAP-02**: The map screen renders the bundled PMTiles via `flutter_map 7.0.2` + `vector_map_tiles 8.0.0` + `vector_map_tiles_pmtiles 1.5.0`, with the renderer's default style
+- [x] **MAP-03**: Initial camera centred on Melun (lat `48.5397`, lon `2.6553`, zoom `13`)
+- [x] **MAP-04**: User can pan the map with one-finger drag
+- [x] **MAP-05**: User can zoom the map with pinch gesture
+- [x] **MAP-06**: User can perform combined pan+zoom (pinch + drag simultaneously) and the map responds smoothly
 
 ### Location & Recenter
 
@@ -162,11 +162,11 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
 | MAP-01 | Phase 2 | Complete |
-| MAP-02 | Phase 2 | Pending |
-| MAP-03 | Phase 2 | Pending |
-| MAP-04 | Phase 2 | Pending |
-| MAP-05 | Phase 2 | Pending |
-| MAP-06 | Phase 2 | Pending |
+| MAP-02 | Phase 2 | Complete |
+| MAP-03 | Phase 2 | Complete |
+| MAP-04 | Phase 2 | Complete |
+| MAP-05 | Phase 2 | Complete |
+| MAP-06 | Phase 2 | Complete |
 | LOC-01 | Phase 2 | Complete |
 | LOC-02 | Phase 2 | Complete |
 | LOC-03 | Phase 2 | Complete |
