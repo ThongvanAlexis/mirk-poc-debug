@@ -67,7 +67,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [ ] **FOG-05**: Inside `FogLayer.paint()`, the 41 float uniforms + 1 sampler of `atmospheric_fog.frag` are populated; identity sdfRect (`0, 0, 1, 1`) is passed because the SDF and the viewport share the same coordinate space _(Plan 03-01 Wave 0: slot-count gate test pinned at 41; population behaviour ships in Plan 03-05)_
 - [ ] **FOG-06**: The clip path (world rect minus disc circles, in screen coordinates) is computed and applied via `canvas.clipPath`; the shader is then drawn via `canvas.drawRect(viewport, Paint()..shader = fogShader)` _(Plan 03-01 Wave 0: computeFogClipPath stub landed; geometry ships in Plan 03-05)_
 - [ ] **FOG-07**: All inputs to the per-frame fog draw — SDF rect, clip path, viewport size, shader uniforms — derive from the **same `MapCamera` snapshot**, captured atomically at the start of paint (prevents BUG-014's combined-zoom-pan failure mode from re-emerging in the new pipeline) _(Plan 03-01 Wave 0: keystone test skeleton landed; single-snapshot enforcement ships in Plan 03-05)_
-- [x] **FOG-08**: A frame-delta self-debug probe records, per frame: timestamp of the latest map camera update, timestamp of the fog uniform population, the delta between them; rolling median, p95, and max are exposed via the logger and an on-screen overlay _(Plan 03-01 Wave 0: FrameDeltaProbe + FrameDeltaProbeOverlay stubs landed; ring buffer + rollup timer ship in Plan 03-04, overlay rendering ships in Plan 03-06)_
+- [x] **FOG-08**: A frame-delta self-debug probe records, per frame: timestamp of the latest map camera update, timestamp of the fog uniform population, the delta between them; rolling median, p95, and max are exposed via the logger and an on-screen overlay _(Plan 03-01 Wave 0 stubs; Plan 03-04 ring buffer + 1-Hz JSONL rollup + dual-clock discipline; Plan 03-06 overlay rendering — 3-line colour-coded HUD subscribed to probe.rollups, refresh cadence inherited from rollup emission)_
 
 ### Wisp Particles
 
@@ -179,7 +179,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | FOG-05 | Phase 3 | Pending (P03-01 slot-gate test; P03-05 paint) |
 | FOG-06 | Phase 3 | Pending (P03-01 stub; P03-05 geometry) |
 | FOG-07 | Phase 3 | Pending (P03-01 keystone test skeleton; P03-05 enforcement) |
-| FOG-08 | Phase 3 | Pending (P03-01 stub; P03-04 ring buffer; P03-06 overlay) |
+| FOG-08 | Phase 3 | Complete (P03-01 stub; P03-04 ring buffer + 1-Hz JSONL rollup; P03-06 overlay rendering — 3-line colour-coded HUD subscribed to probe.rollups) |
 | WISP-01 | Phase 4 | Pending |
 | WISP-02 | Phase 4 | Pending |
 | WISP-03 | Phase 4 | Pending |

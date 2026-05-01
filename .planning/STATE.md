@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-05-01T15:10:00Z"
-last_activity: 2026-05-01 — Plan 03-04 complete (FOG-08 FrameDeltaProbe ring buffer + 1-Hz JSONL rollup landed; 7 frame_delta tests RED→GREEN; dual-clock invariant pinned by code dartdoc + test #7; Wave 1 COMPLETE; flutter test now +114 GREEN / ~6 SKIPPED / -2 RED — only fog_clip_path FOG-06 remains pending Plan 03-05)
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-05-01T15:22:14.253Z"
+last_activity: "2026-05-01 — Plan 03-06 complete (FrameDeltaProbeOverlay FOG-08 user-facing + ShaderSanityScreen pre-walk gate landed; 5 RED→GREEN — 2 overlay + 3 sanity; programLoaderOverride test seam published; flutter test 121 GREEN / 4 SKIPPED / 0 RED on full suite)"
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 21
-  completed_plans: 17
-  percent: 81
+  completed_plans: 18
+  percent: 86
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 1 complete)
-Plan: 4 of 8 in Phase 3 — **COMPLETE** (FOG-08 FrameDeltaProbe ring buffer + 1-Hz rollup)
-Status: Phase 3 Wave 1 (Plans 03-02 distanceMetres + 03-03 SdfCache/SdfRebuildLogger + 03-04 FrameDeltaProbe) ALL COMPLETE; Wave 2 (Plans 03-05 FogLayer + 03-06 overlay + 03-07 sanity screen) unblocked; only 2 RED tests remain (FOG-06 fog_clip_path scheduled for Plan 03-05)
-Last activity: 2026-05-01 — Plan 03-04 complete (FOG-08 FrameDeltaProbe ring buffer + 1-Hz JSONL rollup landed; 7 frame_delta tests RED→GREEN; dual-clock invariant pinned by code dartdoc + test #7; Wave 1 COMPLETE; flutter test now +114 GREEN / ~6 SKIPPED / -2 RED — only fog_clip_path FOG-06 remains pending Plan 03-05)
+Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 2 partial)
+Plan: 6 of 8 in Phase 3 — **COMPLETE** (FrameDeltaProbeOverlay + ShaderSanityScreen — FOG-08 user-facing HUD + pre-walk shader gate)
+Status: Phase 3 Wave 1 (Plans 03-02 distanceMetres + 03-03 SdfCache/SdfRebuildLogger + 03-04 FrameDeltaProbe) ALL COMPLETE. Wave 2 Plan 03-06 (overlay + sanity screen) COMPLETE; Plan 03-05 (FogLayer FOG-04..06) running in parallel — sibling agent in flight. Plan 03-07 (MapScreen integration) unblocked by 03-06 alone (needs the overlay constructor); Plan 03-08 (sideload UAT walk) unblocked once 03-05 + 03-07 both land.
+Last activity: 2026-05-01 — Plan 03-06 complete (FrameDeltaProbeOverlay FOG-08 user-facing + ShaderSanityScreen pre-walk gate landed; 5 RED→GREEN — 2 overlay + 3 sanity; programLoaderOverride test seam published for FragmentProgram-backed widgets in headless tests; flutter test 121 GREEN / 4 SKIPPED / 0 RED on full suite — Plan 03-05's 2 RED placeholders still pending sibling)
 
-Progress: [████████░░] 81% (17 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..04 complete, Plans 03-05..03-08 + Phases 4–5 remaining)
+Progress: [█████████░] 86% (18 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..04 + 06 complete, Plans 03-05 + 03-07 + 03-08 + Phases 4–5 remaining)
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [████████░░] 81% (17 of 21 plans complete: Phase 1
 | Phase 03-fog-of-war-the-hypothesis P02 | 5 min | 2 tasks | 2 files |
 | Phase 03-fog-of-war-the-hypothesis P04 | 4 min | 1 tasks | 2 files |
 | Phase 03-fog-of-war-the-hypothesis P03 | 5 min | 2 tasks | 3 files |
+| Phase 03-fog-of-war-the-hypothesis P06 | 7 min | 2 (TDD: 4 commits) tasks | 4 files (2 production + 2 test) files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Recent decisions affecting current work:
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-04: FOG-08 FrameDeltaProbe full implementation landed — Stopwatch-backed monotonic clock + 240-cap FIFO ring buffer + idempotent 1-Hz Timer.periodic + broadcast StreamController<FrameDeltaRollup> + JSONL emission via Logger('infrastructure.mirk.frame_delta'). Dual-clock discipline pinned: Stopwatch.elapsedMicroseconds for ALL delta math (immune to NTP correction during 5-min walk per RESEARCH.md Pitfall 4), DateTime.now() ONLY for the epochSecond rollup tag (REQUIRED for grep-correlation with SdfRebuildLogger). Test #7 asserts epochSecond magnitude > 1.7e9 to defend the invariant — anyone 'simplifying' to a single Stopwatch-derived clock would fail on first run. @visibleForTesting debugRecordRawDelta seam keeps production methods (recordCameraSnapshot/recordFogUniformPopulation) untouched while letting tests assert ±0 µs precision. Defence-in-depth: non-monotonic snapshotMicros clamps delta at 0 (math.max), never throws — paint path bug-tolerant. JSONL line emits all 8 keys (epochSecond + sampleCount + 4 µs stats + 3 ms convenience getters at 3-decimal) for parser parity with SdfRebuildLogger. 7 RED → 7 GREEN; 1 deviation (Rule 1 - Bug: removed unnecessary dart:async import in test file, transitively re-exported via flutter_test). Wave 1 (Plans 03-02..03-04) COMPLETE; Plan 03-05 unblocked.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-02: RevealDiscRepository (FOG-01) + distanceMetres (FOG-02) shipped — in-memory ChangeNotifier with defensive-copy snapshot via List.unmodifiable(_discs) (paint-time safe under concurrent mutation); top-level Haversine helper using kEarthRadiusMeters (single source of truth across revealed-domain code, mirrors donor reveal_disc.dart). 5 RED → GREEN flips (3 repo + 2 distanceMetres). 1 Rule 2 deviation: hoisted 180.0 inline literal into _degreesPerHalfTurn private constant for CLAUDE.md no-magic-numbers compliance. Both surfaces unblock Plan 03-05 FogLayer (snapshot iteration) and Plan 03-07 MapScreen integration (append + move-distance gate).
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-03: SdfCache hash key composes Object.hash(viewport, Object.hashAll(discHashes), discs.length); per-disc lat/lon quantised to 1e6 (~10 cm), radius to 1e3 (1 mm), tames consecutive-frame floating-point drift at the same GPS fix. SdfRebuildLogger exposes injectable rollupInterval (defaults to kPocSdfLogRollupSeconds=1s); stop() flushes pending samples synchronously to guard against losing the final rollup if MapScreen.dispose runs mid-window. Logger.root.level = Level.ALL required in test setUpAll() (mirrors Phase 1+2 pattern) — package:logging defaults to Level.WARNING, swallowing INFO rollup lines. Beyond-plan stop-flush test added (3 SdfRebuildLogger tests total) to pin the synchronous final-flush contract; rollupInterval seam dropped active-rollup test from 1100 ms to 250 ms (4x faster suite).
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-06: FrameDeltaProbeOverlay (FOG-08 user-facing) + ShaderSanityScreen pre-walk gate landed. Overlay subscribes to probe.rollups and renders 3 colour-coded lines (med/p95/max) at 1 Hz cadence — no internal Timer; cadence inherited from probe rollup emission. Pre-rollup placeholder uses dash so 'no samples yet' differs from 'samples = 0'. ShaderSanityScreen loads atmospheric_fog.frag + builds synthetic 80 m disc SDF + paints fog through FogShaderUniforms.setAll (same call shape as FogLayer). programLoaderOverride constructor seam isolates FragmentProgram.fromAsset from headless test runners. 5 RED → 5 GREEN: 2 overlay (placeholder + colour bands) + 3 sanity (loading spinner + error state + FR title). 3 deviations: Rule 1 test data fix (10→20 samples so floor(22*0.95)=20 places p95 in yellow, not collapsing onto max), Rule 3 fake_async pending-Timer fix (explicit probe.stop() inline), Rule 1 unused dart:ui import. Plan 03-07 (MapScreen Stack composition) and Plan 03-08 (sideload UAT walk) unblocked.
 
 ### Pending Todos
 
@@ -112,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T15:09:57.237Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-05-01T15:22:14.250Z
+Stopped at: Completed 03-06-PLAN.md
 Resume file: None
