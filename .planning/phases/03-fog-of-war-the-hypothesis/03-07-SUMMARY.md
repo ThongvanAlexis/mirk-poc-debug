@@ -102,7 +102,7 @@ Each TDD step was committed atomically:
 
 Task 2 (router verification): no code change required — the `_buildMapRoute` builder already constructs production `RevealDiscRepository()` + `FrameDeltaProbe()` (Plan 03-01 keystone), and now those constructors point at the implementations from Plans 03-02 + 03-04 (no longer stubs). Verified via `flutter analyze --fatal-infos lib/presentation/router.dart` clean + 9 permission-gate tests still GREEN.
 
-**Plan metadata commit:** Pending — appended in the final commit alongside SUMMARY.md, STATE.md, ROADMAP.md, REQUIREMENTS.md.
+**Plan metadata commit:** `0173b15` (`docs(03-07): complete MapScreen × Phase 3 integration plan` — SUMMARY.md, STATE.md, ROADMAP.md, REQUIREMENTS.md)
 
 ## Files Created/Modified
 
