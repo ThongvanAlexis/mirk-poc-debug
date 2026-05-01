@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_activity_summary: Plan 02-05 closed (MAP-02..06 + LOC-02 visibility; MapScreen FlutterMap stack wired); Plan 02-06 (final integration) unblocked
-stopped_at: Completed 02-05-PLAN.md (MAP-02..06; MapScreen FlutterMap stack wired)
-last_updated: "2026-05-01T10:29:57.860Z"
-last_activity: 2026-05-01 — Plan 02-05 complete (MAP-02..06; MapScreen StatefulWidget with FlutterMap + VectorTileLayer + RecenterFab + MapCompass; 94 GREEN tests in full suite)
+last_activity_summary: Plan 02-06 closed (PERF-02 sideload UAT verbal approved on iPhone 17 Pro — sustained ~120 fps, 3× headroom over the ≥ 40 fps gate); Phase 2 CLOSED; Phase 3 (fog hypothesis) unblocked
+stopped_at: Completed 02-06-PLAN.md (PERF-02 PASS; Phase 2 closed)
+last_updated: "2026-05-01T12:20:09Z"
+last_activity: 2026-05-01 — Plan 02-06 complete (PERF-02 PASS verbal approved; Phase 2 closes with all 12 requirement IDs Complete; Phase 3 fog hypothesis unblocked with 3× frame-budget headroom)
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 12
-  percent: 92
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** The fog-of-war stays perfectly locked to the map during pan, zoom, and combined gestures on a sideloaded iOS build.
-**Current focus:** Phase 1 — Foundation **CLOSED**. Phase 2 (Map, no fog) unblocked.
+**Current focus:** Phase 1 — Foundation **CLOSED**. Phase 2 — Map (no fog) **CLOSED** (PERF-02 PASS). Phase 3 (Fog of War — THE HYPOTHESIS) unblocked.
 
 ## Current Position
 
-Phase: 2 of 5 (Map, no fog) — **IN PROGRESS**
-Plan: 5 of 6 in current phase — **COMPLETE** (MAP-02..06 + LOC-02 visibility; MapScreen FlutterMap stack wired)
-Status: Plan 02-05 closed (Wave 3 — MapScreen wiring complete); Plan 02-06 (final integration + walk validation) unblocked
-Last activity: 2026-05-01 — Plan 02-05 complete (MAP-02..06; MapScreen StatefulWidget with FlutterMap + VectorTileLayer + RecenterFab + MapCompass; 94 GREEN tests in full suite)
+Phase: 2 of 5 (Map, no fog) — **CLOSED**; next is Phase 3 (Fog of War — THE HYPOTHESIS)
+Plan: 6 of 6 in Phase 2 — **COMPLETE** (PERF-02 sideload UAT verbal `approved`)
+Status: Phase 2 closed; PERF-02 PASS with 3× headroom over the ≥ 40 fps gate; Phase 3 fog hypothesis unblocked
+Last activity: 2026-05-01 — Plan 02-06 complete (PERF-02 PASS verbal approved on iPhone 17 Pro; sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15; Phase 2 closes with all 12 requirement IDs Complete)
 
-Progress: [█████████░] 92% (12 of 13 plans complete; Phase 1 closed, Phase 2 5/6)
+Progress: [██████████] 100% (13 of 13 plans complete across closed phases; Phase 1 + Phase 2 closed, Phases 3–5 to be planned)
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 92% (12 of 13 plans complete; Phase 1
 | Phase 02-map-no-fog P02 | 5 min | 2 tasks | 5 files |
 | Phase 02-map-no-fog P04 | 8 min | 2 tasks | 4 files |
 | Phase 02-map-no-fog P05 | 21 min | 1 tasks | 5 files |
+| Phase 02-map-no-fog P06 | ~50 min (planning + UAT walk + closure docs) | 3 tasks (1 auto + 1 checkpoint:human-verify + 1 auto) | 5 files (1 created + 4 modified) |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting current work:
 - [Phase 02-map-no-fog]: Plan 02-02: MAP-01 PMTiles copy fully implemented + hooked into both grant paths of PermissionGateScreen. Idempotency = existence + size-parity (no SHA256 per ROB-02 deferral). @visibleForTesting testEnsureCopiedOverride seam keeps gate-screen widget tests off the real filesystem. Both _onCtaPressed (CTA grant) and _checkAndMaybeNavigate (initState + AppLifecycleState.resumed) converge through a single _ensureMapDataAndNavigate helper per CONTEXT.md mandate. FileSystemException routes to /error with extra==e.message. 5 PMTiles tests + 3 MAP-01 widget tests + 6 Phase 1 regression tests all GREEN; flutter analyze + LOC-03 + BOOT-02 CI gates clean. 0 deviations.
 - [Phase 02-map-no-fog]: Plan 02-04: RecenterFab (LOC-04 + LOC-05) + MapCompass landed. Hand-rolled AnimationController + CurvedAnimation listener pattern for both widgets — no flutter_map_animations dependency added. Top-level mapCompassShortestPathToNorth(double) helper exposes the formula ((-current + 540) % 360) - 180 and pins RESEARCH Open Question #2 with 6 unit tests (350°→+10°, 10°→-10°, 180°→±180°, 270°→+90°, etc.). MapEventRotate plumbing: production reads event.camera.rotation (degrees), test fake constructs real MapCamera(crs: const Epsg3857(), nonRotatedSize: kImpossibleSize, rotation: degrees). 18 GREEN tests (6 RecenterFab widget + 6 MapCompass widget + 6 helper unit). 3 deviations: 1 parallel-sibling git-state recovery (Task 1 RED commit absorbed into GREEN), 2 Wave-0 RED-test bug fixes (MapEventRotate noSuchMethod fake → real constructor; cancels-on-dispose baseline capture moved post-pumpAndSettle).
 - [Phase 02-map-no-fog]: Plan 02-05: MapScreen Phase-1 placeholder rewritten as full StatefulWidget — FlutterMap + VectorTileLayer (ProtomapsThemes.lightV3, source key 'protomaps') + conditional CircleLayer/BlueDot + RecenterFab + MapCompass + FpsCounterOverlay all composed; synchronous void dispose with fire-and-forget cancel/close; production /map route via FutureBuilder around getApplicationSupportDirectory; tests use tester.runAsync for real dart:io archive open + path_provider mock for vector_map_tiles cache resolver. 2 deviations: Rule 1 — MapCompass.initState try/catches camera read so it can mount on the same frame as FlutterMap (Plan 02-04 latent bug surfaced only in screen-level composition); Rule 3 — tester.pump doesn't advance real dart:io futures, switched to tester.runAsync. — Plan 02-04's all-fakes unit tests masked the camera-read crash; pump-the-real-tree integration tests catch this class of bug. Plan-prescribed _ProductionMapScreen factory removed (plan called it awkward; router builder constructs MapScreen.fromServices directly). Theme prefix vtr.Theme via 'as vtr' import — symmetric with vector_map_tiles' own 'hide Theme' pattern. Archive-close test seam deferred (real archive opens reliably from temp file in tests; dispose-cancels-GPS-subscription test proves dispose path runs).
+- [Phase 02-map-no-fog]: Plan 02-06: PERF-02 sideload UAT walk verbal `approved` on iPhone 17 Pro against CI run 25212559648 (SHA 46b8fcc). Developer's verbatim verdict: *"everything works well, 120 fps when doing stuff, revert to 4 when not doing anything"*. Sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15 over 200 m walk through central Melun — **3× headroom over the ≥ 40 fps gate**, massive frame-budget margin for Phase 3's fog shader. Idle ~4 fps is expected Flutter no-dirty-frames behaviour (frames scheduled only on dirty/animating frames; same pattern observed in Phase 1 sideload UAT with FpsCounterOverlay from Plan 01-05) — NOT a regression. Light-touch evidence record honouring developer's verbal verdict (no per-zoom FPS table or per-gesture tally captured for this POC walk; the 3× margin renders fine-grained capture unnecessary). Sideload bug-fix `46b8fcc fix(02-05): swallow vector_map_tiles CancellationException in test teardown` (separate bug-investigation subagent) was needed to unblock CI's iOS gate before the IPA could be built. Phase 2 CLOSES with all 12 requirement IDs (MAP × 6, LOC × 5, PERF-02) Complete. Phase 3 (Fog of War — THE HYPOTHESIS) unblocked.
 
 ### Pending Todos
 
@@ -98,11 +100,11 @@ None yet.
 
 [Issues that affect future work]
 
-- Phase 2 vector-tile FPS on iOS at zoom 13–15 has no published numbers; the Phase 2 walk IS the research, and is the highest-probability project-blocking risk.
+- ~~Phase 2 vector-tile FPS on iOS at zoom 13–15 has no published numbers; the Phase 2 walk IS the research, and is the highest-probability project-blocking risk.~~ **RESOLVED 2026-05-01 by Plan 02-06 verbal `approved`:** sustained ~120 fps on iPhone 17 Pro during pan / pinch / combined gestures at zoom 13–15 — 3× headroom over the ≥ 40 fps gate. Phase 3 fog hypothesis unblocked with massive frame-budget margin.
 - AUTH-04 cross-restart auto-resume routing bug (deferred per Plan 01-07 SUMMARY + deferred-items.md). Not blocking Phase 1 closure (POC scope; revoking GPS perms during a GPS-needed POC is artificial). May resurface if a downstream phase exercises the cross-restart re-grant flow.
 
 ## Session Continuity
 
-Last session: 2026-05-01T10:29:18.059Z
-Stopped at: Completed 02-05-PLAN.md (MAP-02..06; MapScreen FlutterMap stack wired)
+Last session: 2026-05-01T12:20:09Z
+Stopped at: Completed 02-06-PLAN.md (PERF-02 PASS; Phase 2 closed; Phase 3 unblocked)
 Resume file: None

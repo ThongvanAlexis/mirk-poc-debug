@@ -87,7 +87,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 ### Performance Instrumentation
 
 - [x] **PERF-01**: An on-screen FPS counter overlay is rendered on the map screen (toggleable via a dev menu or always-on for the POC); shows current FPS rolling-averaged over 1 s
-- [ ] **PERF-02**: At Phase 2 UAT walk on iPhone 17 Pro: pan-FPS without fog ≥ 40 (gate before Phase 3 fog work begins)
+- [x] **PERF-02**: At Phase 2 UAT walk on iPhone 17 Pro: pan-FPS without fog ≥ 40 (gate before Phase 3 fog work begins) _(software-complete + sideload UAT verbal `approved` per Plan 02-06; FPS observed: sustained ~120 fps during pan / pinch / combined gestures at zoom 13–15 — 3× headroom over the gate. Idle-FPS ~4 fps is expected Flutter no-dirty-frames behaviour, not a regression. Evidence: `.planning/phases/02-map-no-fog/02-UAT.md`. Walked 2026-05-01 on iPhone 17 Pro against CI run 25212559648, SHA 46b8fcc.)_
 - [ ] **PERF-03**: At Phase 3 UAT walk on iPhone 17 Pro: pan-FPS with fog active ≥ 30; idle-fog-animation FPS ≥ 50
 - [ ] **PERF-04**: At Phase 3 UAT walk: frame-delta probe (FOG-08) shows median ≤ 16 ms, p95 ≤ 32 ms, max ≤ 48 ms across ≥ 10 combined gestures
 - [ ] **PERF-05**: At Phase 3 UAT walk: developer's subjective verdict — no visible fog slip, no white-ellipse artefact during pan/zoom/combined gestures
@@ -190,7 +190,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | LOG-04 | Phase 1 | Complete |
 | LOG-05 | Phase 1 | Complete |
 | PERF-01 | Phase 1 | Complete |
-| PERF-02 | Phase 2 | Pending |
+| PERF-02 | Phase 2 | Complete |
 | PERF-03 | Phase 3 | Pending |
 | PERF-04 | Phase 3 | Pending |
 | PERF-05 | Phase 3 | Pending |
@@ -213,6 +213,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 - **2026-04-30 (Phase 1 planning):** LOG-05 wording softened — dropped the prior 50-megabyte synthetic-logfile smoke-test specification per CONTEXT.md `Phase 1 UAT exit gate` decision. The replacement gate is verbal "approved" after a single sideload + Mail round-trip walk.
 - **2026-04-30 (Phase 1 planning, B-1 fix):** BOOT-01 SDK pin updated from `3.41.8` to `3.41.7` for parent code-donor parity per RESEARCH.md Open Question #1. The earlier 3.41.8 wording predated the planner's parent-parity lock; Plan 01 (`flutter create`) and Plan 03 Task 2 (CI workflow `flutter-version: '3.41.7'`) both reference 3.41.7. This wording change brings REQUIREMENTS.md into lockstep with both plans.
 - **2026-05-01 (Phase 1 closure, Plan 01-07 SUMMARY):** LOG-03 marked Complete after source review of `lib/main.dart` confirmed `await FileLogger.bootstrap()` runs BEFORE `WidgetsBinding.instance.addObserver(FileLoggerLifecycleObserver())` and BEFORE `runApp(MirkPocApp)`. AUTH-04 carries a deferred-bug note (cross-restart auto-resume routing bug; software-complete per Plan 01-06, sideload UAT confirms manual deny + Open Settings flow works; cross-restart auto-nav from /denied to /map after iOS Settings toggle does not fire — deferred per user's POC-scope call). Phase 1 closes with all 28 requirement IDs addressed; AUTH-04 alone carries the documented limitation.
+- **2026-05-01 (Phase 2 closure, Plan 02-06 SUMMARY):** PERF-02 marked Complete after sideload UAT walk on iPhone 17 Pro against CI run `25212559648` (SHA `46b8fcc`). Developer's verbatim verdict: *"everything works well, 120 fps when doing stuff, revert to 4 when not doing anything"*. Sustained ~120 fps observed during pan / pinch / combined gestures at zoom 13–15 — 3× headroom over the ≥ 40 fps gate. Idle-FPS ~4 fps documented as expected Flutter no-dirty-frames behaviour (same pattern observed in Phase 1 sideload UAT). Evidence: `.planning/phases/02-map-no-fog/02-UAT.md`. Phase 2 closes with all 12 requirement IDs Complete; Phase 3 (fog hypothesis) unblocked with massive frame-budget headroom for the fog shader.
 
 ---
 *Requirements defined: 2026-04-30*

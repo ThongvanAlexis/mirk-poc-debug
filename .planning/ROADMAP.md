@@ -13,7 +13,7 @@ This POC answers one architectural question: does rendering the MirkFall map, fo
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Bootstrap, CI, logger, share, FPS counter, permission gate — first walkable IPA
-- [ ] **Phase 2: Map (no fog)** - PMTiles, gestures, blue dot, recenter; no-fog FPS gate before fog work
+- [x] **Phase 2: Map (no fog)** - PMTiles, gestures, blue dot, recenter; no-fog FPS gate before fog work
 - [ ] **Phase 3: Fog of War — THE HYPOTHESIS** - Same-Canvas fog layer + frame-delta probe + falsification walk
 - [ ] **Phase 4: Wisp Particles** - World-locked wisps composited in the same paint pass as fog
 - [ ] **Phase 5: Decision Gate** - Final hardening, Pixel 4a sanity walk, formal POC verdict
@@ -53,8 +53,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 02-02-PLAN.md — MAP-01: PmtilesAssetCopier impl + PermissionGateScreen ensureCopied hook (both grant paths)
   - [x] 02-03-PLAN.md — LOC-01/02/03: GeolocatorService impl + BlueDotMarker impl + LOC-03 static-source gate verified
   - [x] 02-04-PLAN.md — LOC-04/05: RecenterFab (500 ms easeInOut tween) + MapCompass (250 ms snap-to-north, shortest-path math)
-  - [ ] 02-05-PLAN.md — MAP-02..06: MapScreen rewrite — FlutterMap stack with VectorTileLayer + blue dot + compass + recenter FAB; router /map builder updated
-  - [ ] 02-06-PLAN.md — PERF-02: sideload UAT walk on iPhone 17 Pro (verbal approved exit gate)
+  - [x] 02-05-PLAN.md — MAP-02..06: MapScreen rewrite — FlutterMap stack with VectorTileLayer + blue dot + compass + recenter FAB; router /map builder updated
+  - [x] 02-06-PLAN.md — PERF-02: sideload UAT walk on iPhone 17 Pro (verbal approved exit gate)
 
 ### Phase 3: Fog of War — THE HYPOTHESIS
 **Goal**: Render the atmospheric fog shader in the same Flutter Canvas as the tile layer, driven by an in-memory disc list and a 256×256 R-channel SDF. Wire the frame-delta self-debug probe. Walk the falsification criteria on iPhone 17 Pro. The phase's deliverable is a binary answer to the architectural hypothesis: same-Canvas eliminates the lag, or it does not. A "denied" outcome here is a valid scientific result that terminates the project; a "confirmed" outcome unlocks Phase 4.
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
-| 2. Map (no fog) | 4/6 | In Progress | - |
+| 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 0/TBD | Not started | - |
 | 4. Wisp Particles | 0/TBD | Not started | - |
 | 5. Decision Gate | 0/TBD | Not started | - |
