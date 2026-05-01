@@ -75,7 +75,7 @@ Each task was committed atomically (TDD RED → GREEN):
 1. **Task 1 RED: 7 failing tests for FOG-08** — `5add4e5` (test) — replaced 2-test Plan 03-01 stub with full 7-test suite using `@visibleForTesting` `debugRecordRawDelta` seam; tests fail to compile against the throwing stub (expected RED).
 2. **Task 1 GREEN: full FrameDeltaProbe implementation** — `e20165a` (feat) — Stopwatch-backed monotonic clock + dual-clock invariant + ring buffer FIFO + 1-Hz Timer.periodic + broadcast StreamController + JSONL via Logger; all 7 tests GREEN; flutter analyze + dart format clean.
 
-**Plan metadata:** _(pending — created at end-of-plan commit)_
+**Plan metadata:** `157b8f4` (docs: complete FOG-08 frame-delta probe plan — adds 03-04-PLAN.md + 03-04-SUMMARY.md, marks FOG-08 complete in REQUIREMENTS.md, advances STATE.md to 17/21 plans)
 
 _Note: No REFACTOR commit — the GREEN implementation was already clean (no duplication, single-purpose methods, clear separation between production methods and the @visibleForTesting seam). REFACTOR would have been busywork._
 
