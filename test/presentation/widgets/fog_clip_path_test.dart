@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart' show Offset, Rect;
 import 'package:latlong2/latlong.dart';
 
+import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
 import 'package:mirk_poc_debug/presentation/widgets/fog_clip_path.dart';
 
@@ -57,6 +58,39 @@ void main() {
       );
       expect(path.contains(const Offset(200, 400)), isTrue, reason: 'far disc → centre still fog-drawn');
       expect(path.contains(const Offset(10, 10)), isTrue, reason: 'far disc → corner still fog-drawn');
+    });
+
+    test('CANVAS-FRAME-ALIGNMENT (FOG-12 unit) — canvasOffset subtraction shifts disc-hole centers and worldRect by -canvasOffset', () {
+      // Pre-Plan-03.1-05 the painter ignored `canvas.getTransform()`. Per
+      // 03.1-FALSIFICATION.md Finding 1 the local Canvas was at
+      // `(canvasTx, canvasTy) = (5.035, -44.198)` mid-session — the reveal
+      // hole then drifted from the blue dot by exactly that translation.
+      //
+      // After this plan, `computeFogClipPath(canvasOffset: ...)` pre-shifts
+      // BOTH the world rect AND every disc-hole center by `-canvasOffset`.
+      // After the painter's Canvas applies its translation T, the holes
+      // appear at `(rawCenter - canvasOffset) + T = rawCenter` — co-located
+      // with the sibling blue-dot CircleLayer rendered at `rawCenter` in its
+      // UNTRANSLATED Canvas.
+      final camera = _fakeCamera();
+      final disc = RevealDisc(id: 'rvd_canvas_offset', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 100.0, fixedAtUtc: DateTime.utc(2026, 5, 1));
+      final pathWithoutOffset = computeFogClipPath(camera: camera, discs: <RevealDisc>[disc]);
+      final pathWithOffset = computeFogClipPath(camera: camera, discs: <RevealDisc>[disc], canvasOffset: const Offset(5, -44));
+      final boundsZero = pathWithoutOffset.getBounds();
+      final boundsOffset = pathWithOffset.getBounds();
+      // The world rect's left edge was originally at 0; after `canvasOffset.dx = 5`
+      // it shifts to -5. Likewise top was 0; after `canvasOffset.dy = -44` it
+      // shifts to +44.
+      expect(
+        (boundsOffset.left - (boundsZero.left - 5)).abs(),
+        lessThan(kPocCanvasTransformEpsilon),
+        reason: 'CANVAS-FRAME-ALIGNMENT (FOG-12): clip path bounds left edge must shift by -canvasOffset.dx.',
+      );
+      expect(
+        (boundsOffset.top - (boundsZero.top - (-44))).abs(),
+        lessThan(kPocCanvasTransformEpsilon),
+        reason: 'CANVAS-FRAME-ALIGNMENT (FOG-12): clip path bounds top edge must shift by -canvasOffset.dy.',
+      );
     });
   });
 }
