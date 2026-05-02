@@ -115,7 +115,7 @@ Plan 03-08 accumulated three task-level commits across the pre-walk-staging + wa
 
 3. **(plan-metadata commit, this commit)** — Task 3: amends 03-FALSIFICATION.md with Walk Evidence + Verdict + MirkFall recommendation; mirrors into 03-UAT.md; updates REQUIREMENTS.md FOG-04..07 + PERF-03/04/05 + Traceability + Revisions; updates STATE.md status + position + decisions + blocker + metrics; updates ROADMAP.md Phase 3 row + plan row + progress table; creates this SUMMARY.
 
-**Plan metadata commit hash:** _filled by self-check below after `gsd-tools commit` runs_
+**Plan metadata commit hash:** `53b2270 docs(03-08): close Phase 3 — falsification walk DENIED + Phase 3.1 gap-closure recommended`
 
 ## Files Created/Modified
 
@@ -205,7 +205,7 @@ All claimed files exist on disk; all claimed prior task commits exist in git his
 
 - `280dd04 docs(03): commit untracked Phase 3 PLAN files (03-01, 03-05, 03-07, 03-08)` — FOUND (pre-Task-1 housekeeping commit)
 - `f79da77 docs(03-08): land 03-UAT.md skeleton with pre-walk gates GREEN` — FOUND (Task 1: pre-walk gates + UAT skeleton)
-- Plan-metadata commit (this commit) — to be verified post-commit by `gsd-tools commit` invocation in the orchestrator's final step
+- `53b2270 docs(03-08): close Phase 3 — falsification walk DENIED + Phase 3.1 gap-closure recommended` — FOUND (this plan-metadata commit, recorded in commit hash placeholder above)
 
 **Verification commands (executed during the closure cycle):**
 
