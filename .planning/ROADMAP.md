@@ -76,6 +76,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
   - [x] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict — **DENIED 2026-05-01** (fog static during pan; Phase 3.1 gap-closure required)
 
+### Phase 03.1: Fix Fog Pan-Translation (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+
 ### Phase 4: Wisp Particles
 **Goal**: Composite the wisp particle system after the fog in the same Canvas, with positions stored in `LatLng` (world space) and projected to screen via the same `MapCamera` snapshot the fog uses. Confirms that the same-Canvas discipline established in Phase 3 generalises to a second visual layer — the cross-pipeline parity check that completes the code-donor package for porting back to MirkFall.
 **Depends on**: Phase 3
