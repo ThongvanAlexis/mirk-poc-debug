@@ -82,8 +82,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: FOG-09, FOG-10, PERF-07
 **Depends on**: Phase 3
 **Plans**: 3 plans
-  - [ ] 03.1-01-PLAN.md — FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation
-  - [ ] 03.1-02-PLAN.md — Apply 3-line fix in `_FogPainter.paint()` + wire `FogTransformLogger` + FOG-09 behavioural transform-equality regression test + FOG-04 docstring augmentation + VALIDATION.md per-task map populated
+  - [x] 03.1-01-PLAN.md — FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation
+  - [x] 03.1-02-PLAN.md — Apply 3-line fix in `_FogPainter.paint()` + wire `FogTransformLogger` + FOG-09 behavioural transform-equality regression test + FOG-04 docstring augmentation + VALIDATION.md per-task map populated
   - [ ] 03.1-03-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + `03.1-FALSIFICATION.md` (CONFIRMED-AFTER-FIX | DENIED-FINAL verdict)
 
 ### Phase 4: Wisp Particles
@@ -118,7 +118,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
-| 03.1. Fix Fog Pan-Translation | 1/3 | In Progress|  |
+| 03.1. Fix Fog Pan-Translation | 2/3 | In Progress|  |
 | 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
 | 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
