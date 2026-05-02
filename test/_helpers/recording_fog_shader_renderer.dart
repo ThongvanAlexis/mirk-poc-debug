@@ -24,7 +24,7 @@ class RecordedFogRender {
   const RecordedFogRender({
     required this.resolution,
     required this.timeSeconds,
-    required this.offset,
+    required this.pixelOrigin,
     required this.baseAlpha,
     required this.sdfRect,
     required this.sdfImage,
@@ -37,8 +37,11 @@ class RecordedFogRender {
   /// LIVE `uTime` value at the moment of paint.
   final double timeSeconds;
 
-  /// `uOffset` 2-tuple — currently always `(0, 0)` in the POC.
-  final (double, double) offset;
+  /// `uPixelOrigin` 2-tuple — full-precision world-pixel origin from the
+  /// painter's `camera.pixelOrigin` (Plan 03.1-04 contract). The shader
+  /// applies `fract()` per-fragment; the Dart call site forwards the
+  /// values verbatim without any modulo.
+  final (double, double) pixelOrigin;
 
   /// Base-colour alpha — slot 8 in the FogShaderUniforms layout.
   final double baseAlpha;
@@ -60,14 +63,14 @@ class RecordedFogRender {
   ///
   ///   * 2 floats from [resolution] (width, height)
   ///   * 1 float from [timeSeconds]
-  ///   * 2 floats from [offset]
+  ///   * 2 floats from [pixelOrigin]
   ///   * 1 float from [baseAlpha]
   ///   * 4 floats from [sdfRect]
   ///   * `namedFloatArgs.length` floats (kMirkFog* constants)
   ///
   /// At kMirkFog* count = 20 (Plan 03-05 baseline), total is `2+1+2+1+4+20 = 30`.
   /// FOG-05's "41 slots" invariant counts every uniform float in
-  /// `FogShaderUniforms.totalFloatSlots` (resolution=2 + time=1 + offset=2 +
+  /// `FogShaderUniforms.totalFloatSlots` (resolution=2 + time=1 + pixelOrigin=2 +
   /// uBase=4 + uHighlight=4 + uShadow=4 + 20 kMirkFog floats + sdfRect=4 = 41).
   /// The recording renderer does NOT record uHighlight / uShadow because the
   /// production code path passes those as compile-time constants (ARGB ints
@@ -95,7 +98,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) offset,
+    required (double, double) pixelOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -105,7 +108,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
       RecordedFogRender(
         resolution: resolution,
         timeSeconds: timeSeconds,
-        offset: offset,
+        pixelOrigin: pixelOrigin,
         baseAlpha: baseAlpha,
         sdfRect: sdfRect,
         sdfImage: sdfImage,

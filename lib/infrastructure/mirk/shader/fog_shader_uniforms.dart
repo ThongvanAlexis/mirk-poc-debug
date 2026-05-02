@@ -19,7 +19,7 @@ import 'dart:ui' show Size;
 /// |-------|--------------------------|--------|
 /// | 0..1  | uResolution              | vec2   |
 /// | 2     | uTime                    | float  |
-/// | 3..4  | uOffset                  | vec2   |
+/// | 3..4  | uPixelOrigin             | vec2   |
 /// | 5..8  | uBase                    | vec4   |
 /// | 9..12 | uHighlight               | vec4   |
 /// | 13..16| uShadow                  | vec4   |
@@ -62,7 +62,7 @@ class FogShaderUniforms {
     ui.FragmentShader shader, {
     required Size resolution,
     required double time,
-    required (double, double) offset,
+    required (double, double) pixelOrigin,
     required int baseArgb,
     required double baseAlpha,
     required int highlightArgb,
@@ -95,9 +95,9 @@ class FogShaderUniforms {
     shader.setFloat(1, resolution.height);
     // uTime — slot 2
     shader.setFloat(2, time);
-    // uOffset — slots 3, 4
-    shader.setFloat(3, offset.$1);
-    shader.setFloat(4, offset.$2);
+    // uPixelOrigin — slots 3, 4
+    shader.setFloat(3, pixelOrigin.$1);
+    shader.setFloat(4, pixelOrigin.$2);
     // uBase — slots 5..8 (RGB from ARGB int + supplied alpha)
     final baseR = ((baseArgb >> 16) & 0xFF) / 255.0;
     final baseG = ((baseArgb >> 8) & 0xFF) / 255.0;

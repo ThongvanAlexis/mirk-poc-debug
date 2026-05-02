@@ -38,7 +38,7 @@ abstract class FogShaderRenderer {
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) offset,
+    required (double, double) pixelOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -58,7 +58,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) offset,
+    required (double, double) pixelOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -69,7 +69,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       shader,
       resolution: resolution,
       time: timeSeconds,
-      offset: offset,
+      pixelOrigin: pixelOrigin,
       baseArgb: kMirkFogAtmosphericBaseColorArgb,
       baseAlpha: baseAlpha,
       highlightArgb: kMirkFogAtmosphericHighlightColorArgb,
@@ -387,39 +387,44 @@ class _FogPainter extends CustomPainter {
     // here would re-introduce the multi-snapshot anti-pattern.
     frameDeltaProbe.recordFogUniformPopulation(cameraSnapshotMicros);
 
-    // FIX (Phase 3.1) — derive uOffset from the camera's pixelOrigin.
+    // FIX (Plan 03.1-04, layered on Plan 03.1-02) — forward FULL-PRECISION
+    // pixelOrigin to the shader; the shader applies `fract()` per-fragment.
     //
-    // The shader's noiseUv = fragUv + uOffset (atmospheric_fog.frag line 258).
-    // fragUv is normalised [0,1], so uOffset must be in the same UV-normalised
-    // units. Dividing pixelOrigin by size gives the right unit conversion.
+    // Plan 03.1-02 derived `(uOffsetX, uOffsetY) = (pixelOrigin.x / size.width) % 1.0`
+    // at this Dart call site. Per 03.1-FALSIFICATION.md Finding 3, the modulo wrap at
+    // ~120 Hz produced visible single-frame discontinuities (uOffsetX sweeping
+    // 0.005..0.99 5-10× per 1-Hz rollup during gesture) — the developer's
+    // "seed of the mirk was changing" failure mode (observation 2).
     //
-    // Modulo-1.0 mitigates the precision-loss pattern described in RESEARCH
-    // §Pitfall C: pixelOrigin grows unboundedly during long walks (zoom 13–15
-    // central Melun ~ 8.3 M pixels). FBM is integer-periodic so modulo-1.0
-    // preserves the visual pattern while keeping float magnitudes tiny.
+    // The fix: pass full-precision pixelOrigin to the shader; rename the
+    // uniform to uPixelOrigin (slot 3..4 unchanged); apply `fract()`
+    // per-fragment inside the fragment shader so each pixel's noise sample
+    // coordinate is continuous across paints.
     //
     // FOG-07 single-snapshot invariant preserved: this consumes the painter's
     // existing `camera` field (passed by FogLayer.build from the same
-    // MapCamera.of(context) read that defends the lock). Re-reading
-    // MapCamera.of(context) here would re-introduce the multi-snapshot
-    // anti-pattern (RESEARCH §Anti-Pattern 3 / §Pitfall 10).
-    //
-    // Identity uSdfRect (slots 37..40 -> const (0,0,1,1)) is UNCHANGED —
-    // RESEARCH §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
+    // MapCamera.of(context) read).
+    // Identity uSdfRect (slots 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH
+    // §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
     final pixOrigin = camera.pixelOrigin;
-    final uOffsetX = (pixOrigin.x / size.width) % 1.0;
-    final uOffsetY = (pixOrigin.y / size.height) % 1.0;
-    final appliedOffset = (uOffsetX, uOffsetY);
+    final appliedPixelOrigin = (pixOrigin.x, pixOrigin.y);
 
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
     // painting.dart line 6436).
+    //
+    // The `appliedUOffset` parameter NAME is preserved for back-compat with
+    // the 03.1-03 walk's session log JSONL keys (uOffsetXMin/Median/Max,
+    // uOffsetYMin/Median/Max). The VALUE forwarded is now full-precision
+    // pixelOrigin (zoom-13 ~1e6, zoom-15+ ~4e6) instead of the modulo-1.0
+    // fraction (0..1); post-walk grep tooling reads the higher magnitude
+    // directly without any key rename.
     fogTransformLogger.recordPaint(
       canvasTransform: canvas.getTransform(),
       cameraPixelOrigin: pixOrigin,
       cameraCenter: camera.center,
-      appliedUOffset: appliedOffset,
+      appliedUOffset: appliedPixelOrigin,
     );
 
     // FOG-05: populate all 41 uniforms via the locked single source of truth
@@ -430,7 +435,7 @@ class _FogPainter extends CustomPainter {
       shader: shader,
       resolution: size,
       timeSeconds: uTimeSeconds,
-      offset: appliedOffset, // ← THE FIX (Plan 03.1-02 — pre-fix passed a constant zero tuple).
+      pixelOrigin: appliedPixelOrigin, // ← Plan 03.1-04 — full-precision; shader applies `fract()` per-fragment.
       baseAlpha: 1.0,
       sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
       sdfImage: sdfImage!,

@@ -59,10 +59,15 @@ uniform vec2  uResolution;
 // Time in seconds since session start. Slot 2.
 uniform float uTime;
 
-// World pan offset (in noise UV units). Lets the fog drift with the
-// MapLibre camera so static fixtures don't appear to move when the user
-// only pans. Slot 3..4.
-uniform vec2  uOffset;
+// World pixel-origin from MapCamera.pixelOrigin (full-precision world
+// pixel units). At zoom 13 magnitudes are ~1e6; at zoom 15 ~4e6. The
+// per-fragment `fract(uPixelOrigin / uResolution)` below moves the
+// modulo wrap from CPU to GPU — pre-Plan-03.1-04 the Dart call site
+// applied `% 1.0` and produced visible single-frame discontinuities at
+// the wrap boundary (03.1-FALSIFICATION.md Finding 3 — the modulo wrap
+// produced the "seed changing" shimmer 5-10× per second during gesture).
+// Slot 3..4 (unchanged).
+uniform vec2  uPixelOrigin;
 
 // Fog colour palette: base / highlight / shadow as RGBA. Alpha
 // component of uBase carries the overall fog opacity. Slot 5..16.
@@ -254,8 +259,12 @@ void main() {
     #endif
 
     // Apply world pan to the noise UV space (NOT to fragUv — fragUv is
-    // screen-local for SDF sampling).
-    vec2 noiseUv = fragUv + uOffset;
+    // screen-local for SDF sampling). The `fract()` is the per-fragment
+    // modulo that pre-Plan-03.1-04 was applied at the Dart call site
+    // (and produced the per-paint global discontinuity documented in
+    // 03.1-FALSIFICATION.md Finding 3). Each fragment now computes its
+    // own modulo in floating-point precision local to its UV.
+    vec2 noiseUv = fragUv + fract(uPixelOrigin / uResolution);
 
     // ---------- 7. Curl-rotated edge field ----------
     // Sample the SDF; near the boundary, locally rotate the curl-noise
@@ -383,7 +392,7 @@ void main() {
     #ifdef MIRK_FOG_DEBUG_OUTPUT_DENSITY
         // DIAGNOSTIC: visualise raw density spatially. Should show a clear
         // noise pattern if the FBM stack is healthy. A uniform grey here
-        // means the noise itself is degenerate (uTime stuck, uOffset
+        // means the noise itself is degenerate (uTime stuck, uPixelOrigin
         // suspect, FBM sum collapsing). See lib/config/constants.dart
         // §kMirkFogDebugOutputDensity for the toggle protocol.
         fragColor = vec4(dN, dN, dN, 1.0);

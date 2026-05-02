@@ -21,7 +21,7 @@ import 'package:mirk_poc_debug/presentation/widgets/fog_layer.dart';
 import '../../_helpers/recording_fog_shader_renderer.dart';
 
 /// FOG-09 — `_FogPainter.paint()` forwards a non-zero, pan-delta-tracking
-/// `offset` argument to `shaderRenderer.render(...)` after a programmatic
+/// `pixelOrigin` argument to `shaderRenderer.render(...)` after a programmatic
 /// `MapController.move(...)`.
 ///
 /// The KEYSTONE behavioural transform-equality regression test that catches
@@ -30,16 +30,23 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// `fog_layer_test.dart`) is necessary but NOT sufficient: widget-tree
 /// containment under `MobileLayerTransformer` does not imply Canvas-transform
 /// sharing. This file's primary test asserts the BEHAVIOURAL consequence
-/// (the fog offset uniform tracks the camera's pixelOrigin) that the
-/// structural test cannot.
+/// (the fog `uPixelOrigin` uniform receives the camera's pixelOrigin verbatim,
+/// no Dart-side modulo) that the structural test cannot.
 ///
-/// Pre-fix HEAD (SHA 280dd04) FAILS this test (initial offset == panned
-/// offset == (0,0) exact); post-fix HEAD passes it. The skipped sub-test
+/// Pre-fix HEAD (SHA 280dd04) FAILS this test (initial pixelOrigin == panned
+/// pixelOrigin == (0,0) exact); post-fix HEAD passes it. The skipped sub-test
 /// at the bottom is the vacuous-test guard — manually unskip it against
-/// pre-fix HEAD to verify the guard catches the regression.
+/// pre-fix HEAD SHA 280dd04 to verify the guard catches the regression.
+///
+/// Plan 03.1-04 update: the painter's call-site argument was renamed
+/// `offset` → `pixelOrigin` and the `% 1.0` modulo moved into the fragment
+/// shader (`fract(uPixelOrigin / uResolution)` per-fragment). Captured
+/// magnitudes are now in raw world-pixel units (zoom 13 ~1e6) instead of
+/// normalised UV [0, 1); the consecutive-pan delta is ~411 raw pixels at
+/// zoom 13 — enormously above `kPocCanvasTransformEpsilon = 1e-6`.
 void main() {
   group('FOG-09 (Plan 03.1-02 keystone)', () {
-    testWidgets('FogLayer offset uniform tracks camera pan (catches Plan 03-08 static-fog regression)', (tester) async {
+    testWidgets('FogLayer pixelOrigin uniform tracks camera pan (catches Plan 03-08 static-fog regression)', (tester) async {
       final mapController = MapController();
       addTearDown(mapController.dispose);
       final probe = FrameDeltaProbe();
@@ -102,16 +109,17 @@ void main() {
         isNotEmpty,
         reason: 'paint() must have run through the renderer at least once — if empty, the SDF future never resolved within the runAsync budget.',
       );
-      final initialOffset = renderer.renders.last.offset;
+      final initialPixelOrigin = renderer.renders.last.pixelOrigin;
 
       // ~1.5 km NE of Melun town centre (still inside the Phase 2 Melun
       // bbox + cameraConstraint pad). At zoom 13 (256 × 2^13 = 2_097_152
-      // world pixels), this delta yields normalised-UV offsets of roughly
-      // ~0.196 (X) / ~0.098 (Y) — comfortably away from the modulo-1.0
-      // wrap boundary (where abs-diff would falsely report ~1.0 across a
-      // real ~0 delta, e.g. 0.99999 → 0.00001). If a future test uses a
-      // pan close to a wrap boundary, switch to `min(abs(d), 1.0 - abs(d))`
-      // for boundary safety.
+      // world pixels), this delta produces a `camera.pixelOrigin` shift of
+      // ~411 raw pixels on the X axis and ~205 on the Y axis. Both are
+      // ENORMOUS compared to `kPocCanvasTransformEpsilon = 1e-6`, so the
+      // assertion fires generously. Plan 03.1-04 moved the modulo wrap into
+      // the fragment shader (`fract(uPixelOrigin / uResolution)`); the Dart
+      // call site forwards full-precision values and there is no `% 1.0`
+      // truncation to handle here.
       mapController.move(const LatLng(48.5500, 2.6700), 13);
       await tester.runAsync(() async {
         // Allow the post-move SDF rebuild (viewport hash changed) to settle.
@@ -127,30 +135,29 @@ void main() {
       // post-pan camera snapshot, NOT the cached pre-pan instance.
       final pannedPainter = _findFogPainter(tester);
       pannedPainter.paint(_MockCanvas(), const Size(400, 800));
-      final pannedOffset = renderer.renders.last.offset;
+      final pannedPixelOrigin = renderer.renders.last.pixelOrigin;
 
       expect(
-        (pannedOffset.$1 - initialOffset.$1).abs(),
+        (pannedPixelOrigin.$1 - initialPixelOrigin.$1).abs(),
         greaterThan(kPocCanvasTransformEpsilon),
         reason:
-            'Plan 03-08 regression: uOffset.x did not change after a programmatic pan. '
-            'The painter MUST derive uOffset from camera.pixelOrigin / size and forward '
-            'the result to shaderRenderer.render(offset:). Pre-fix HEAD passed offset: '
-            'const (0.0, 0.0) and tripped this assertion.',
+            'Plan 03-08 regression: uPixelOrigin.x did not change after a programmatic pan. '
+            'The painter MUST forward camera.pixelOrigin verbatim to shaderRenderer.render(pixelOrigin:). '
+            'Pre-fix HEAD passed const (0.0, 0.0) and tripped this assertion.',
       );
       expect(
-        (pannedOffset.$2 - initialOffset.$2).abs(),
+        (pannedPixelOrigin.$2 - initialPixelOrigin.$2).abs(),
         greaterThan(kPocCanvasTransformEpsilon),
-        reason: 'Plan 03-08 regression: uOffset.y did not change after a programmatic pan.',
+        reason: 'Plan 03-08 regression: uPixelOrigin.y did not change after a programmatic pan.',
       );
     });
 
     testWidgets(
-      'RED-guard (skip:true; manual run against pre-fix HEAD SHA 280dd04 — verifies guard catches Plan 03-08 failure mode): painter passes offset: const (0.0, 0.0) exact',
+      'RED-guard (skip:true; manual run against pre-fix HEAD SHA 280dd04 — verifies guard catches Plan 03-08 failure mode): painter passes pixelOrigin: const (0.0, 0.0) exact',
       (tester) async {
         // Same setUp as the primary test — pump FlutterMap + FogLayer at Melun zoom 13.
-        // Capture renderer.renders.first.offset.
-        // Assert: expect(initialOffset, equals((0.0, 0.0))).
+        // Capture renderer.renders.first.pixelOrigin.
+        // Assert: expect(initialPixelOrigin, equals((0.0, 0.0))).
         //
         // Manually unskip this sub-test, check out SHA 280dd04, run flutter test.
         // The assertion must PASS against pre-fix HEAD (the painter literally
@@ -159,8 +166,12 @@ void main() {
         // and the FOG-09 keystone above is no longer protecting against the
         // original failure mode.
         //
+        // Plan 03.1-04 note: the field is now `pixelOrigin` (renamed from
+        // `offset`); SHA 280dd04 is still the relevant pre-fix HEAD because
+        // the constant-zero failure mode (Plan 03-08) is what this guard catches.
+        //
         // Skipped on green-main because this assertion would fail on the
-        // post-fix HEAD by construction (offset is now non-zero).
+        // post-fix HEAD by construction (pixelOrigin is now non-zero).
         final mapController = MapController();
         addTearDown(mapController.dispose);
         final probe = FrameDeltaProbe();
@@ -200,8 +211,8 @@ void main() {
         await tester.pump();
         final painter = _findFogPainter(tester);
         painter.paint(_MockCanvas(), const Size(400, 800));
-        final initialOffset = renderer.renders.first.offset;
-        expect(initialOffset, equals((0.0, 0.0)));
+        final initialPixelOrigin = renderer.renders.first.pixelOrigin;
+        expect(initialPixelOrigin, equals((0.0, 0.0)));
       },
       skip: true,
     );
@@ -230,7 +241,7 @@ CustomPainter _findFogPainter(WidgetTester tester) {
 /// `getTransform()` returns a 4×4 identity matrix (column-major Float64List
 /// of length 16). Per RESEARCH §Pitfall D, the painter's local Canvas IS at
 /// identity inside `MobileLayerTransformer` at rotation=0; the diagnostic
-/// channel is the (uOffsetX, uOffsetY) tuple, NOT the Canvas matrix.
+/// channel is the (uPixelOrigin.x, uPixelOrigin.y) tuple, NOT the Canvas matrix.
 class _MockCanvas extends Fake implements Canvas {
   @override
   void save() {}

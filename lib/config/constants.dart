@@ -330,15 +330,15 @@ const int kPocFogTransformBufferMaxSamples = 240;
 
 /// Epsilon for transform-equality comparisons in the FOG-09 regression
 /// test. Used in two distinct contexts:
-/// (1) normalised UV units when comparing `(uOffsetX, uOffsetY)` deltas
-///     across two camera positions (output of `pixelOrigin / size % 1.0`,
-///     which is dimensionless — NOT logical pixels);
+/// (1) raw world-pixel units when comparing `(pixelOrigin.x, pixelOrigin.y)`
+///     deltas across two camera positions (post-Plan-03.1-04 the painter
+///     forwards `camera.pixelOrigin` verbatim — full-precision world-pixel
+///     magnitudes, e.g. ~411 raw pixels for a 1.5 km pan at zoom 13);
 /// (2) `Canvas.getTransform()` matrix-element comparisons that test for
 ///     matrix-identity (the painter's local Canvas is at identity inside
 ///     `MobileLayerTransformer` at rotation=0 per RESEARCH §Pitfall D).
-/// 1e-6 is comfortably below the smallest expected real delta at zoom 13
-/// (~0.1 in normalised UV for a ~1.5 km pan) while above floating-point
-/// noise.
+/// 1e-6 is comfortably below the smallest expected real delta in either
+/// regime while above floating-point noise.
 const double kPocCanvasTransformEpsilon = 1e-6;
 
 // Fog shader asset path (FOG-04..06).

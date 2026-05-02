@@ -164,7 +164,7 @@ class _SanityPainter extends CustomPainter {
       shader,
       resolution: size,
       time: uTimeSeconds,
-      offset: const (0.0, 0.0),
+      pixelOrigin: const (0.0, 0.0),
       baseArgb: kMirkFogAtmosphericBaseColorArgb,
       baseAlpha: 1.0,
       highlightArgb: kMirkFogAtmosphericHighlightColorArgb,
