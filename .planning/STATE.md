@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03.1-02-PLAN.md
-last_updated: "2026-05-02T19:49:53.920Z"
-last_activity: 2026-05-02 — Plan 03.1-02 COMPLETE. 3-line uOffset derivation fix + FogTransformLogger wired + FOG-09 keystone GREEN.
+stopped_at: Plan 03.1-03 Task 1 COMPLETE — pre-walk gates GREEN + IPA downloaded; AT CHECKPOINT for Task 2 (iPhone 17 Pro sideload UAT walk).
+last_updated: "2026-05-02T20:02:00Z"
+last_activity: 2026-05-02 — Plan 03.1-03 Task 1 COMPLETE. Pre-walk gates all GREEN on post-fix SHA 5c63197 (CI run 25260475395); IPA at .uat-tmp/mirk-poc-debug-unsigned.ipa. AT CHECKPOINT awaiting iPhone 17 Pro sideload UAT walk verdict.
 progress:
   total_phases: 6
   completed_phases: 3
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 3.1 of 5 (Fix Fog Pan-Translation — INSERTED gap-closure phase)
-Plan: 2 of 3 in Phase 3.1 — **COMPLETE** (3-line uOffset derivation fix + FOG-10 wire + FOG-09 keystone test + vacuous-test guard + FOG-04 docstring + VALIDATION.md populated)
-Status: Plan 03.1-02 COMPLETE 2026-05-02 — Architectural fix landed: `_FogPainter.paint()` now derives `(uOffsetX, uOffsetY) = (camera.pixelOrigin / size) % 1.0` and forwards to `shaderRenderer.render(offset:)`; pre-fix constant zero tuple is gone. FogTransformLogger.recordPaint(...) instrumented in the paint path; JSONL diagnostic stream live for Plan 03.1-03's grep-correlation. FOG-09 GREEN keystone catches Plan 03-08 failure mode mechanically without sideload walk. FOG-09 flipped to Complete in REQUIREMENTS.md. 131 GREEN + 1 SKIPPED full suite; project-wide analyze + format clean. Next: Plan 03.1-03 (pre-walk gates + iPhone 17 Pro UAT walk — the verbal `approved`/`denied` verdict that closes Phase 3.1; reverse the Plan 03-08 DENIED to CONFIRMED-AFTER-FIX or strengthen to DENIED-FINAL using the JSONL diagnostic stream).
-Last activity: 2026-05-02 — Plan 03.1-02 COMPLETE. 3-line uOffset derivation fix + FogTransformLogger wired + FOG-09 keystone GREEN.
+Plan: 3 of 3 in Phase 3.1 — **AT CHECKPOINT (Task 2 of 3)** — Task 1 (skeleton + pre-walk gates + IPA download) COMPLETE; Task 2 awaits iPhone 17 Pro sideload UAT walk verdict; Task 3 (post-walk closure docs) blocked on Task 2 resume signal.
+Status: Plan 03.1-03 Task 1 COMPLETE 2026-05-02 — `03.1-FALSIFICATION.md` + `03.1-UAT.md` skeletons committed (5c63197). Pre-walk gates ALL GREEN on post-fix SHA: flutter test 131/131 + 1 SKIPPED, flutter analyze --fatal-infos 0 issues, dart format --line-length 160 clean (79 files), dart test tool/test/ 18/18 GREEN. CI run 25260475395 on `5c63197fb64d0b83a9f943c5b78b1c44c7227839` GREEN across all 3 jobs (gates / build-android / build-ios). IPA downloaded to `.uat-tmp/mirk-poc-debug-unsigned.ipa` (~11.5 MB). .gitignore hardened (Rule 3 - Blocking) to mask transient walk artefacts before sideload cycle pollutes git status. Now AT CHECKPOINT — awaiting developer's verbal `approved` (CONFIRMED-AFTER-FIX) | `denied: <verbatim>` (DENIED-FINAL) | `iterating: <verbatim>` (open Plan 03.1-04) resume signal after the iPhone 17 Pro sideload walk in central Melun.
+Last activity: 2026-05-02 — Plan 03.1-03 Task 1 COMPLETE. Pre-walk gates GREEN + IPA ready. AT CHECKPOINT for Task 2 sideload UAT walk.
 
 Progress: [█████████░] 96% (23 of 24 plans complete: Phase 1 + Phase 2 closed, Phase 3 closed with denied hypothesis, Phase 3.1 2/3 software-complete; Phases 4 + 5 NOT started — blocked on Phase 3.1 walk verdict)
 
@@ -130,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T19:49:53.912Z
-Stopped at: Completed 03.1-02-PLAN.md
-Resume file: None
+Last session: 2026-05-02T20:02:00Z
+Stopped at: Plan 03.1-03 Task 1 COMPLETE; AT CHECKPOINT for Task 2 (iPhone 17 Pro sideload UAT walk).
+Resume file: .planning/phases/03.1-fix-fog-pan-translation/03.1-03-PLAN.md (Task 2 — checkpoint:human-verify)
