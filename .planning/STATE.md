@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: "Plan 03.1-06 COMPLETE 2026-05-02 — Walk #2 verdict ITERATING-WITH-PARTIAL-PROGRESS per CONTEXT §Iteration policy (3rd Phase 3.1 verdict; no hard cap). 3 of 4 fixes confirmed (PERF-07 re-validated 3.9-5.4× headroom; FOG-12 reveal-hole alignment confirmed-by-walk; UX-01 back button confirmed-by-walk). FOG-11 SHADER-MODULO-WRAP CI test GREEN but user-observable shimmer persists ('rotating 90° / translated fast repetitively') — KEY LEARNING: CI-test-vs-walk-symptom mismatch (FOG-11 caught proximate uniform-discontinuity, missed observable noise-pattern instability). PERF-08 falsified-by-walk-2 (1e-4 quantisation grid does not close per-paint thrash; rebuild rate 1-121/sec median 68/sec). NEW REGRESSION introduced by P03.1-05: fog-rect viewport-coverage (clip-path compensation worked but `canvas.drawRect(rect, fogPaint)` is subject to canvas transform too; canvasTx/Ty up to (+757, +319) for ~50 sec; top-right + bottom-right diagonal strips of un-fogged map at high zoom). Two new requirements opened: FOG-13 (fog-rect symmetric compensation) + FOG-14 (higher-fidelity noise-pattern stability test). Phase 3.1 stays In Progress; Phase 4 + 5 stay BLOCKED. MirkFall migration DEFERRED."
-stopped_at: "Plan 03.1-06 COMPLETE — Walk #2 ITERATING-WITH-PARTIAL-PROGRESS verdict captured in 03.1-FALSIFICATION-2.md + 03.1-UAT-2.md. REQUIREMENTS.md FOG-11 + PERF-08 → Falsified-by-walk-2; FOG-12 + UX-01 → Complete (verified-by-test + walk-2); PERF-07 → re-measured at Walk #2; new IDs FOG-13 + FOG-14 added. ROADMAP.md Phase 03.1 = In Progress (iterating, walk #3 pending after Plan 03.1-07); Phases 4 + 5 stay Blocked. Walk #1 records (03.1-FALSIFICATION.md + 03.1-UAT.md) and Phase 3 record (03-FALSIFICATION.md) UNTOUCHED. Next: /gsd:plan-phase 3.1 --gaps to author Plan 03.1-07 with FALSIFICATION-2.md sub-section D hypothesis triage table as input."
-last_updated: "2026-05-02T22:57:33Z"
-last_activity: 2026-05-02 — Plan 03.1-06 Walk #2 verdict captured (ITERATING-WITH-PARTIAL-PROGRESS); 3 atomic commits (skeleton + STATE checkpoint + walk evidence + final metadata); REQUIREMENTS/ROADMAP/STATE updated. Phase 3.1 stays In Progress.
+status: "Plan 03.1-06 closed 2026-05-02 with the third Phase 3.1 `iterating:` verdict per CONTEXT §Iteration policy (no hard cap on walk count). Walk #1 closed `iterating-with-major-progress`, Walk #2 closed `iterating-with-partial-progress`. **CONFIRMED-BY-WALK-2:** PERF-07 re-validated at 3.9-5.4× headroom across 296-second / 266-rollup window (median 1.495 ms / p95 6.340 ms / max 12.416 ms); FOG-12 reveal-hole alignment (developer's *"the revealed area is staying where it should"* + screenshot showing blue dot at reveal-hole centre); UX-01 back button (developer's *"sanity page is ok"*). **FALSIFIED-BY-WALK-2:** FOG-11 (SHADER-MODULO-WRAP CI test GREEN but user-observable shimmer persists with refined characterisation *"rotating 90° / translated fast repetitively"* — KEY LEARNING: CI-test-vs-walk-symptom mismatch); PERF-08 (1e-4 quantisation grid does not close per-paint thrash empirically; rebuild rate 1-121/sec median 68/sec). **NEW REGRESSION (P03.1-05 introduced):** fog-rect viewport-coverage — `_FogPainter.paint()` calls `canvas.drawRect(Offset.zero & size, fogPaint)` which IS subject to canvas transform; Plan 03.1-05's clip-path-only compensation does not reach the rect-cover paint; top-right + bottom-right diagonal strips of un-fogged map visible at high zoom (canvasTx/Ty up to (+757, +319) for ~50 sec sustained). Two new requirements opened: FOG-13 (fog-rect symmetric compensation) + FOG-14 (higher-fidelity noise-pattern stability test). FOG-04..07 stay flagged at `Falsified-in-production`. Phase 4 + Phase 5 stay BLOCKED."
+stopped_at: "Completed 03.1-06-PLAN.md — Walk #2 ITERATING-WITH-PARTIAL-PROGRESS verdict captured"
+last_updated: "2026-05-02T23:13:28.974Z"
+last_activity: "2026-05-02 — Plan 03.1-06 Walk #2 verdict captured: 3 atomic commits (Task 1 skeleton 9a87010 + STATE checkpoint b31619c + Task 2 walk evidence d7a2520 + final metadata commit pending); REQUIREMENTS.md grew from 63 to 65 v1 requirements (FOG-13, FOG-14 added); ROADMAP.md Phase 3.1 row stays In Progress with Walk #2 verdict line; STATE.md captures the third iteration verdict."
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 28
+  completed_phases: 3  # Phases 1, 2, 3 closed; Phase 3.1 IN PROGRESS (iterating); Phases 4 + 5 BLOCKED
+  total_plans: 28  # +1 for Plan 03.1-07 pending follow-up (no hard cap on Phase 3.1 walks per CONTEXT §Iteration policy)
   completed_plans: 27
   percent: 96
 ---
@@ -75,6 +75,7 @@ Progress: [█████████░] 96% (27 of 28 plans complete: Phase 1
 | Phase 03.1-fix-fog-pan-translation P02 | 11 min | 3 tasks | 11 files (1 created + 10 modified) |
 | Phase 03.1-fix-fog-pan-translation P04 | 11 min | 3 tasks | 10 files |
 | Phase 03.1-fix-fog-pan-translation P05 | 14 min | 3 tasks (each TDD: 6 commits total) | 9 files (4 production + 4 test + 1 planning doc) |
+| Phase 03.1-fix-fog-pan-translation P06 | 73 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T22:57:33Z
-Stopped at: Plan 03.1-06 COMPLETE — Walk #2 verdict ITERATING-WITH-PARTIAL-PROGRESS captured (third Phase 3.1 verdict per CONTEXT §Iteration policy). 4 atomic commits (Task 1 skeleton 9a87010 + STATE checkpoint b31619c + Task 2 walk evidence d7a2520 + final docs metadata pending). Phase 3.1 stays In Progress; Phase 4 + 5 stay BLOCKED. Next: `/gsd:plan-phase 3.1 --gaps` to author Plan 03.1-07 with FALSIFICATION-2.md sub-section D hypothesis triage + UAT-2.md gaps YAML (FOG-13, FOG-14, PERF-08-WIDEN) as input.
+Last session: 2026-05-02T23:13:28.970Z
+Stopped at: Completed 03.1-06-PLAN.md — Walk #2 ITERATING-WITH-PARTIAL-PROGRESS verdict captured
 Resume file: None
