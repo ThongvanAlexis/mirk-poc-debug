@@ -10,7 +10,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
@@ -110,16 +109,27 @@ void main() {
       expect(shiftedCanvas.clipPaths, hasLength(1));
       final shiftedBounds = shiftedCanvas.clipPaths.last.getBounds();
 
+      // Sub-pixel tolerance for `Path.getBounds()` after
+      // `Path.combine(PathOperation.difference, worldPath, holesPath)`. dart:ui's
+      // path-difference engine introduces ~1e-6 float noise per axis on
+      // non-axis-aligned shapes (the disc oval). The reveal-vs-bluedot
+      // visual divergence threshold is on the order of pixels, not
+      // micro-pixels, so a 1e-3 (millipixel) threshold is far below any
+      // perceptible offset while well above float-precision noise. The
+      // regression we catch (pre-Plan-03.1-05 painter ignoring canvas
+      // transform) produces shifts of ~5 and ~44 pixels — orders of
+      // magnitude larger than this threshold.
+      const subPixelTolerance = 1e-3;
       expect(
         (shiftedBounds.left - (identityBounds.left - 5.035)).abs(),
-        lessThan(kPocCanvasTransformEpsilon),
+        lessThan(subPixelTolerance),
         reason:
             'CANVAS-FRAME-ALIGNMENT regression: clip-path bounds did not shift by -canvasTx under non-zero Canvas translation. '
             'Pre-Plan-03.1-05 the painter ignored canvas.getTransform() and the reveal frame drifted from the blue-dot frame.',
       );
       expect(
         (shiftedBounds.top - (identityBounds.top - (-44.198))).abs(),
-        lessThan(kPocCanvasTransformEpsilon),
+        lessThan(subPixelTolerance),
         reason: 'CANVAS-FRAME-ALIGNMENT regression: clip-path bounds did not shift by -canvasTy.',
       );
 

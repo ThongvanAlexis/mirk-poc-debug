@@ -377,7 +377,24 @@ class _FogPainter extends CustomPainter {
     // never advances while idle).
     final uTimeSeconds = wallClock.elapsedMicroseconds / _microsecondsPerSecond;
 
-    final clipPath = computeFogClipPath(camera: camera, discs: discs);
+    // CANVAS-FRAME-ALIGNMENT (Plan 03.1-05) — read the local Canvas transform
+    // ONCE per paint. Per 03.1-FALSIFICATION.md Finding 1, MobileLayerTransformer
+    // applies a non-zero Canvas-level translation under conditions Plan 03-08
+    // and Plan 03.1-02 did not anticipate (canvasTx/Ty jumps to (5.035, -44.198)
+    // mid-session and HOLDS). Pre-Plan-03.1-05 the SDF reveal frame and the
+    // blue-dot CircleLayer frame ended up in different Canvas frames — the
+    // reveal hole offset from the blue dot during gesture (observation 4).
+    //
+    // The single-Float64List allocation is documented in Plan 03.1-02 SUMMARY
+    // as a deferred GC-pressure risk per RESEARCH §Pitfall B; if Plan 03.1-06
+    // walk evidence shows frame_delta regression correlated with this site,
+    // a follow-up plan pre-allocates the buffer. The single-snapshot read
+    // discipline mirrors FOG-07 (camera) at the matrix level — re-reading
+    // would re-introduce a multi-snapshot anti-pattern.
+    final canvasTransform = canvas.getTransform();
+    final canvasOffset = Offset(canvasTransform[_canvasTransformTxIndex], canvasTransform[_canvasTransformTyIndex]);
+
+    final clipPath = computeFogClipPath(camera: camera, discs: discs, canvasOffset: canvasOffset);
     canvas.save();
     canvas.clipPath(clipPath);
 
@@ -421,7 +438,7 @@ class _FogPainter extends CustomPainter {
     // fraction (0..1); post-walk grep tooling reads the higher magnitude
     // directly without any key rename.
     fogTransformLogger.recordPaint(
-      canvasTransform: canvas.getTransform(),
+      canvasTransform: canvasTransform, // ← Plan 03.1-05: reuse the single allocation from above (single-snapshot at the matrix level).
       cameraPixelOrigin: pixOrigin,
       cameraCenter: camera.center,
       appliedUOffset: appliedPixelOrigin,
@@ -465,3 +482,11 @@ class _FogPainter extends CustomPainter {
 /// `Stopwatch.elapsedMicroseconds → seconds` divisor. Hoisted so the magic
 /// `1e6` doesn't appear inline in the `paint()` body's uTime line.
 const double _microsecondsPerSecond = 1e6;
+
+/// Column-major index of the `tx` translation component in a 4x4
+/// Float64List matrix returned by `Canvas.getTransform()` (CANVAS-FRAME-
+/// ALIGNMENT, Plan 03.1-05). dart:ui matrices follow the same column-major
+/// convention as `vector_math.Matrix4`: `m[12]` = tx, `m[13]` = ty,
+/// `m[14]` = tz.
+const int _canvasTransformTxIndex = 12;
+const int _canvasTransformTyIndex = 13;
