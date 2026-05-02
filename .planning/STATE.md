@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: "Plan 03.1-05 software-complete 2026-05-02. All three architectural gaps from 03.1-FALSIFICATION.md addressed: (1) CANVAS-FRAME-ALIGNMENT (FOG-12) — `_FogPainter.paint()` reads `canvas.getTransform()` ONCE per paint and pre-shifts clip-path holes by `-(matrix[12], matrix[13])`; (2) SDF-CACHE-VIEWPORT-THRASH (PERF-08) — `SdfCache._hash()` quantises viewport bbox edges to 1e-4 lat/lon (~11 m at equator); (3) SANITY-NO-BACK-BUTTON (UX-01) — explicit `Icons.arrow_back` IconButton + `context.push('/sanity')`. 6 atomic commits (3 RED + 3 GREEN, TDD pair per task). 138 GREEN / 1 SKIPPED / 0 RED full suite. FOG-04..07 retained at `Falsified-in-production` — Plan 03.1-06 walk on iPhone 17 Pro is the empirical gate. Phase 4 + Phase 5 stay BLOCKED."
-stopped_at: "Plan 03.1-05 COMPLETE — CANVAS-FRAME-ALIGNMENT (FOG-12) + SDF-CACHE-NO-THRASH (PERF-08) + SANITY-NO-BACK-BUTTON (UX-01) all software-complete. Phase 3.1 stays In Progress (5/6 plans complete); Plan 03.1-06 walk #2 is the closure plan."
-last_updated: "2026-05-02T21:48:31Z"
-last_activity: 2026-05-02 — Plan 03.1-05 software-complete: 6 atomic commits (3 RED + 3 GREEN, TDD pair per task) + REQUIREMENTS.md grew from 60 to 63 v1 requirements + Plan 03.1-05 SUMMARY.md authored.
+stopped_at: "Plan 03.1-06 Task 1 COMPLETE — pre-walk gates all 6 GREEN (flutter test 138/138 + 1 SKIPPED, analyze 0, format clean 81 files, tool tests 18/18, CI run 25262881962 SHA 9a87010 SUCCESS, IPA downloaded to .uat-tmp/mirk-poc-debug-unsigned.ipa ~11 MB). Walk #2 falsification + UAT skeletons landed. Awaiting iPhone 17 Pro sideload UAT walk #2 (checkpoint:human-verify Task 2)."
+last_updated: "2026-05-03T00:05:00Z"
+last_activity: 2026-05-03 — Plan 03.1-06 Task 1 complete: 03.1-FALSIFICATION-2.md + 03.1-UAT-2.md skeletons authored; pre-walk gates all 6 GREEN; CI run 25262881962 (SHA 9a87010) green; IPA downloaded for Walk #2 sideload. Walk #1 records 03.1-FALSIFICATION.md + 03.1-UAT.md UNTOUCHED.
 progress:
   total_phases: 6
   completed_phases: 3
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 3.1 of 6 (Fix Fog Pan-Translation — INSERTED gap-closure phase, in iteration)
-Plan: 5 of 6 in Phase 3.1 — **Plan 03.1-05 COMPLETE** (CANVAS-FRAME-ALIGNMENT + SDF-CACHE-NO-THRASH + UX-01 software-complete); Plan 03.1-06 walk #2 is the next/final plan.
+Plan: 6 of 6 in Phase 3.1 — **Plan 03.1-06 Task 1 COMPLETE** (pre-walk gates all 6 GREEN; Walk #2 falsification + UAT skeletons landed); Task 2 (iPhone 17 Pro sideload UAT walk #2) is at checkpoint:human-verify gate awaiting developer.
 Status: Plan 03.1-05 closed 2026-05-02 with all three architectural gaps software-complete: (1) CANVAS-FRAME-ALIGNMENT (FOG-12) — `_FogPainter.paint()` reads `canvas.getTransform()` ONCE per paint and pre-shifts the clip-path holes by `-(matrix[12], matrix[13])` so the SDF reveal frame stays co-located with the sibling blue-dot CircleLayer's UNTRANSLATED frame (closes 03.1-FALSIFICATION.md observation 4); (2) SDF-CACHE-VIEWPORT-THRASH (PERF-08) — `SdfCache._hash(...)` quantises the viewport bbox edges to 1e-4 lat/lon (~11 m at equator) via new `_quantiseBbox(viewport)` helper, dropping the rebuild rate from 12-115/sec (per 03.1-FALSIFICATION.md SDF Anomaly) to ~1/sec; (3) SANITY-NO-BACK-BUTTON (UX-01) — ShaderSanityScreen AppBar gains an explicit `Icons.arrow_back` leading IconButton wired to `context.pop()`, and `poc_app_bar.dart` science-icon nav changed from `context.go('/sanity')` to `context.push('/sanity')` (closes observation 5). 138 GREEN tests / 1 SKIPPED / 0 RED full suite; analyze + format clean. FOG-04..07 stay flagged at `Falsified-in-production` until Plan 03.1-06 walk on iPhone 17 Pro empirically validates the layered fix. Phase 4 + Phase 5 stay BLOCKED.
 Last activity: 2026-05-02 — Plan 03.1-05 software-complete: 6 atomic commits (3 RED + 3 GREEN, one TDD pair per task) + REQUIREMENTS.md grew from 60 to 63 v1 requirements (FOG-12, PERF-08, UX-01 added) + new `### User Experience` section + Phase 3.1 per-phase count grew from 4 to 7 + Plan 03.1-05 SUMMARY.md authored.
 
