@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required)
-last_updated: "2026-05-02T16:13:33.949Z"
+stopped_at: Phase 3.1 context gathered
+last_updated: "2026-05-02T18:26:31.477Z"
 last_activity: 2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. See last_activity in frontmatter for full developer-verbatim + interpretation.
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 3
   total_plans: 21
   completed_plans: 21
@@ -106,6 +106,10 @@ Recent decisions affecting current work:
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-08: **HYPOTHESIS DENIED.** Sideload UAT walk on iPhone 17 Pro 2026-05-01 against CI run 25224334312 (SHA 280dd04) in central Melun. Pre-walk gates all GREEN (flutter test 126/126, flutter analyze 0 warnings, dart format clean, dart test tool/test/ 18/18 GREEN, CI green on 280dd04, IPA downloaded to `.uat-tmp/mirk-poc-debug-unsigned.ipa`). `/sanity` shader-compile gate held (developer saw "mirk" on the walk screen). Walk evidence: developer's verbatim *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. Fog static during pan; rotation transforms apply correctly; only the blue dot translates with the camera. Per Plan 03-08 falsification clause Criterion B's failure alone delivers `denied` (Criterion A unmeasured-and-moot — walk aborted on visual grounds before quantitative probe rollups recorded). MirkFall recommendation: **DO NOT PORT BACK as-implemented**. Three diagnostic possibilities for Phase 3.1 gap-closure: (1) FogPainter draws in screen-space without consuming the camera's translation transform; (2) MobileLayerTransformer applies translation at the widget layer (Transform widget) but rotation via Canvas matrix that the painter's local Canvas does not inherit; (3) MapCamera updates do not propagate to FogLayer.build() between pan-driven repaint cycles, so the painter holds a stale build-time camera snapshot during the entire pan gesture. The diagnostic test that cleaves these three possibilities: log Canvas.getTransform() in FogPainter.paint() vs MapCamera.center in FogLayer.build() during a pan gesture. Phase 4 (wisp particles) and Phase 5 (decision gate) are **BLOCKED** until Phase 3.1 produces a fix or formally confirms the failure is unfixable. Phase 3 closes with a falsified hypothesis — a valid scientific result; the POC's deliverable was binary discrimination, not direction.
 - [Phase 03-fog-of-war-the-hypothesis]: Lesson learned (Plan 03-08): **Structural widget-tree-containment tests are necessary-but-not-sufficient for same-Canvas hypothesis tests.** Plan 03-05's FOG-04 GREEN test (`find.descendant(of: FogLayer, matching: MobileLayerTransformer)` returns one match) was treated as a same-Canvas keystone but only confirmed widget-tree containment, NOT Canvas-transform sharing. Future port-back work to MirkFall, AND any Phase 3.1 fix attempt, must add a behavioural-transform-equality test alongside the structural test: trigger a real pan in a real flutter_map context, log the painter's `Canvas.getTransform()` matrix in `paint()`, assert it matches the tile layer's transform at the same paint frame. The structural-only test should be retained but augmented, not replaced.
 
+### Roadmap Evolution
+
+- Phase 03.1 inserted after Phase 3: Fix Fog Pan-Translation (URGENT)
+
 ### Pending Todos
 
 [From .planning/todos/pending/ — ideas captured during sessions]
@@ -122,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T18:30:00Z
-Stopped at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required)
-Resume file: None
+Last session: 2026-05-02T18:26:31.474Z
+Stopped at: Phase 3.1 context gathered
+Resume file: .planning/phases/03.1-fix-fog-pan-translation/03.1-CONTEXT.md
