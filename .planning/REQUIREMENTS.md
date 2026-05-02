@@ -97,6 +97,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **PERF-05**: At Phase 3 UAT walk: developer's subjective verdict — no visible fog slip, no white-ellipse artefact during pan/zoom/combined gestures _(Plan 03-08 walk on iPhone 17 Pro 2026-05-01: **MEASURED — VERDICT DENIED.** Developer's verbatim words: *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. Three of four Criterion B sub-claims fail (slide-then-snap manifested as worse-than-slide-then-snap *static* fog; reveal-hole lag is permanent; inversion is geometrically forced). PERF-05 is checked-as-MEASURED (not as-passed) — the requirement was to capture the developer's subjective verdict, which was captured; the verdict itself is `denied`. See `.planning/phases/03-fog-of-war-the-hypothesis/03-FALSIFICATION.md` for the full Criterion B sub-claim breakdown and `03-UAT.md` for the walk evidence.)_
 - [ ] **PERF-06**: Pixel 4a (Adreno 618) UAT walks at Phase 3 and Phase 5: app launches, fog renders, no crash; informational FPS recorded for cross-platform comparison (no hard pass criterion)
 - [x] **PERF-07**: At Phase 3.1 UAT walk on iPhone 17 Pro: frame-delta probe (FOG-08) shows median ≤ 16 ms, p95 ≤ 32 ms, max ≤ 48 ms across ≥ 10 combined gestures (PERF-04 carry-over: Plan 03-08 walk left this unmeasured-and-moot). _(Phase 3.1 — Plan 03.1-03 Complete — Measured)_ Sideload session 2026-05-02 against CI run 25260475395 (SHA 5c63197): 36 1-Hz rollups captured; **median-of-medians 0.347 ms (≤ 16 ✓; 7.3× headroom), max-of-p95s 5.598 ms (≤ 32 ✓; 5.7× headroom), max-of-maxes 10.564 ms (≤ 48 ✓; 4.5× headroom)**. PERF-07 GREEN — the unmeasured-and-moot Criterion A from Plan 03-08 is now properly captured.
+- [ ] **PERF-08**: `SdfCache._hash(...)` quantises the viewport bbox edges to 1e-4 lat/lon (~11 m at equator) so per-paint micro-drift during pan/zoom does not invalidate the cache. Pre-Plan-03.1-05 the raw bbox doubles produced 12-115 rebuilds/sec during gesture seconds despite constant disc count (per `03.1-FALSIFICATION.md` SDF Anomaly). Verified-by-test: same disc set + sub-quantisation viewport drift produces ONE rebuild (cache HIT); super-quantisation drift produces TWO rebuilds (cache MISS). _(Phase 3.1 — Plan 03.1-05)_
 
 ## v2 Requirements
 
@@ -205,6 +206,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | PERF-05 | Phase 3 | **Measured — VERDICT DENIED (P03-08 2026-05-01)**. Developer's verbatim words: *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. See 03-FALSIFICATION.md. |
 | PERF-06 | Phase 5 | Pending |
 | PERF-07 | Phase 3.1 | Complete — Measured (P03.1-03; medianMs 0.347 / p95Ms 5.598 / maxMs 10.564; 4-7× headroom across all three thresholds) |
+| PERF-08 | Phase 3.1 | Pending |
 
 **Coverage:**
 - v1 requirements: 60 total

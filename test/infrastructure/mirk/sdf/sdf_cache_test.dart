@@ -103,8 +103,8 @@ void main() {
         // The donor RevealedSdfBuilder also emits non-JSON status lines on
         // the same logger name (`infrastructure.mirk.sdf`); filter those out
         // by checking the JSON-object prefix.
-        final totalRebuilds = captured.where((rec) => (rec.message as String).startsWith('{')).fold<int>(0, (acc, rec) {
-          final parsed = json.decode(rec.message as String) as Map<String, Object?>;
+        final totalRebuilds = captured.where((rec) => rec.message.startsWith('{')).fold<int>(0, (acc, rec) {
+          final parsed = json.decode(rec.message) as Map<String, Object?>;
           return acc + (parsed['rebuildCount']! as int);
         });
         expect(
@@ -141,8 +141,8 @@ void main() {
 
         // Filter for JSON-shaped rollup lines (the donor RevealedSdfBuilder
         // also emits non-JSON status lines on the same logger name).
-        final totalRebuilds = captured.where((rec) => (rec.message as String).startsWith('{')).fold<int>(0, (acc, rec) {
-          final parsed = json.decode(rec.message as String) as Map<String, Object?>;
+        final totalRebuilds = captured.where((rec) => rec.message.startsWith('{')).fold<int>(0, (acc, rec) {
+          final parsed = json.decode(rec.message) as Map<String, Object?>;
           return acc + (parsed['rebuildCount']! as int);
         });
         expect(

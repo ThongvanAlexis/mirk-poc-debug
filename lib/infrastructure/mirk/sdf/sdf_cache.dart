@@ -85,7 +85,28 @@ class SdfCache {
           return Object.hash(qlat, qlon, qrad);
         })
         .toList(growable: false);
-    return Object.hash(viewport, Object.hashAll(discHashes), discs.length);
+    // PERF-08 (Plan 03.1-05) — viewport bbox quantised to ~11 m granularity
+    // (1e-4 lat/lon ≈ 11 m at equator). Pre-Plan-03.1-05 the raw bbox
+    // doubles invalidated the cache per-paint during pan (12-115 rebuilds/sec
+    // per 03.1-FALSIFICATION.md SDF Anomaly despite constant disc count).
+    // The 11 m granularity is well above per-paint micro-drift and well
+    // below any real GPS-fix-driven jump; the cache key changes only when
+    // the viewport meaningfully shifts.
+    return Object.hash(_quantiseBbox(viewport), Object.hashAll(discHashes), discs.length);
+  }
+
+  /// Hashes the viewport bbox edges, each rounded to the nearest
+  /// `1 / _bboxQuantisationFactor` lat/lon increment. Pre-Plan-03.1-05 the
+  /// cache used `viewport.hashCode` (which depends on the raw doubles); even
+  /// 1e-7 deg per-paint drift during pan would invalidate the key. The
+  /// quantisation factor is sized between per-paint micro-drift and real
+  /// GPS-fix-driven viewport changes (see [_bboxQuantisationFactor]).
+  int _quantiseBbox(MirkViewportBbox v) {
+    final qs = (v.south * _bboxQuantisationFactor).round();
+    final qw = (v.west * _bboxQuantisationFactor).round();
+    final qn = (v.north * _bboxQuantisationFactor).round();
+    final qe = (v.east * _bboxQuantisationFactor).round();
+    return Object.hash(qs, qw, qn, qe);
   }
 }
 
@@ -97,6 +118,12 @@ const double _spatialQuantisationFactor = 1e6;
 /// 1e3 → quantises radius to 1 mm. The POC radius is fixed at
 /// `kPocRevealDiscRadiusMeters`; finer quantisation is unused but cheap.
 const double _radiusQuantisationFactor = 1e3;
+
+/// 1e4 → quantises bbox edges to 4 decimal places (~11 m at the equator).
+/// The cache rebuild trigger threshold (PERF-08, Plan 03.1-05). Above
+/// per-paint micro-drift (typical ~1e-7 lat/lon during pan) and below
+/// any real GPS-fix-driven viewport jump (1 m fix → ~9e-6 lat/lon).
+const double _bboxQuantisationFactor = 1e4;
 
 /// Stopwatch.elapsedMicroseconds → ms divisor. Hoisted out of the inline call
 /// site so the magic 1000 doesn't appear in the rebuild-recording line.
