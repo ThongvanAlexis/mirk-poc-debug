@@ -341,6 +341,26 @@ const int kPocFogTransformBufferMaxSamples = 240;
 /// regime while above floating-point noise.
 const double kPocCanvasTransformEpsilon = 1e-6;
 
+/// FOG-11 — maximum acceptable consecutive-paint delta in pixelOrigin
+/// (raw world-pixel units) before declaring a discontinuity. Used in the
+/// behavioural smooth-noise-coordinate-evolution test (Plan 03.1-04
+/// `test/presentation/widgets/fog_smooth_noise_test.dart`) to catch any
+/// future regression where the Dart call site re-introduces a modulo
+/// wrap (or any other discontinuous transformation) on the path from
+/// `camera.pixelOrigin` to the shader's `uPixelOrigin` slot 3..4.
+///
+/// Value rationale: at zoom 16 (the highest expected during a Melun
+/// walk), 1 metre of ground travel is ~4 raw pixels of pixelOrigin
+/// delta. A 1.5 m/s walking pace × 1/120 s per paint = 12.5 mm /
+/// paint = ~0.05 raw pixels. Even a 1.5 km/s extreme gesture velocity
+/// produces only ~50 raw pixels / paint at zoom 16. 1e3 (1000 raw
+/// pixels) is comfortably above any plausible real consecutive-paint
+/// delta yet FAR below the ~size.width-magnitude jump a Dart-side modulo
+/// wrap would produce (a single `(pixelOrigin / size) % 1.0` flip from
+/// 0.9999 to 0.0001 corresponds to a `pixelOrigin` raw-pixel delta of
+/// roughly the full pre-modulo value, which can reach ~4e6).
+const double kPocFogSmoothCoordinateMaxDelta = 1e3;
+
 // Fog shader asset path (FOG-04..06).
 
 /// rootBundle key for the volumetric fog `.frag`. Must match
