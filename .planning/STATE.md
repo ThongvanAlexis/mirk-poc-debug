@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 3.1 context gathered
-last_updated: "2026-05-02T18:26:31.477Z"
-last_activity: 2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. See last_activity in frontmatter for full developer-verbatim + interpretation.
+stopped_at: Completed 03.1-01-PLAN.md
+last_updated: "2026-05-02T19:32:57.540Z"
+last_activity: 2026-05-02 — Plan 03.1-01 COMPLETE. FogTransformLogger (FOG-10) landed as sibling to SdfRebuildLogger + FrameDeltaProbe; 4 GREEN tests pin the 1-Hz JSONL rollup contract; Phase 3.1 stub finalised in REQUIREMENTS.md (FOG-09 + FOG-10 + PERF-07; Coverage 56→59) and ROADMAP.md (Goal text + 3 plan filenames + Progress table row). FogTransformLogger import-ready for Plan 03.1-02 to wire into _FogPainter.paint() alongside the 3-line uOffset derivation fix.
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 22
   percent: 100
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 
 ## Current Position
 
-Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **CLOSED with HYPOTHESIS DENIED** (Wave 5 — falsification walk COMPLETE)
-Plan: 8 of 8 in Phase 3 — **COMPLETE** (sideload UAT walk on iPhone 17 Pro against CI run 25224334312 / SHA 280dd04; verdict DENIED — fog renders + rotates with camera but does NOT translate during pan)
-Status: All 8 Phase 3 plans complete. The Phase 3 deliverable was a binary answer to the same-Canvas hypothesis, and the answer is `denied`. This is a valid scientific result — the POC's value is the *discrimination*, not the direction. Phase 4 (wisp particles) is **BLOCKED** until Phase 3.1 gap-closure diagnoses the camera-translation propagation path; Phase 5 (decision gate) is also blocked. Recommended next step: `/gsd:add-phase 3.1` to plan the gap-closure investigation (three diagnostic possibilities in 03-FALSIFICATION.md), OR `/gsd:plan-phase 4` if the human chooses to skip the gap-closure and accept the falsified hypothesis as the formal POC verdict.
-Last activity: 2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. See last_activity in frontmatter for full developer-verbatim + interpretation.
+Phase: 3.1 of 5 (Fix Fog Pan-Translation — INSERTED gap-closure phase)
+Plan: 1 of 3 in Phase 3.1 — **COMPLETE** (FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation)
+Status: Plan 03.1-01 COMPLETE 2026-05-02 — FogTransformLogger sibling to SdfRebuildLogger + FrameDeltaProbe is import-ready for Plan 03.1-02. 4 GREEN unit tests pin the 1-Hz JSONL rollup contract; FOG-10 flipped to Complete; FOG-09 + PERF-07 added to REQUIREMENTS.md (Pending — Plan 03.1-02 + 03.1-03 respectively). Coverage 56→59 v1 requirements. Next: Plan 03.1-02 (apply the 3-line uOffset derivation fix in `_FogPainter.paint()` + wire FogTransformLogger + FOG-09 behavioural transform-equality regression test).
+Last activity: 2026-05-02 — Plan 03.1-01 COMPLETE. FogTransformLogger landed; Phase 3.1 stub finalised in REQUIREMENTS.md + ROADMAP.md.
 
-Progress: [██████████] 100% (21 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 closed with denied hypothesis; Phases 4 + 5 NOT started — blocked on Phase 3.1 gap-closure outcome)
+Progress: [█████████░] 92% (22 of 24 plans complete: Phase 1 + Phase 2 closed, Phase 3 closed with denied hypothesis, Phase 3.1 1/3 in progress; Phases 4 + 5 NOT started — blocked on Phase 3.1 gap-closure outcome)
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [██████████] 100% (21 of 21 plans complete: Phase 
 | Phase 03-fog-of-war-the-hypothesis P05 | 14 min | 2 tasks | 6 files |
 | Phase 03-fog-of-war-the-hypothesis P07 | 90 min | 2 tasks | 5 files |
 | Phase 03-fog-of-war-the-hypothesis P08 | ~1h end-to-end (pre-walk gate sequence + walk + closure docs) | 3 tasks (Task 1 auto pre-walk gates + Task 2 checkpoint:human-verify walk + Task 3 auto closure docs) | 5 files (1 created: 03-08-SUMMARY.md; 4 modified: 03-FALSIFICATION.md, 03-UAT.md, REQUIREMENTS.md, STATE.md, ROADMAP.md) |
+| Phase 03.1-fix-fog-pan-translation P01 | 6 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ Recent decisions affecting current work:
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-07: MapScreen × Phase 3 production assembly. Hand-rolled disc ID rvd_<microsSinceEpoch>_<randomU32>_<counter> per RESEARCH §Open Question 4 (no ulid dep). fogProgramLoaderOverride field added to MapScreenServices DTO — same constructor-injection seam as Plan 03-06 ShaderSanityScreen.programLoaderOverride; production wiring leaves null. Graceful no-fog fallback on shader load failure (catch + log severe + leave _fogShader null + FogLayer never mounts) — pre-walk /sanity gate prevents shipping broken IPA. In-body teardown for fog tests touching FrameDeltaProbe broadcast StreamController (addTearDown + cancel-in-flight overlay subscription = 10-min hang under flutter_test 3.41). 3 deviations — 2 Rule 3 - Blocking [program loader hang, addTearDown hang], 1 Rule 1 - Bug [dart format reflow]; full suite 126 GREEN / 0 SKIPPED / 0 RED.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-08: **HYPOTHESIS DENIED.** Sideload UAT walk on iPhone 17 Pro 2026-05-01 against CI run 25224334312 (SHA 280dd04) in central Melun. Pre-walk gates all GREEN (flutter test 126/126, flutter analyze 0 warnings, dart format clean, dart test tool/test/ 18/18 GREEN, CI green on 280dd04, IPA downloaded to `.uat-tmp/mirk-poc-debug-unsigned.ipa`). `/sanity` shader-compile gate held (developer saw "mirk" on the walk screen). Walk evidence: developer's verbatim *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. Fog static during pan; rotation transforms apply correctly; only the blue dot translates with the camera. Per Plan 03-08 falsification clause Criterion B's failure alone delivers `denied` (Criterion A unmeasured-and-moot — walk aborted on visual grounds before quantitative probe rollups recorded). MirkFall recommendation: **DO NOT PORT BACK as-implemented**. Three diagnostic possibilities for Phase 3.1 gap-closure: (1) FogPainter draws in screen-space without consuming the camera's translation transform; (2) MobileLayerTransformer applies translation at the widget layer (Transform widget) but rotation via Canvas matrix that the painter's local Canvas does not inherit; (3) MapCamera updates do not propagate to FogLayer.build() between pan-driven repaint cycles, so the painter holds a stale build-time camera snapshot during the entire pan gesture. The diagnostic test that cleaves these three possibilities: log Canvas.getTransform() in FogPainter.paint() vs MapCamera.center in FogLayer.build() during a pan gesture. Phase 4 (wisp particles) and Phase 5 (decision gate) are **BLOCKED** until Phase 3.1 produces a fix or formally confirms the failure is unfixable. Phase 3 closes with a falsified hypothesis — a valid scientific result; the POC's deliverable was binary discrimination, not direction.
 - [Phase 03-fog-of-war-the-hypothesis]: Lesson learned (Plan 03-08): **Structural widget-tree-containment tests are necessary-but-not-sufficient for same-Canvas hypothesis tests.** Plan 03-05's FOG-04 GREEN test (`find.descendant(of: FogLayer, matching: MobileLayerTransformer)` returns one match) was treated as a same-Canvas keystone but only confirmed widget-tree containment, NOT Canvas-transform sharing. Future port-back work to MirkFall, AND any Phase 3.1 fix attempt, must add a behavioural-transform-equality test alongside the structural test: trigger a real pan in a real flutter_map context, log the painter's `Canvas.getTransform()` matrix in `paint()`, assert it matches the tile layer's transform at the same paint frame. The structural-only test should be retained but augmented, not replaced.
+- [Phase 03.1-fix-fog-pan-translation]: Plan 03.1-01: FogTransformLogger structurally mirrors SdfRebuildLogger verbatim — same constructor seam (rollupInterval), same start/stop/_emitRollup shape, same Logger.info JSONL emission. min/median/max instead of median/p95/max because p95 is meaningless for spatial coordinates; toStringAsFixed(6) string values in JSONL aligned with kPocCanvasTransformEpsilon (1e-6) for grep-readable transform-equality. computeStats helper exposed @visibleForTesting (static) for Plan 03.1-02 unit-level reuse. 1 Rule 1 deviation: removed redundant dart:typed_data import (Float64List re-exported via package:flutter/foundation.dart). 4/4 GREEN tests; 130 full-suite GREEN; project-wide analyze + format clean. FogTransformLogger is import-ready for Plan 03.1-02 to wire into _FogPainter.paint() alongside the 3-line uOffset derivation fix.
 
 ### Roadmap Evolution
 
@@ -126,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T18:26:31.474Z
-Stopped at: Phase 3.1 context gathered
-Resume file: .planning/phases/03.1-fix-fog-pan-translation/03.1-CONTEXT.md
+Last session: 2026-05-02T19:32:57.536Z
+Stopped at: Completed 03.1-01-PLAN.md
+Resume file: None
