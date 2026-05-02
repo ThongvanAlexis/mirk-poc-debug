@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
@@ -20,6 +21,11 @@ import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
 /// deterministically. The actual fog-render output is validated by manual
 /// UAT in Plan 03-08 (developer opens /sanity on iPhone 17 Pro and visually
 /// confirms the atmospheric fog with central reveal hole).
+///
+/// Plan 03.1-05 Task 3 — UX-01 augment: AppBar back button pops `/sanity`
+/// to the previous route. Catches the SANITY-NO-BACK-BUTTON failure mode
+/// from `03.1-FALSIFICATION.md` observation 5 (developer had to force-close
+/// the app to return from `/sanity` during the 03.1-03 walk).
 void main() {
   testWidgets('shows CircularProgressIndicator while program is loading', (tester) async {
     // Hold the loader future open with a Completer so the screen stays in
@@ -77,4 +83,66 @@ void main() {
     await tester.pump();
     expect(find.text('Vérification du shader'), findsOneWidget);
   });
+
+  group('UX-01 (Plan 03.1-05)', () {
+    testWidgets('AppBar back button pops /sanity to previous route', (tester) async {
+      // Two-route router stack — `/` (placeholder home) + `/sanity`
+      // (ShaderSanityScreen). The test pushes to `/sanity` then taps the
+      // AppBar back button; the previous route must reappear.
+      //
+      // Inject a never-completing loader so the screen sits in the loading
+      // state — we only test AppBar nav, not the shader-load path.
+      final pendingCompleter = Completer<ui.FragmentProgram>();
+      addTearDown(() {
+        if (!pendingCompleter.isCompleted) pendingCompleter.completeError(StateError('test teardown'));
+      });
+
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: <GoRoute>[
+          GoRoute(path: '/', builder: (BuildContext _, GoRouterState __) => const _PlaceholderHome()),
+          GoRoute(path: '/sanity', builder: (BuildContext _, GoRouterState __) => ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future)),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      );
+      // pump() not pumpAndSettle() — the home screen has no animations to
+      // settle, and the sanity screen (when navigated below) holds an
+      // in-flight CircularProgressIndicator that pumpAndSettle would chase
+      // forever (the loader Completer never completes by design).
+      await tester.pump();
+      expect(find.byType(_PlaceholderHome), findsOneWidget);
+
+      // Push to /sanity from the home placeholder, then assert the screen
+      // and its back-button are present.
+      router.push('/sanity');
+      // Two pumps to settle the GoRouter route transition; pumpAndSettle
+      // would block on the CircularProgressIndicator's repaint loop.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byType(ShaderSanityScreen), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+      // Tap the back button → pop to '/'.
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(find.byType(_PlaceholderHome), findsOneWidget, reason: 'UX-01: tapping the back button on /sanity must pop to the previous route.');
+      expect(find.byType(ShaderSanityScreen), findsNothing);
+    });
+  });
+}
+
+class _PlaceholderHome extends StatelessWidget {
+  const _PlaceholderHome();
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('home')));
 }
