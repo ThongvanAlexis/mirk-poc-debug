@@ -14,9 +14,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Bootstrap, CI, logger, share, FPS counter, permission gate — first walkable IPA
 - [x] **Phase 2: Map (no fog)** - PMTiles, gestures, blue dot, recenter; no-fog FPS gate before fog work
-- [ ] **Phase 3: Fog of War — THE HYPOTHESIS** - Same-Canvas fog layer + frame-delta probe + falsification walk
-- [ ] **Phase 4: Wisp Particles** - World-locked wisps composited in the same paint pass as fog
-- [ ] **Phase 5: Decision Gate** - Final hardening, Pixel 4a sanity walk, formal POC verdict
+- [x] **Phase 3: Fog of War — THE HYPOTHESIS** - Same-Canvas fog layer + frame-delta probe + falsification walk — **HYPOTHESIS DENIED 2026-05-01** (fog renders + rotates with camera but does NOT translate during pan; structural FOG-04 test passes but Canvas-transform sharing does not follow). See `.planning/phases/03-fog-of-war-the-hypothesis/03-FALSIFICATION.md`. Phase 3.1 gap-closure recommended before Phase 4 unblocks.
+- [ ] **Phase 4: Wisp Particles** - World-locked wisps composited in the same paint pass as fog — **BLOCKED on Phase 3.1 gap-closure outcome**
+- [ ] **Phase 5: Decision Gate** - Final hardening, Pixel 4a sanity walk, formal POC verdict — **BLOCKED on Phase 3.1 gap-closure outcome**
 
 ## Phase Details
 
@@ -74,7 +74,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-05-PLAN.md — FOG-04..07: FogLayer + computeFogClipPath + KEYSTONE single-MapCamera-snapshot test
   - [x] 03-06-PLAN.md — FrameDeltaProbeOverlay (live HUD) + ShaderSanityScreen (pre-walk gate at /sanity)
   - [x] 03-07-PLAN.md — MapScreen integration: GPS fix → discRepository.append; FogLayer + probe overlay mount
-  - [ ] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict (PERF-03/04/05)
+  - [x] 03-08-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + falsification verdict — **DENIED 2026-05-01** (fog static during pan; Phase 3.1 gap-closure required)
 
 ### Phase 4: Wisp Particles
 **Goal**: Composite the wisp particle system after the fog in the same Canvas, with positions stored in `LatLng` (world space) and projected to screen via the same `MapCamera` snapshot the fog uses. Confirms that the same-Canvas discipline established in Phase 3 generalises to a second visual layer — the cross-pipeline parity check that completes the code-donor package for porting back to MirkFall.
@@ -107,9 +107,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
-| 3. Fog of War — THE HYPOTHESIS | 1/8 | In Progress | - |
-| 4. Wisp Particles | 0/TBD | Not started | - |
-| 5. Decision Gate | 0/TBD | Not started | - |
+| 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
+| 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
+| 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
 ---
 *Roadmap created: 2026-04-30*

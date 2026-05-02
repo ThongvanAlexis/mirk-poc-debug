@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 03-07-PLAN.md
-last_updated: "2026-05-01T17:07:52.237Z"
-last_activity: "2026-05-01 — Plan 03-07 complete (MapScreen Phase 2 placeholder rewritten as Phase 2+3 production assembly: every GPS fix appends a 25 m RevealDisc with hand-rolled `rvd_<us>_<u32>_<counter>` ID; FogLayer mounts as a child of FlutterMap between VectorTileLayer and the blue-dot CircleLayer; FrameDeltaProbeOverlay sits at top:104 right:8; FrameDeltaProbe + SdfCache + SdfRebuildLogger lifecycles owned by initState/dispose; async shader load gates FogLayer mount with graceful no-fog fallback. Published `fogProgramLoaderOverride` test seam on MapScreenServices DTO. 3 deviations; full suite 126 GREEN / 0 SKIPPED / 0 RED)"
+status: hypothesis-denied
+stopped_at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required before Phase 4 unblocks)
+last_updated: "2026-05-01T18:30:00Z"
+last_activity: "2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. Sideload UAT walk on iPhone 17 Pro against CI run 25224334312 (SHA 280dd04) in central Melun. Developer's verbatim: \"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied\". Fog renders + rotation transforms apply, but pan-translation does not — fog is static relative to screen while tile layer translates beneath it. Structural FOG-04 test (`find.descendant(of: FogLayer, matching: MobileLayerTransformer)`) passes but behavioural Canvas-transform sharing does not follow. FOG-04..07 flipped to Falsified-in-production; FOG-01..03 + FOG-08 retain verified-by-test Complete. PERF-05 measured-with-denied-verdict. MirkFall recommendation: DO NOT PORT BACK as-implemented; Phase 3.1 gap-closure required to diagnose camera-translation propagation path (3 diagnostic possibilities outlined in 03-FALSIFICATION.md)."
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 21
-  completed_plans: 20
-  percent: 95
+  completed_plans: 21
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** The fog-of-war stays perfectly locked to the map during pan, zoom, and combined gestures on a sideloaded iOS build.
-**Current focus:** Phase 1 — Foundation **CLOSED**. Phase 2 — Map (no fog) **CLOSED** (PERF-02 PASS). Phase 3 (Fog of War — THE HYPOTHESIS) unblocked.
+**Current focus:** Phase 1 — Foundation **CLOSED**. Phase 2 — Map (no fog) **CLOSED** (PERF-02 PASS). Phase 3 — Fog of War **CLOSED with HYPOTHESIS DENIED** (P03-08 walk 2026-05-01). Phase 3.1 gap-closure required to diagnose the camera-translation propagation path before Phase 4 (wisp particles) unblocks OR before any MirkFall port-back is attempted.
 
 ## Current Position
 
-Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **IN PROGRESS** (Wave 4 — production assembly COMPLETE)
-Plan: 7 of 8 in Phase 3 — **COMPLETE** (MapScreen × Phase 3 integration — FOG-01 disc-append-per-fix + FOG-04 same-Canvas FogLayer mount + FOG-08 probe overlay all wired into the production /map screen)
-Status: Phase 3 Waves 1+2+3 ALL COMPLETE. Wave 4 (Plan 03-07 MapScreen integration) COMPLETE. Plan 03-08 (sideload UAT walk per CONTEXT.md falsification criteria A + B) unblocked. The IPA built from `main` after 03-07 metadata commit IS the artefact the developer sideloads on iPhone 17 Pro.
-Last activity: 2026-05-01 — Plan 03-07 complete (MapScreen Phase 2 placeholder rewritten as Phase 2+3 production assembly: every GPS fix appends a 25 m RevealDisc with hand-rolled `rvd_<us>_<u32>_<counter>` ID; FogLayer mounts as a child of FlutterMap between VectorTileLayer and the blue-dot CircleLayer; FrameDeltaProbeOverlay sits at top:104 right:8; FrameDeltaProbe + SdfCache + SdfRebuildLogger lifecycles owned by initState/dispose; async shader load gates FogLayer mount with graceful no-fog fallback. Published `fogProgramLoaderOverride` test seam on MapScreenServices DTO. 3 deviations; full suite 126 GREEN / 0 SKIPPED / 0 RED)
+Phase: 3 of 5 (Fog of War — THE HYPOTHESIS) — **CLOSED with HYPOTHESIS DENIED** (Wave 5 — falsification walk COMPLETE)
+Plan: 8 of 8 in Phase 3 — **COMPLETE** (sideload UAT walk on iPhone 17 Pro against CI run 25224334312 / SHA 280dd04; verdict DENIED — fog renders + rotates with camera but does NOT translate during pan)
+Status: All 8 Phase 3 plans complete. The Phase 3 deliverable was a binary answer to the same-Canvas hypothesis, and the answer is `denied`. This is a valid scientific result — the POC's value is the *discrimination*, not the direction. Phase 4 (wisp particles) is **BLOCKED** until Phase 3.1 gap-closure diagnoses the camera-translation propagation path; Phase 5 (decision gate) is also blocked. Recommended next step: `/gsd:add-phase 3.1` to plan the gap-closure investigation (three diagnostic possibilities in 03-FALSIFICATION.md), OR `/gsd:plan-phase 4` if the human chooses to skip the gap-closure and accept the falsified hypothesis as the formal POC verdict.
+Last activity: 2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. See last_activity in frontmatter for full developer-verbatim + interpretation.
 
-Progress: [█████████░] 95% (20 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 Plans 01..07 complete, Plan 03-08 + Phases 4–5 remaining)
+Progress: [██████████] 100% (21 of 21 plans complete: Phase 1 + Phase 2 closed, Phase 3 closed with denied hypothesis; Phases 4 + 5 NOT started — blocked on Phase 3.1 gap-closure outcome)
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 95% (20 of 21 plans complete: Phase 1
 | Phase 03-fog-of-war-the-hypothesis P06 | 7 min | 2 (TDD: 4 commits) tasks | 4 files (2 production + 2 test) files |
 | Phase 03-fog-of-war-the-hypothesis P05 | 14 min | 2 tasks | 6 files |
 | Phase 03-fog-of-war-the-hypothesis P07 | 90 min | 2 tasks | 5 files |
+| Phase 03-fog-of-war-the-hypothesis P08 | ~1h end-to-end (pre-walk gate sequence + walk + closure docs) | 3 tasks (Task 1 auto pre-walk gates + Task 2 checkpoint:human-verify walk + Task 3 auto closure docs) | 5 files (1 created: 03-08-SUMMARY.md; 4 modified: 03-FALSIFICATION.md, 03-UAT.md, REQUIREMENTS.md, STATE.md, ROADMAP.md) |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ Recent decisions affecting current work:
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-06: FrameDeltaProbeOverlay (FOG-08 user-facing) + ShaderSanityScreen pre-walk gate landed. Overlay subscribes to probe.rollups and renders 3 colour-coded lines (med/p95/max) at 1 Hz cadence — no internal Timer; cadence inherited from probe rollup emission. Pre-rollup placeholder uses dash so 'no samples yet' differs from 'samples = 0'. ShaderSanityScreen loads atmospheric_fog.frag + builds synthetic 80 m disc SDF + paints fog through FogShaderUniforms.setAll (same call shape as FogLayer). programLoaderOverride constructor seam isolates FragmentProgram.fromAsset from headless test runners. 5 RED → 5 GREEN: 2 overlay (placeholder + colour bands) + 3 sanity (loading spinner + error state + FR title). 3 deviations: Rule 1 test data fix (10→20 samples so floor(22*0.95)=20 places p95 in yellow, not collapsing onto max), Rule 3 fake_async pending-Timer fix (explicit probe.stop() inline), Rule 1 unused dart:ui import. Plan 03-07 (MapScreen Stack composition) and Plan 03-08 (sideload UAT walk) unblocked.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-05: FogLayer + computeFogClipPath + FogShaderRenderer interface landed (FOG-04..07 keystone + FOG-08 wire). FOG-07 KEYSTONE test GREEN — readCount==1 initial, +1 per forced rebuild over 3 rebuilds, mechanically defends against BUG-014 white-ellipse symptom. Painter holds LIVE Stopwatch BY REFERENCE; paint() reads elapsedMicroseconds fresh per call (anti-frozen-uTime, PERF-03 prerequisite). 4 deviations: 2 Rule 3 - Blocking (flutter_map 7.0.2 actual API differs from plan — size:Point<double> + latLngToScreenPoint not size:Size + latLngToScreenOffset; dart:ui 3.41 FragmentShader is base — made FogLayer.shader nullable, tests pass null), 1 Rule 1 - Bug (FOG-04 test direction — find.descendant not find.ancestor; FlutterMap does NOT auto-wrap children in MobileLayerTransformer per flutter_map widget.dart lines 97-108), 1 Rule 1 - Bug (dart format reflowed lines + auto-fixed prefer_const_constructors). Phase 3 RED count: 0 (was 2 fog_clip_path tests; both flipped GREEN + 1 added). Plan 03-07 unblocked.
 - [Phase 03-fog-of-war-the-hypothesis]: Plan 03-07: MapScreen × Phase 3 production assembly. Hand-rolled disc ID rvd_<microsSinceEpoch>_<randomU32>_<counter> per RESEARCH §Open Question 4 (no ulid dep). fogProgramLoaderOverride field added to MapScreenServices DTO — same constructor-injection seam as Plan 03-06 ShaderSanityScreen.programLoaderOverride; production wiring leaves null. Graceful no-fog fallback on shader load failure (catch + log severe + leave _fogShader null + FogLayer never mounts) — pre-walk /sanity gate prevents shipping broken IPA. In-body teardown for fog tests touching FrameDeltaProbe broadcast StreamController (addTearDown + cancel-in-flight overlay subscription = 10-min hang under flutter_test 3.41). 3 deviations — 2 Rule 3 - Blocking [program loader hang, addTearDown hang], 1 Rule 1 - Bug [dart format reflow]; full suite 126 GREEN / 0 SKIPPED / 0 RED.
+- [Phase 03-fog-of-war-the-hypothesis]: Plan 03-08: **HYPOTHESIS DENIED.** Sideload UAT walk on iPhone 17 Pro 2026-05-01 against CI run 25224334312 (SHA 280dd04) in central Melun. Pre-walk gates all GREEN (flutter test 126/126, flutter analyze 0 warnings, dart format clean, dart test tool/test/ 18/18 GREEN, CI green on 280dd04, IPA downloaded to `.uat-tmp/mirk-poc-debug-unsigned.ipa`). `/sanity` shader-compile gate held (developer saw "mirk" on the walk screen). Walk evidence: developer's verbatim *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. Fog static during pan; rotation transforms apply correctly; only the blue dot translates with the camera. Per Plan 03-08 falsification clause Criterion B's failure alone delivers `denied` (Criterion A unmeasured-and-moot — walk aborted on visual grounds before quantitative probe rollups recorded). MirkFall recommendation: **DO NOT PORT BACK as-implemented**. Three diagnostic possibilities for Phase 3.1 gap-closure: (1) FogPainter draws in screen-space without consuming the camera's translation transform; (2) MobileLayerTransformer applies translation at the widget layer (Transform widget) but rotation via Canvas matrix that the painter's local Canvas does not inherit; (3) MapCamera updates do not propagate to FogLayer.build() between pan-driven repaint cycles, so the painter holds a stale build-time camera snapshot during the entire pan gesture. The diagnostic test that cleaves these three possibilities: log Canvas.getTransform() in FogPainter.paint() vs MapCamera.center in FogLayer.build() during a pan gesture. Phase 4 (wisp particles) and Phase 5 (decision gate) are **BLOCKED** until Phase 3.1 produces a fix or formally confirms the failure is unfixable. Phase 3 closes with a falsified hypothesis — a valid scientific result; the POC's deliverable was binary discrimination, not direction.
+- [Phase 03-fog-of-war-the-hypothesis]: Lesson learned (Plan 03-08): **Structural widget-tree-containment tests are necessary-but-not-sufficient for same-Canvas hypothesis tests.** Plan 03-05's FOG-04 GREEN test (`find.descendant(of: FogLayer, matching: MobileLayerTransformer)` returns one match) was treated as a same-Canvas keystone but only confirmed widget-tree containment, NOT Canvas-transform sharing. Future port-back work to MirkFall, AND any Phase 3.1 fix attempt, must add a behavioural-transform-equality test alongside the structural test: trigger a real pan in a real flutter_map context, log the painter's `Canvas.getTransform()` matrix in `paint()`, assert it matches the tile layer's transform at the same paint frame. The structural-only test should be retained but augmented, not replaced.
 
 ### Pending Todos
 
@@ -115,9 +118,10 @@ None yet.
 
 - ~~Phase 2 vector-tile FPS on iOS at zoom 13–15 has no published numbers; the Phase 2 walk IS the research, and is the highest-probability project-blocking risk.~~ **RESOLVED 2026-05-01 by Plan 02-06 verbal `approved`:** sustained ~120 fps on iPhone 17 Pro during pan / pinch / combined gestures at zoom 13–15 — 3× headroom over the ≥ 40 fps gate. Phase 3 fog hypothesis unblocked with massive frame-budget margin.
 - AUTH-04 cross-restart auto-resume routing bug (deferred per Plan 01-07 SUMMARY + deferred-items.md). Not blocking Phase 1 closure (POC scope; revoking GPS perms during a GPS-needed POC is artificial). May resurface if a downstream phase exercises the cross-restart re-grant flow.
+- **PHASE-3.1-CAMERA-TRANSFORM (NEW 2026-05-01, BLOCKER):** Same-Canvas fog hypothesis falsified for translation by Plan 03-08 walk verdict DENIED. Fog renders correctly, rotation transforms propagate, but pan/translation does not — fog stays static relative to screen while tile layer translates beneath it. Plans 03-04..03-07 shipped a structurally-correct widget tree (FogLayer is a descendant of MobileLayerTransformer per Plan 03-05's GREEN FOG-04 test) but the painter's Canvas does not inherit the tile-layer's translation transform. Phase 3.1 gap-closure required before any port-back to MirkFall; three diagnostic possibilities outlined in `.planning/phases/03-fog-of-war-the-hypothesis/03-FALSIFICATION.md`. Phase 4 (wisp particles) and Phase 5 (decision gate) BLOCKED on Phase 3.1 outcome.
 
 ## Session Continuity
 
-Last session: 2026-05-01T17:07:41.272Z
-Stopped at: Completed 03-07-PLAN.md
+Last session: 2026-05-01T18:30:00Z
+Stopped at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required)
 Resume file: None
