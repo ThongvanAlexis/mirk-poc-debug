@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: hypothesis-denied
-stopped_at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required before Phase 4 unblocks)
-last_updated: "2026-05-01T18:30:00Z"
-last_activity: "2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. Sideload UAT walk on iPhone 17 Pro against CI run 25224334312 (SHA 280dd04) in central Melun. Developer's verbatim: \"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied\". Fog renders + rotation transforms apply, but pan-translation does not — fog is static relative to screen while tile layer translates beneath it. Structural FOG-04 test (`find.descendant(of: FogLayer, matching: MobileLayerTransformer)`) passes but behavioural Canvas-transform sharing does not follow. FOG-04..07 flipped to Falsified-in-production; FOG-01..03 + FOG-08 retain verified-by-test Complete. PERF-05 measured-with-denied-verdict. MirkFall recommendation: DO NOT PORT BACK as-implemented; Phase 3.1 gap-closure required to diagnose camera-translation propagation path (3 diagnostic possibilities outlined in 03-FALSIFICATION.md)."
+status: completed
+stopped_at: Completed 03-08-PLAN.md (HYPOTHESIS DENIED — Phase 3.1 gap-closure required)
+last_updated: "2026-05-02T16:13:33.949Z"
+last_activity: 2026-05-01 — Plan 03-08 complete with HYPOTHESIS DENIED verdict. See last_activity in frontmatter for full developer-verbatim + interpretation.
 progress:
   total_phases: 5
   completed_phases: 3
