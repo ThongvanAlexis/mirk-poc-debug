@@ -100,8 +100,11 @@ void main() {
       final router = GoRouter(
         initialLocation: '/',
         routes: <GoRoute>[
-          GoRoute(path: '/', builder: (BuildContext _, GoRouterState __) => const _PlaceholderHome()),
-          GoRoute(path: '/sanity', builder: (BuildContext _, GoRouterState __) => ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future)),
+          GoRoute(path: '/', builder: (_, _) => const _PlaceholderHome()),
+          GoRoute(
+            path: '/sanity',
+            builder: (_, _) => ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future),
+          ),
         ],
       );
       addTearDown(router.dispose);
@@ -121,8 +124,11 @@ void main() {
       expect(find.byType(_PlaceholderHome), findsOneWidget);
 
       // Push to /sanity from the home placeholder, then assert the screen
-      // and its back-button are present.
-      router.push('/sanity');
+      // and its back-button are present. `router.push` returns a Future
+      // (route value when the route eventually pops); we don't await it
+      // because the route is still on the stack when the back button is
+      // tapped below.
+      unawaited(router.push('/sanity'));
       // Two pumps to settle the GoRouter route transition; pumpAndSettle
       // would block on the CircularProgressIndicator's repaint loop.
       await tester.pump();
@@ -132,8 +138,14 @@ void main() {
 
       // Tap the back button → pop to '/'.
       await tester.tap(find.byIcon(Icons.arrow_back));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+      // Pump several frames so the GoRouter pop transition + Navigator route
+      // disposal fully settle. We can't pumpAndSettle (the sanity screen
+      // holds an in-flight CircularProgressIndicator) — use a finite
+      // sequence of long-duration pumps that exceed the default Material
+      // page transition (300 ms) without chasing the spinner forever.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(find.byType(_PlaceholderHome), findsOneWidget, reason: 'UX-01: tapping the back button on /sanity must pop to the previous route.');
       expect(find.byType(ShaderSanityScreen), findsNothing);

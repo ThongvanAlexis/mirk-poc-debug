@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
@@ -120,7 +121,19 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.shaderSanityScreenTitle)),
+      appBar: AppBar(
+        title: Text(l10n.shaderSanityScreenTitle),
+        // UX-01 (Plan 03.1-05) — explicit back button. The /sanity route
+        // is reached via context.push() from the AppBar science action;
+        // pop() returns to the previous route (typically /map). Per
+        // CLAUDE.md GoRouter rule: "if the word retour has meaning in UX
+        // → push". Pre-Plan-03.1-05 the developer had to force-close the
+        // app to return (03.1-FALSIFICATION.md observation 5). Material's
+        // automaticallyImplyLeading would insert an Icons.arrow_back wired
+        // to Navigator.maybePop, but Navigator.pop does NOT pop a GoRouter
+        // route reached via context.push — context.pop() is required.
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+      ),
       body: _buildBody(),
     );
   }

@@ -18,8 +18,11 @@ import '../../l10n/app_localizations.dart';
 /// shader-sanity entry point).
 ///
 /// Returns a Material 3 AppBar with two action IconButtons in `actions`:
-///   1. `Icons.science` → navigates to `/sanity` via `context.go(...)`
-///      (Phase 3 pre-walk gate — see ShaderSanityScreen).
+///   1. `Icons.science` → navigates to `/sanity` via `context.push(...)` so
+///      a back button on the sanity screen can `pop()` to return to the
+///      previous route (UX-01, Plan 03.1-05). Per CLAUDE.md GoRouter rule:
+///      "if the word retour has meaning in UX → push" (Phase 3 pre-walk
+///      gate — see ShaderSanityScreen).
 ///   2. `Icons.share` → gzips [FileLogger.activeFilename] to a temp `.gz`
 ///      file and routes it through the system share sheet (LOG-04). The
 ///      button's `onPressed` is null when no active log exists, leaving it
@@ -37,7 +40,7 @@ PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
   return AppBar(
     title: Text(title ?? l10n.appTitle),
     actions: <Widget>[
-      IconButton(icon: const Icon(Icons.science), tooltip: l10n.shaderSanityTooltip, onPressed: () => context.go('/sanity')),
+      IconButton(icon: const Icon(Icons.science), tooltip: l10n.shaderSanityTooltip, onPressed: () => context.push('/sanity')),
       IconButton(
         icon: const Icon(Icons.share),
         tooltip: l10n.shareLogsTooltip,
