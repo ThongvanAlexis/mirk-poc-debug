@@ -11,6 +11,7 @@ import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/location/geolocator_service.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 
 import 'screens/error_screen.dart';
@@ -83,6 +84,7 @@ Widget _buildMapRoute(BuildContext context, GoRouterState state) {
           positionStreamFactory: GeolocatorService.stream,
           discRepository: RevealDiscRepository(),
           frameDeltaProbe: FrameDeltaProbe(),
+          fogTransformLogger: FogTransformLogger(),
         ),
       );
     },

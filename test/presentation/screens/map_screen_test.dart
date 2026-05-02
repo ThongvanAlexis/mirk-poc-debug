@@ -25,6 +25,7 @@ import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
@@ -83,6 +84,7 @@ MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? st
     positionStreamFactory: streamFactory ?? () => const Stream<Position>.empty(),
     discRepository: RevealDiscRepository(),
     frameDeltaProbe: FrameDeltaProbe(),
+    fogTransformLogger: FogTransformLogger(),
     fogProgramLoaderOverride: _pendingFogProgram,
   );
 }

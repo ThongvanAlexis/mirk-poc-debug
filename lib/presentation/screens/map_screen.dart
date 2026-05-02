@@ -132,6 +132,7 @@ class _MapScreenState extends State<MapScreen> {
     _sdfRebuildLogger = SdfRebuildLogger()..start();
     _sdfCache = SdfCache(rebuildLogger: _sdfRebuildLogger!);
     widget.services.frameDeltaProbe.start();
+    widget.services.fogTransformLogger.start();
     _subscribeToPositions();
     unawaited(_loadTileProvider());
     unawaited(_loadFogShader());
@@ -230,6 +231,7 @@ class _MapScreenState extends State<MapScreen> {
     _sdfCache = null;
     _sdfRebuildLogger?.stop();
     _sdfRebuildLogger = null;
+    widget.services.fogTransformLogger.stop();
     unawaited(widget.services.frameDeltaProbe.dispose());
     _mapController.dispose();
     super.dispose();

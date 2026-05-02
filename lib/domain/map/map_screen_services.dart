@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:logging/logging.dart';
 
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 
 /// Constructor-injected services for the Phase 2+3 `MapScreen`.
@@ -18,14 +19,15 @@ import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 /// (fake stream factory, on-disk synthetic file, captured logger, in-memory
 /// disc repository, no-op probe, Completer-backed program loader).
 ///
-/// DTO justification: this is a true value object — six fields with distinct
+/// DTO justification: this is a true value object — seven fields with distinct
 /// origins (filesystem path produced by the copier, factory closure produced
 /// by the geolocator service, optional logger override produced by tests,
 /// reveal-disc repository owned by the screen lifetime, frame-delta probe
-/// owned by the screen lifetime, optional fog-program loader override for
-/// tests). Lets `MapScreen` accept ONE positional `services` arg instead of
-/// six, and lets tests pump `MapScreen.fromServices(fakeServices)` cleanly
-/// without hidden globals.
+/// owned by the screen lifetime, fog-transform diagnostic logger owned by the
+/// screen lifetime, optional fog-program loader override for tests). Lets
+/// `MapScreen` accept ONE positional `services` arg instead of seven, and lets
+/// tests pump `MapScreen.fromServices(fakeServices)` cleanly without hidden
+/// globals.
 @immutable
 class MapScreenServices {
   const MapScreenServices({
@@ -33,6 +35,7 @@ class MapScreenServices {
     required this.positionStreamFactory,
     required this.discRepository,
     required this.frameDeltaProbe,
+    required this.fogTransformLogger,
     this.logger,
     this.fogProgramLoaderOverride,
   });
@@ -59,6 +62,15 @@ class MapScreenServices {
   /// reads rollups. Owned by the MapScreen lifetime (constructed in the
   /// router builder, disposed when the screen unmounts).
   final FrameDeltaProbe frameDeltaProbe;
+
+  /// Fog-transform diagnostic logger (FOG-10, Phase 3.1 sibling to
+  /// `frameDeltaProbe` + `sdfRebuildLogger`). `_FogPainter.paint()` calls
+  /// `recordPaint(...)` once per paint with the per-frame Canvas-transform +
+  /// camera-pixelOrigin + camera-center + applied-uOffset diagnostic tuple
+  /// (see `lib/infrastructure/mirk/fog_transform_logger.dart`). Owned by the
+  /// MapScreen lifetime — `start()` in initState, `stop()` in dispose, same
+  /// shape as `frameDeltaProbe` and `sdfRebuildLogger`.
+  final FogTransformLogger fogTransformLogger;
 
   /// Optional logger override. Defaults to `Logger('presentation.map')` in
   /// the screen when null. Tests can capture log output by injecting a

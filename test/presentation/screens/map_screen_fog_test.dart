@@ -12,6 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
@@ -87,6 +88,7 @@ void main() {
         positionStreamFactory: () => emitter.stream,
         discRepository: repo,
         frameDeltaProbe: probe,
+        fogTransformLogger: FogTransformLogger(),
         fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
@@ -127,6 +129,7 @@ void main() {
         positionStreamFactory: () => emitter.stream,
         discRepository: RevealDiscRepository(),
         frameDeltaProbe: probe,
+        fogTransformLogger: FogTransformLogger(),
         fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
@@ -164,6 +167,7 @@ void main() {
         positionStreamFactory: () => emitter.stream,
         discRepository: repo,
         frameDeltaProbe: probe,
+        fogTransformLogger: FogTransformLogger(),
         fogProgramLoaderOverride: _pendingFogProgram,
       );
       await tester.pumpWidget(_wrap(services));
