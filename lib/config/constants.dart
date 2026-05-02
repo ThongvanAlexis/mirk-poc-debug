@@ -315,6 +315,32 @@ const int kPocFrameDeltaP95YellowMicros = 48000;
 const int kPocFrameDeltaMaxGreenMicros = 48000;
 const int kPocFrameDeltaMaxYellowMicros = 72000;
 
+// Phase 3.1 fog-transform diagnostic logger (FOG-10).
+
+/// Cadence of the per-second JSONL rollup for the fog-transform diagnostic
+/// logger. Aligned with [kPocFrameDeltaLogRollupSeconds] and
+/// [kPocSdfLogRollupSeconds] so post-walk grep can join all three rollup
+/// streams on the same `epochSecond` boundary (CONTEXT §log-timeline-alignment).
+const int kPocFogTransformLogRollupSeconds = 1;
+
+/// Ring-buffer cap on raw fog-transform paint observations (matches
+/// [kPocFrameDeltaBufferMaxSamples] discipline — 2 s × 120 Hz = 240).
+/// FIFO drop-oldest on overflow.
+const int kPocFogTransformBufferMaxSamples = 240;
+
+/// Epsilon for transform-equality comparisons in the FOG-09 regression
+/// test. Used in two distinct contexts:
+/// (1) normalised UV units when comparing `(uOffsetX, uOffsetY)` deltas
+///     across two camera positions (output of `pixelOrigin / size % 1.0`,
+///     which is dimensionless — NOT logical pixels);
+/// (2) `Canvas.getTransform()` matrix-element comparisons that test for
+///     matrix-identity (the painter's local Canvas is at identity inside
+///     `MobileLayerTransformer` at rotation=0 per RESEARCH §Pitfall D).
+/// 1e-6 is comfortably below the smallest expected real delta at zoom 13
+/// (~0.1 in normalised UV for a ~1.5 km pan) while above floating-point
+/// noise.
+const double kPocCanvasTransformEpsilon = 1e-6;
+
 // Fog shader asset path (FOG-04..06).
 
 /// rootBundle key for the volumetric fog `.frag`. Must match

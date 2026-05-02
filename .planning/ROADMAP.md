@@ -78,13 +78,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Phase 03.1: Fix Fog Pan-Translation (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 3
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+**Goal:** Diagnose why the same-Canvas fog renders + rotates correctly with the camera but does NOT translate during pan, apply a fix, and re-validate the falsification criteria on iPhone 17 Pro. Phase 3.1 either reverses the Plan 03-08 `DENIED` verdict to `CONFIRMED-AFTER-FIX` (unblocking Phase 4 + Phase 5) or strengthens it to `DENIED-FINAL` with deeper architectural diagnosis. Research (HIGH confidence) traced the bug to `_FogPainter.paint()` passing `offset: const (0.0, 0.0)` to the shader — a 3-line fix derives `uOffset` from `camera.pixelOrigin / size`. Phase 3.1 ships the fix, a CI-gating behavioural regression test, and permanent diagnostic instrumentation alongside.
+**Requirements**: FOG-09, FOG-10, PERF-07
+**Depends on**: Phase 3
+**Plans**: 3 plans
+  - [ ] 03.1-01-PLAN.md — FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation
+  - [ ] 03.1-02-PLAN.md — Apply 3-line fix in `_FogPainter.paint()` + wire `FogTransformLogger` + FOG-09 behavioural transform-equality regression test + FOG-04 docstring augmentation + VALIDATION.md per-task map populated
+  - [ ] 03.1-03-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT walk + `03.1-FALSIFICATION.md` (CONFIRMED-AFTER-FIX | DENIED-FINAL verdict)
 
 ### Phase 4: Wisp Particles
 **Goal**: Composite the wisp particle system after the fog in the same Canvas, with positions stored in `LatLng` (world space) and projected to screen via the same `MapCamera` snapshot the fog uses. Confirms that the same-Canvas discipline established in Phase 3 generalises to a second visual layer — the cross-pipeline parity check that completes the code-donor package for porting back to MirkFall.
@@ -118,6 +118,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
+| 03.1. Fix Fog Pan-Translation | 0/3 | Not Started | - |
 | 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
 | 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
