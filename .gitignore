@@ -52,3 +52,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# UAT walk transient artefacts (Plan 03-08 + Plan 03.1-03 sideload cycle).
+# .uat-tmp/ holds the downloaded IPA; *.ipa / *.zip / *_logs.txt/ are
+# fan-out from previous walks left in the working tree by `gh run download`
+# and the Mail-shared session log. These are ALL transient and must NEVER
+# be committed — they bloat the repo and contain no source-of-truth value.
+.uat-tmp/
+mirk-poc-debug-unsigned.ipa
+mirk-poc-debug-ios-unsigned-ipa.zip
+*_logs.txt/
+*_logs.txt.gz
+origin_prompt.txt
