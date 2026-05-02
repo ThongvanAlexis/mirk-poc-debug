@@ -12,6 +12,7 @@ import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/mirk/mirk_viewport_bbox.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/fog_shader_uniforms.dart';
@@ -140,6 +141,7 @@ class FogLayer extends StatefulWidget {
     required this.shader,
     required this.sdfCache,
     required this.frameDeltaProbe,
+    required this.fogTransformLogger,
     this.shaderRenderer = const _FragmentShaderFogRenderer(),
   });
 
@@ -165,6 +167,12 @@ class FogLayer extends StatefulWidget {
   /// snapshot timestamp into the painter, which calls
   /// `recordFogUniformPopulation(snap)` right before the renderer runs.
   final FrameDeltaProbe frameDeltaProbe;
+
+  /// FOG-10 fog-transform diagnostic logger (Plan 03.1-01). The painter
+  /// calls `recordPaint(...)` once per paint with `(canvas.getTransform(),
+  /// camera.pixelOrigin, camera.center, appliedUOffset)`. Owned by the
+  /// MapScreen lifetime; the layer just consumes the reference and forwards.
+  final FogTransformLogger fogTransformLogger;
 
   /// Test seam — widget tests inject `RecordingFogShaderRenderer` to assert
   /// FOG-05 41-slot coverage without a real GPU. Production callers use the
@@ -277,6 +285,7 @@ class _FogLayerState extends State<FogLayer> with SingleTickerProviderStateMixin
           shaderRenderer: widget.shaderRenderer,
           mirkFogConstants: _mirkFogConstants,
           frameDeltaProbe: widget.frameDeltaProbe,
+          fogTransformLogger: widget.fogTransformLogger,
           cameraSnapshotMicros: cameraSnapshotMicros,
           sdfImage: _currentSdfImage,
           repaint: _repaint,
@@ -327,6 +336,7 @@ class _FogPainter extends CustomPainter {
     required this.shaderRenderer,
     required this.mirkFogConstants,
     required this.frameDeltaProbe,
+    required this.fogTransformLogger,
     required this.cameraSnapshotMicros,
     required this.sdfImage,
     required Listenable repaint,
@@ -348,6 +358,7 @@ class _FogPainter extends CustomPainter {
   final FogShaderRenderer shaderRenderer;
   final Map<String, double> mirkFogConstants;
   final FrameDeltaProbe frameDeltaProbe;
+  final FogTransformLogger fogTransformLogger;
   final int cameraSnapshotMicros;
   final ui.Image? sdfImage;
 
@@ -376,6 +387,41 @@ class _FogPainter extends CustomPainter {
     // here would re-introduce the multi-snapshot anti-pattern.
     frameDeltaProbe.recordFogUniformPopulation(cameraSnapshotMicros);
 
+    // FIX (Phase 3.1) — derive uOffset from the camera's pixelOrigin.
+    //
+    // The shader's noiseUv = fragUv + uOffset (atmospheric_fog.frag line 258).
+    // fragUv is normalised [0,1], so uOffset must be in the same UV-normalised
+    // units. Dividing pixelOrigin by size gives the right unit conversion.
+    //
+    // Modulo-1.0 mitigates the precision-loss pattern described in RESEARCH
+    // §Pitfall C: pixelOrigin grows unboundedly during long walks (zoom 13–15
+    // central Melun ~ 8.3 M pixels). FBM is integer-periodic so modulo-1.0
+    // preserves the visual pattern while keeping float magnitudes tiny.
+    //
+    // FOG-07 single-snapshot invariant preserved: this consumes the painter's
+    // existing `camera` field (passed by FogLayer.build from the same
+    // MapCamera.of(context) read that defends the lock). Re-reading
+    // MapCamera.of(context) here would re-introduce the multi-snapshot
+    // anti-pattern (RESEARCH §Anti-Pattern 3 / §Pitfall 10).
+    //
+    // Identity uSdfRect (slots 37..40 -> const (0,0,1,1)) is UNCHANGED —
+    // RESEARCH §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
+    final pixOrigin = camera.pixelOrigin;
+    final uOffsetX = (pixOrigin.x / size.width) % 1.0;
+    final uOffsetY = (pixOrigin.y / size.height) % 1.0;
+    final appliedOffset = (uOffsetX, uOffsetY);
+
+    // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
+    // shader call so the logged tuple is the actual value forwarded.
+    // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
+    // painting.dart line 6436).
+    fogTransformLogger.recordPaint(
+      canvasTransform: canvas.getTransform(),
+      cameraPixelOrigin: pixOrigin,
+      cameraCenter: camera.center,
+      appliedUOffset: appliedOffset,
+    );
+
     // FOG-05: populate all 41 uniforms via the locked single source of truth
     // (FogShaderUniforms.setAll — production impl) OR record them
     // (RecordingFogShaderRenderer — widget test impl). Identity uSdfRect
@@ -384,9 +430,9 @@ class _FogPainter extends CustomPainter {
       shader: shader,
       resolution: size,
       timeSeconds: uTimeSeconds,
-      offset: const (0.0, 0.0),
+      offset: appliedOffset, // ← THE FIX (Plan 03.1-02 — pre-fix passed a constant zero tuple).
       baseAlpha: 1.0,
-      sdfRect: const (0.0, 0.0, 1.0, 1.0),
+      sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
     );

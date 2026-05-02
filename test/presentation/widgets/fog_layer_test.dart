@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
@@ -32,6 +33,8 @@ void main() {
     addTearDown(discRepository.dispose);
     final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
     addTearDown(sdfCache.dispose);
+    final fogTransformLogger = FogTransformLogger();
+    addTearDown(fogTransformLogger.stop);
     final renderer = RecordingFogShaderRenderer();
 
     await tester.pumpWidget(
@@ -48,6 +51,7 @@ void main() {
                   shader: null, // base-class — see file docstring.
                   sdfCache: sdfCache,
                   frameDeltaProbe: probe,
+                  fogTransformLogger: fogTransformLogger,
                   shaderRenderer: renderer,
                 ),
               ],

@@ -287,6 +287,7 @@ class _MapScreenState extends State<MapScreen> {
                     shader: _fogShader,
                     sdfCache: _sdfCache!,
                     frameDeltaProbe: widget.services.frameDeltaProbe,
+                    fogTransformLogger: widget.services.fogTransformLogger,
                   ),
                 if (_lastFix != null)
                   CircleLayer<Object>(circles: <CircleMarker<Object>>[BlueDotMarker.build(LatLng(_lastFix!.latitude, _lastFix!.longitude))]),

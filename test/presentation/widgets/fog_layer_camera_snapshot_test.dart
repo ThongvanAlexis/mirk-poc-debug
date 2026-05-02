@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
@@ -44,6 +45,8 @@ void main() {
     addTearDown(discRepository.dispose);
     final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
     addTearDown(sdfCache.dispose);
+    final fogTransformLogger = FogTransformLogger();
+    addTearDown(fogTransformLogger.stop);
     final renderer = RecordingFogShaderRenderer();
 
     // Build harness with a controlled rebuild trigger — a ValueKey on the
@@ -62,7 +65,14 @@ void main() {
                       key: ValueKey<int>(rebuildKey),
                       options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 13),
                       children: <Widget>[
-                        FogLayer(discRepository: discRepository, shader: null, sdfCache: sdfCache, frameDeltaProbe: probe, shaderRenderer: renderer),
+                        FogLayer(
+                          discRepository: discRepository,
+                          shader: null,
+                          sdfCache: sdfCache,
+                          frameDeltaProbe: probe,
+                          fogTransformLogger: fogTransformLogger,
+                          shaderRenderer: renderer,
+                        ),
                       ],
                     ),
                   ),
