@@ -25,6 +25,18 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// `FragmentShader` is a `base` class — it cannot be implemented from a test
 /// file. Tests pass `null` and rely on the recording renderer to assert
 /// behavioural coverage; production callers ALWAYS pass a non-null shader.
+///
+/// **Lesson learned (Plan 03-08, 2026-05-01):** structural widget-tree-containment
+/// is necessary but NOT sufficient for same-Canvas Canvas-transform sharing. This
+/// FOG-04 test pinning `find.descendant(of: FogLayer, matching: MobileLayerTransformer)`
+/// passed during the Plan 03-08 sideload UAT walk WHILE production fog was static during
+/// pan. The behavioural transform-equality contract — `_FogPainter.paint()` forwards
+/// a non-zero pan-delta-tracking `offset` argument to `shaderRenderer.render(...)`
+/// after a programmatic `MapController.move(...)` — is asserted in the sibling file
+/// `test/presentation/widgets/fog_pan_translation_test.dart` (FOG-09). Both tests
+/// run on every CI push; the structural test catches widget-tree restructuring
+/// regressions, the behavioural test catches shader-uniform regressions. Don't delete
+/// either one.
 void main() {
   testWidgets('FogLayer is wrapped by MobileLayerTransformer when mounted inside FlutterMap (FOG-04)', (tester) async {
     final probe = FrameDeltaProbe();
