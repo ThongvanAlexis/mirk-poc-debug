@@ -71,7 +71,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **FOG-09**: A behavioural transform-equality regression test asserts `_FogPainter.paint()` calls `shaderRenderer.render(offset:)` with a different `offset` argument after `MapController.move(...)` than before, within `kPocCanvasTransformEpsilon`; the test is a CI-gating widget test that catches the Plan 03-08 static-fog-during-pan failure mode without a sideload walk. Existing Plan 03-05 FOG-04 structural test is augmented (docstring forward-pointer), not replaced. _(Phase 3.1 — Plan 03.1-02 GREEN)_ — Verified-by-test (P03.1-02 — `test/presentation/widgets/fog_pan_translation_test.dart`). **Scope clarification (P03.1-03 walk):** FOG-09 is a binary "moved at all?" gate — it asserts `offset` differs after `mapController.move()`. It catches the Plan 03-08 constant-zero failure mode mechanically, but does NOT catch the per-paint modulo-wrap shimmer (obs 2 + 3) or the Canvas-frame-misalignment reveal-hole offset (obs 4) that the post-fix walk surfaced. Plan 03.1-04 will add FOG-11 (smooth-noise-coordinate-evolution) and FOG-12 (canvas-frame-corrected reveal-vs-bluedot equality) as the higher-fidelity behavioural gates.
 - [x] **FOG-10**: `FogTransformLogger` is a new sibling to `FrameDeltaProbe` + `SdfRebuildLogger`. Per-paint observation captures `(canvas.getTransform()[12..13], camera.pixelOrigin, camera.center, appliedUOffset)`; emits 1-Hz JSONL rollups via `Logger('infrastructure.mirk.fog_transform')` aligned to wall-clock seconds for grep-correlation; idle-second skip; FIFO drop on overflow at `kPocFogTransformBufferMaxSamples`; synchronous flush on `stop()`. Permanent in production code (debug-level always-on, NOT `--dart-define` gated, per CONTEXT decision). _(Phase 3.1 — Plan 03.1-01)_ _Complete — Verified-by-test (P03.1-01 — `fog_transform_logger_test.dart`)_
 - [x] **FOG-11**: A behavioural smooth-noise-coordinate-evolution regression test asserts the painter's `pixelOrigin` argument to `shaderRenderer.render(...)` evolves smoothly across consecutive `MapController.move(...)` calls — no consecutive-paint delta exceeding `kPocFogSmoothCoordinateMaxDelta` (1e3 raw pixels). Plus a defence-in-depth magnitude assertion that the captured value is in raw-pixel units (zoom 13 magnitude ~1e6), not normalised UV [0, 1). Catches the SHADER-MODULO-WRAP failure mode from `03.1-FALSIFICATION.md` observation 2 (developer's "seed of the mirk was changing"). _(Phase 3.1 — Plan 03.1-04)_ _Complete — Verified-by-test (P03.1-04 — `fog_smooth_noise_test.dart`)_
-- [ ] **FOG-12**: A behavioural canvas-frame-alignment regression test asserts `_FogPainter.paint()` reads `canvas.getTransform()` and pre-shifts the clip-path holes by `-(matrix[12], matrix[13])` so the SDF reveal frame stays co-located with sibling layers' UNTRANSLATED frames. Catches the CANVAS-FRAME-ALIGNMENT failure mode from `03.1-FALSIFICATION.md` observation 4 (developer's "revealed area is being offsetted from the blue dot during pan/zoom"). Test mounts a real FogLayer + injects a non-identity Canvas transform via `_RecordingMockCanvas` and asserts the clip-path bounds shift by exactly `-(canvasTx, canvasTy)`. Single-snapshot at the matrix level enforced via `getTransformCallCount == 1` per paint (mirrors FOG-07). _(Phase 3.1 — Plan 03.1-05)_
+- [x] **FOG-12**: A behavioural canvas-frame-alignment regression test asserts `_FogPainter.paint()` reads `canvas.getTransform()` and pre-shifts the clip-path holes by `-(matrix[12], matrix[13])` so the SDF reveal frame stays co-located with sibling layers' UNTRANSLATED frames. Catches the CANVAS-FRAME-ALIGNMENT failure mode from `03.1-FALSIFICATION.md` observation 4 (developer's "revealed area is being offsetted from the blue dot during pan/zoom"). Test mounts a real FogLayer + injects a non-identity Canvas transform via `_RecordingMockCanvas` and asserts the clip-path bounds shift by exactly `-(canvasTx, canvasTy)`. Single-snapshot at the matrix level enforced via `getTransformCallCount == 1` per paint (mirrors FOG-07). _(Phase 3.1 — Plan 03.1-05)_
 
 ### Wisp Particles
 
@@ -82,7 +82,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### User Experience
 
-- [ ] **UX-01**: `/sanity` route's AppBar carries an `Icons.arrow_back` leading IconButton that calls `context.pop()`; the `/sanity` navigation from the main AppBar science-icon uses `context.push` (was `context.go`) so the pop has somewhere to return to. Catches the SANITY-NO-BACK-BUTTON failure mode from `03.1-FALSIFICATION.md` observation 5 (developer had to force-close the app to return from /sanity during the 03.1-03 walk). _(Phase 3.1 — Plan 03.1-05)_
+- [x] **UX-01**: `/sanity` route's AppBar carries an `Icons.arrow_back` leading IconButton that calls `context.pop()`; the `/sanity` navigation from the main AppBar science-icon uses `context.push` (was `context.go`) so the pop has somewhere to return to. Catches the SANITY-NO-BACK-BUTTON failure mode from `03.1-FALSIFICATION.md` observation 5 (developer had to force-close the app to return from /sanity during the 03.1-03 walk). _(Phase 3.1 — Plan 03.1-05)_
 
 ### Logger
 
@@ -101,7 +101,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 - [x] **PERF-05**: At Phase 3 UAT walk: developer's subjective verdict — no visible fog slip, no white-ellipse artefact during pan/zoom/combined gestures _(Plan 03-08 walk on iPhone 17 Pro 2026-05-01: **MEASURED — VERDICT DENIED.** Developer's verbatim words: *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. Three of four Criterion B sub-claims fail (slide-then-snap manifested as worse-than-slide-then-snap *static* fog; reveal-hole lag is permanent; inversion is geometrically forced). PERF-05 is checked-as-MEASURED (not as-passed) — the requirement was to capture the developer's subjective verdict, which was captured; the verdict itself is `denied`. See `.planning/phases/03-fog-of-war-the-hypothesis/03-FALSIFICATION.md` for the full Criterion B sub-claim breakdown and `03-UAT.md` for the walk evidence.)_
 - [ ] **PERF-06**: Pixel 4a (Adreno 618) UAT walks at Phase 3 and Phase 5: app launches, fog renders, no crash; informational FPS recorded for cross-platform comparison (no hard pass criterion)
 - [x] **PERF-07**: At Phase 3.1 UAT walk on iPhone 17 Pro: frame-delta probe (FOG-08) shows median ≤ 16 ms, p95 ≤ 32 ms, max ≤ 48 ms across ≥ 10 combined gestures (PERF-04 carry-over: Plan 03-08 walk left this unmeasured-and-moot). _(Phase 3.1 — Plan 03.1-03 Complete — Measured)_ Sideload session 2026-05-02 against CI run 25260475395 (SHA 5c63197): 36 1-Hz rollups captured; **median-of-medians 0.347 ms (≤ 16 ✓; 7.3× headroom), max-of-p95s 5.598 ms (≤ 32 ✓; 5.7× headroom), max-of-maxes 10.564 ms (≤ 48 ✓; 4.5× headroom)**. PERF-07 GREEN — the unmeasured-and-moot Criterion A from Plan 03-08 is now properly captured.
-- [ ] **PERF-08**: `SdfCache._hash(...)` quantises the viewport bbox edges to 1e-4 lat/lon (~11 m at equator) so per-paint micro-drift during pan/zoom does not invalidate the cache. Pre-Plan-03.1-05 the raw bbox doubles produced 12-115 rebuilds/sec during gesture seconds despite constant disc count (per `03.1-FALSIFICATION.md` SDF Anomaly). Verified-by-test: same disc set + sub-quantisation viewport drift produces ONE rebuild (cache HIT); super-quantisation drift produces TWO rebuilds (cache MISS). _(Phase 3.1 — Plan 03.1-05)_
+- [x] **PERF-08**: `SdfCache._hash(...)` quantises the viewport bbox edges to 1e-4 lat/lon (~11 m at equator) so per-paint micro-drift during pan/zoom does not invalidate the cache. Pre-Plan-03.1-05 the raw bbox doubles produced 12-115 rebuilds/sec during gesture seconds despite constant disc count (per `03.1-FALSIFICATION.md` SDF Anomaly). Verified-by-test: same disc set + sub-quantisation viewport drift produces ONE rebuild (cache HIT); super-quantisation drift produces TWO rebuilds (cache MISS). _(Phase 3.1 — Plan 03.1-05)_
 
 ## v2 Requirements
 
@@ -193,7 +193,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | FOG-09 | Phase 3.1 | Complete — Verified-by-test (P03.1-02) |
 | FOG-10 | Phase 3.1 | Complete — Verified-by-test (P03.1-01) |
 | FOG-11 | Phase 3.1 | Complete — Verified-by-test (P03.1-04) |
-| FOG-12 | Phase 3.1 | Pending |
+| FOG-12 | Phase 3.1 | Complete |
 | WISP-01 | Phase 4 | Pending |
 | WISP-02 | Phase 4 | Pending |
 | WISP-03 | Phase 4 | Pending |
@@ -210,8 +210,8 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | PERF-05 | Phase 3 | **Measured — VERDICT DENIED (P03-08 2026-05-01)**. Developer's verbatim words: *"mirk isn't moving, only the blue dot (so I guess the map below is moving), it can be rotated tho, denied"*. See 03-FALSIFICATION.md. |
 | PERF-06 | Phase 5 | Pending |
 | PERF-07 | Phase 3.1 | Complete — Measured (P03.1-03; medianMs 0.347 / p95Ms 5.598 / maxMs 10.564; 4-7× headroom across all three thresholds) |
-| PERF-08 | Phase 3.1 | Pending |
-| UX-01 | Phase 3.1 | Pending |
+| PERF-08 | Phase 3.1 | Complete |
+| UX-01 | Phase 3.1 | Complete |
 
 **Coverage:**
 - v1 requirements: 63 total
