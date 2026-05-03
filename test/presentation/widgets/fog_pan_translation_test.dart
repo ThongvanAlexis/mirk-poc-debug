@@ -53,6 +53,15 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// delta > epsilon assertion still passes — for typical sub-1536-raw-px
 /// walks the bounded composite changes monotonically with the camera —
 /// but the documentation tracks the active code semantics.
+///
+/// Plan 03.1-12 update: FOG-18 world-meter anchor ALSO forwards a NEW
+/// uniform `metersPerPixel` (computed from lat × zoom) per paint. The
+/// FOG-09 pixelOrigin-tracks-pan assertion is unaffected (still
+/// non-zero delta on programmatic pan), but a NEW assertion below
+/// covers the FOG-18 per-paint re-derivation: a synthetic zoom change
+/// at a fixed lat must produce a non-zero delta in the forwarded
+/// `metersPerPixel` (defends against a hardcoded-cached regression
+/// where the painter caches metersPerPixel between paints).
 void main() {
   group('FOG-09 (Plan 03.1-02 keystone)', () {
     testWidgets('FogLayer pixelOrigin uniform tracks camera pan (catches Plan 03-08 static-fog regression)', (tester) async {
@@ -154,6 +163,10 @@ void main() {
             'The painter MUST forward a camera.pixelOrigin-derived value to shaderRenderer.render(pixelOrigin:). '
             'Pre-FOG-17a: raw pixelOrigin (zoom 13 magnitude ~1e6). '
             'Post-FOG-17a: bounded composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`. '
+            'Post-FOG-18 (Plan 03.1-12): the painter ALSO forwards metersPerPixel per paint, but the FOG-09 assertion '
+            'continues to test the pixelOrigin-track-camera-pan property which is unchanged (the bounded composite '
+            'still moves with camera pan). The FOG-18 zoom-derived metersPerPixel re-derivation is asserted in a '
+            'separate sub-test below. '
             'Either way, a programmatic pan MUST produce a non-zero delta in the forwarded value. '
             'Pre-fix HEAD passed const (0.0, 0.0) and tripped this assertion.',
       );
@@ -161,6 +174,84 @@ void main() {
         (pannedPixelOrigin.$2 - initialPixelOrigin.$2).abs(),
         greaterThan(kPocCanvasTransformEpsilon),
         reason: 'Plan 03-08 regression: uPixelOrigin.y did not change after a programmatic pan.',
+      );
+    });
+
+    testWidgets('FOG-18 (Plan 03.1-12) — synthetic zoom change at fixed lat produces non-zero delta in forwarded metersPerPixel', (tester) async {
+      // Defends against a hardcoded-cached metersPerPixel regression
+      // at the painter level: pump two paints at zoom 13 then zoom 15
+      // (same lat); assert the recorded metersPerPixel values differ.
+      final mapController = MapController();
+      addTearDown(mapController.dispose);
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final discRepository = RevealDiscRepository();
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                mapController: mapController,
+                options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+
+      final painter1 = _findFogPainter(tester);
+      painter1.paint(_MockCanvas(), const Size(400, 800));
+      final mppZ13 = renderer.renders.last.metersPerPixel;
+
+      // Synthetic zoom change at fixed lat (48.5397°). zoom 13 → 15
+      // halves metersPerPixel twice (factor 4). Painter must
+      // re-derive on the new camera snapshot.
+      mapController.move(const LatLng(48.5397, 2.6553), 15);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+      final painter2 = _findFogPainter(tester);
+      painter2.paint(_MockCanvas(), const Size(400, 800));
+      final mppZ15 = renderer.renders.last.metersPerPixel;
+
+      expect(
+        (mppZ13 - mppZ15).abs(),
+        greaterThan(kPocCanvasTransformEpsilon),
+        reason:
+            'FOG-18 per-paint re-derivation regression: synthetic zoom change (z=13 → z=15) at fixed lat '
+            'must produce a non-zero delta in forwarded metersPerPixel. mppZ13=$mppZ13, mppZ15=$mppZ15. '
+            'A zero delta indicates the painter is hardcoding/caching metersPerPixel rather than re-deriving '
+            'from the live camera snapshot per paint.',
       );
     });
 

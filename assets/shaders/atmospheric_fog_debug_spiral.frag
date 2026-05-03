@@ -26,10 +26,16 @@
 
 precision mediump float;
 
-// Cell size in raw pixels for the row-major debug grid. Picked to be
-// readable at typical iPhone-in-hand viewing distance while small
-// enough that a 390-px-wide viewport shows ~5 cells across. MUST stay
-// in lockstep with `kPocDebugSpiralCellSizePx` in
+// ---------- DEPRECATED post-FOG-18 (Plan 03.1-12) ----------
+// The DEBUG_SPIRAL_CELL_SIZE_PX (raw-pixel cell size) and
+// DEBUG_SPIRAL_SCALE_FAR/MID/NEAR (octave scales — never actually
+// used in this debug shader) are deprecated under FOG-18 — the cell
+// size is now in meters (kDebugSpiralCellSizeMeters const float in
+// main()) and the octave scales are not used. Retained as historical
+// context; removable in future plan iterations.
+//
+// Cell size in raw pixels for the row-major debug grid (PRE-FOG-18).
+// MUST stay in lockstep with `kPocDebugSpiralCellSizePx` in
 // `lib/config/constants.dart` (constant-folded; not a uniform).
 #define DEBUG_SPIRAL_CELL_SIZE_PX 80.0
 
@@ -70,6 +76,19 @@ uniform float uTime;
 // comparison. Slot 3..4. Sanity-screen feeds a synthetic time-driven
 // trajectory; production-screen would feed `camera.pixelOrigin`.
 uniform vec2  uPixelOrigin;
+
+// World meters per raw pixel (Web-Mercator EPSG:3857). Used to
+// convert worldPx to worldMeters so the spiral cells are physical
+// squares of ground regardless of zoom (cells appear larger when
+// zoomed in, smaller when zoomed out — visual confirmation that
+// FOG-18 landed). Slot 5.
+//
+// Computed at the Dart painter via the same formula as the
+// production fog: kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) /
+// pow(2, zoom).
+//
+// FOG-18 (Plan 03.1-12) — closes Walk #4 Q5 zoom-scramble.
+uniform float uMetersPerPixel;
 
 // Digit atlas sampler — sampler slot 0. Flutter's FragmentShader
 // `setImageSampler(N, image)` indexes samplers in declaration order,
@@ -120,41 +139,43 @@ void main() {
         fragUv.y = 1.0 - fragUv.y;
     #endif
 
-    // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
-    // Mirrors production atmospheric_fog.frag: the debug-spiral
-    // observation reflects the post-Plan-03.1-10 coordinate system.
-    // See production shader for the full rationale + Walk #3b
-    // empirical anchor + FOG-17a precision pairing.
+    // Plan 03.1-12 — FOG-18 world-meter anchor (mirror of production
+    // fog's architectural completion). The spiral cell-numbering now
+    // reflects meter-space coordinates: cells are physical squares of
+    // ground (kDebugSpiralCellSizeMeters = 200 m per cell at any zoom)
+    // regardless of zoom level. Visual confirmation that FOG-18 landed:
+    // cells appear larger when zoomed in, smaller when zoomed out
+    // (matching the developer's Walk #4 Q5 expectation).
     //
-    // kNoiseTilePx MUST stay in lockstep with `kPocFogNoiseTilePx`
-    // in `lib/config/constants.dart` (currently 384.0). The debug-
-    // spiral cell size remains `DEBUG_SPIRAL_CELL_SIZE_PX` (80.0)
-    // — the cell grid is for digit-readability, not for noise
-    // sampling; the cell-index computation still uses
-    // `cellPx / DEBUG_SPIRAL_CELL_SIZE_PX` below.
-    const float kNoiseTilePx = 384.0;
-    vec2 worldPx = fragUv * uResolution + uPixelOrigin;
-    vec2 spiralCoord = worldPx / kNoiseTilePx;
+    // See production atmospheric_fog.frag for the full FOG-18
+    // architectural rationale + zoom-invariance proof + continuity
+    // caveat.
+    //
+    // kNoiseTilePxMeters MUST stay in lockstep with
+    // `kPocFogNoiseTilePxMeters` in `lib/config/constants.dart`
+    // (1024.0). kDebugSpiralCellSizeMeters MUST stay in lockstep with
+    // `kPocDebugSpiralCellSizeMeters` (200.0).
+    const float kNoiseTilePxMeters = 1024.0;
+    const float kDebugSpiralCellSizeMeters = 200.0;
+    vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    vec2 spiralCoord = worldMeters / kNoiseTilePxMeters;
 
-    // Convert worldPx (already in raw pixels) directly to cell-grid
-    // space. Pre-Plan-03.1-10 we computed `cellPx = spiralCoord *
-    // uResolution` — that worked when `spiralCoord = fragUv +
-    // fract(...)` had magnitude ~1 across the viewport. Post-Plan-
-    // 03.1-10 `spiralCoord = worldPx / kNoiseTilePx` is in noise-
-    // grid units (~1-2 across the viewport given kNoiseTilePx ≈
-    // uResolution.x), so multiplying by uResolution would inflate
-    // cellPx by ~kNoiseTilePx and shrink the visible cells-per-
-    // viewport count to a single cell. Use worldPx directly — it
-    // is already in raw pixels regardless of the spiralCoord
-    // formulation.
-    vec2 cellPx = worldPx;
-    vec2 cellFloat = floor(cellPx / DEBUG_SPIRAL_CELL_SIZE_PX);
+    // Cell index in meter space — cells are physical squares of ground.
+    // At z=15 lat 48.5° (metersPerPixel ≈ 3.16), one cell of 200 m on
+    // ground is ≈ 63 raw px on screen — close to pre-FOG-17 80 raw px
+    // (visual character preserved at the typical hike zoom).
+    vec2 cellMeters = worldMeters;
+    vec2 cellFloat = floor(cellMeters / kDebugSpiralCellSizeMeters);
     ivec2 cell = ivec2(cellFloat);
 
-    // Linearise the 2D cell coordinate. mod by 100 so the result fits
-    // into the 0..99 atlas range; high-magnitude cells display the
-    // residual (a confirming symptom for B-1 at high pixelOrigin).
-    int cellsPerRow = int(uResolution.x / DEBUG_SPIRAL_CELL_SIZE_PX) + 1;
+    // cellsPerRow at the current zoom — uResolution.x raw px /
+    // (kDebugSpiralCellSizeMeters / metersPerPixel) raw px per cell.
+    // At z=15 lat 48.5° ≈ 390 / 63 ≈ 6 cells per row. The `max(...,
+    // 1e-4)` guard on uMetersPerPixel mirrors the Dart-side polar
+    // clamp; the `max(..., 1.0)` floor on the px-per-cell ratio
+    // prevents division-by-zero when zoomed out so far that
+    // px-per-cell collapses to sub-pixel.
+    int cellsPerRow = int(uResolution.x / max((kDebugSpiralCellSizeMeters / max(uMetersPerPixel, 1e-4)), 1.0)) + 1;
     int rawCellIndex = cell.x + cell.y * cellsPerRow;
     int cellIndex = int(mod(float(rawCellIndex), 100.0));
     if (cellIndex < 0) {
@@ -164,9 +185,11 @@ void main() {
     int tens = cellIndex / 10;
     int ones = cellIndex - tens * 10;
 
-    // Local sub-cell uv in [0, 1] for atlas sampling.
-    vec2 cellLocalPx = cellPx - cellFloat * DEBUG_SPIRAL_CELL_SIZE_PX;
-    vec2 cellLocalUv = cellLocalPx / DEBUG_SPIRAL_CELL_SIZE_PX;
+    // Local sub-cell uv in [0, 1] for atlas sampling. cellLocalMeters
+    // is the position within the cell in meters; divide by cell size
+    // to get [0, 1] uv.
+    vec2 cellLocalMeters = cellMeters - cellFloat * kDebugSpiralCellSizeMeters;
+    vec2 cellLocalUv = cellLocalMeters / kDebugSpiralCellSizeMeters;
 
     // Two-digit horizontal layout: tens digit occupies left half
     // [0.0, 0.5], ones digit right half [0.5, 1.0]. Each digit is
@@ -201,10 +224,14 @@ void main() {
 
     // Cell-border tint: thin band at the cell edge so the user can see
     // cell boundaries even when both digits at adjacent cells happen
-    // to land in their padding region. Border is 1.5 px wide in raw
-    // pixels (independent of cell size).
+    // to land in their padding region. Border is 1.5 raw-px-equivalent
+    // wide in meter space:
+    //   borderMeters = 1.5 * uMetersPerPixel
+    //   borderUv     = borderMeters / kDebugSpiralCellSizeMeters
+    // Defends against degenerate metersPerPixel via the same `max()`
+    // guard as cellsPerRow (mirrors Dart-side polar clamp).
     float borderPx = 1.5;
-    float borderUv = borderPx / DEBUG_SPIRAL_CELL_SIZE_PX;
+    float borderUv = (borderPx * max(uMetersPerPixel, 1e-4)) / kDebugSpiralCellSizeMeters;
     bool onBorder = (cellLocalUv.x < borderUv) || (cellLocalUv.x > 1.0 - borderUv) ||
                     (cellLocalUv.y < borderUv) || (cellLocalUv.y > 1.0 - borderUv);
 

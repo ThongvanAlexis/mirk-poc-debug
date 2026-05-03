@@ -130,6 +130,19 @@ uniform float uSdfRectOriginY;   // Slot 38
 uniform float uSdfRectSizeX;     // Slot 39
 uniform float uSdfRectSizeY;     // Slot 40
 
+// World meters per raw pixel (Web-Mercator EPSG:3857 ground-resolution
+// at the current camera lat × zoom). Used to convert worldPx (pixel-
+// space) to worldMeters (meter-space) so the noise pattern is
+// anchored to ground meters, not screen pixels. Slot 41.
+//
+// Computed at the Dart painter via:
+//   metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) /
+//                    pow(2, zoom)
+//                  ≈ 156543.03392 * cos(lat) / 2^zoom
+//
+// FOG-18 (Plan 03.1-12) — closes Walk #4 Q5 zoom-scramble.
+uniform float uMetersPerPixel;
+
 // SDF sampler — R channel encodes signed distance via midpoint-128.
 uniform sampler2D uSdf;
 
@@ -258,48 +271,70 @@ void main() {
         fragUv.y = 1.0 - fragUv.y;
     #endif
 
-    // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
+    // Plan 03.1-12 — FOG-18 world-meter anchor (architectural completion
+    // of the noise-anchor axis).
     //
-    // Walk #3 (Plan 03.1-09 Sub-section B) confirmed the Plan 03.1-07
-    // Branch B-3 partial-fix outcome: the wrap period moved from
-    // viewport-width (~390 px) to noise-tile period (~16-65 px), so
-    // panning is smooth between wrap events but stepping persists at
-    // wrap events (every ~16-65 raw px of pan triggers a discontinuity).
-    // Walk #3b marker analysis quantitatively anchored this — 8
-    // markers over ~24 sec walk window, median 39 raw px between
-    // markers, 2.4 wrap events per perceived step.
+    // Walk #4 (Plan 03.1-11 Sub-section Q5) surfaced the architectural
+    // failure mode: FOG-17's pixel-space anchor (`worldPx = fragUv *
+    // uResolution + uPixelOrigin; noiseUv = worldPx / kNoiseTilePx`)
+    // anchors noise to Web-Mercator world-pixel space. uPixelOrigin
+    // doubles per zoom level → fragments under any given screen position
+    // sample completely different noise positions per zoom step (the
+    // "scramble"). Combined with `kNoiseTilePx = 384.0` raw-pixel const,
+    // cells stay 384 raw px on screen at every zoom level (cells pinned
+    // in screen-space, not meter-space).
     //
-    // The fix: sample noise at the fragment's WORLD position, not at
-    // (fragUv + fract-offset). Each fragment computes its own world-
-    // pixel coordinate by adding fragUv*uResolution (its viewport
-    // position in raw pixels) to uPixelOrigin (the camera's world-
-    // pixel origin). As the camera pans, NEW world coordinates enter
-    // the viewport edges, so NEW noise scrolls in — there is no
-    // sliding offset to fract-wrap. This is the developer's
-    // correctly-intuited iteration path from Walk #3 Q1 verbatim
-    // ("if I pan right forever the shader should not be moved to be
-    // where I'm going, I should see a new area of the shader").
+    // The fix: anchor noise to GROUND METERS. Multiply worldPx by
+    // uMetersPerPixel to convert to worldMeters; sample noise in meter-
+    // grid units. The math:
     //
-    // Precision: pure world-coordinate sampling exposes fp32
-    // degradation at high zoom (pixelOriginX up to 4.26M at zoom 16
-    // per Walk #2; fp32 ULP at 4.26M is ≈0.5 raw px). The Dart-side
-    // FOG-17a decomposition (lib/presentation/widgets/fog_layer.dart
-    // `_FogPainter.paint()` truncateToDouble + modulo by
-    // kPocFogIntegerWrapPeriodPx) keeps `uPixelOrigin` bounded under
-    // ~1537 raw px regardless of zoom; fp32 ULP at 1536 is ≈2.4e-4
-    // raw px — three orders of magnitude better.
+    //   worldMeters(lat, lon, zoom) = pixelFromLatLng(lat, lon, zoom) *
+    //                                 metersPerPixel(lat, zoom)
+    //                               = ((lon + 180) / 360) * 256 * 2^zoom *
+    //                                 156543.03392 * cos(lat) / 2^zoom
+    //                               = (zoom-INDEPENDENT)
     //
-    // kNoiseTilePx is constant-folded here as a `const float` (NOT a
-    // uniform) so `FogShaderUniforms.totalFloatSlots` stays at 41.
-    // MUST stay in lockstep with `kPocFogNoiseTilePx` in
-    // `lib/config/constants.dart` (currently 384.0). Value chosen so
-    // on-screen noise cell ≈ kNoiseTilePx / maxScale ≈ 384 / 10.5 ≈
-    // 36.6 raw px, matching pre-fix B-3 cell ≈ 37 raw px (visual
-    // character continuity preserved across the fix). If the Dart
-    // constant changes, this shader must be hand-edited to match.
-    const float kNoiseTilePx = 384.0;
-    vec2 worldPx = fragUv * uResolution + uPixelOrigin;
-    vec2 noiseUv = worldPx / kNoiseTilePx;
+    // At a fixed geographic point, worldMeters is zoom-INVARIANT — the
+    // FOG-18 acceptance property. The noise sample at that point is
+    // therefore zoom-invariant.
+    //
+    // On-screen cells now scale with zoom: at z=15 lat 48.5° one noise
+    // cell ≈ kNoiseTilePxMeters / metersPerPixel(z=15) / maxScale
+    // ≈ 1024 / 3.16 / 10.5 ≈ 30.9 raw px. At z=19 ≈ 488 raw px. At z=10
+    // ≈ 1 raw px (sub-pixel — visually the noise grain disappears at
+    // zoomed-out scales, which is the visually-correct outcome for fog
+    // covering large geographic area).
+    //
+    // FOG-17a precision pairing: the Dart-side
+    // `_FogPainter.paint()` integer/fractional decomposition of
+    // camera.pixelOrigin (truncateToDouble + modulo by
+    // kPocFogIntegerWrapPeriodPx) keeps uPixelOrigin bounded under
+    // ~1537 raw px regardless of zoom. After multiplication by
+    // uMetersPerPixel, worldMeters magnitude ≤ ~6200 m at z=15 and
+    // ≤ ~387 m at z=19 (boundedness analysis — see Plan 03.1-12
+    // must_have row 4). noiseUv ≤ ~6.05 worst case at the POC operating
+    // envelope (kNoiseTilePxMeters = 1024) — well within fp32 precision
+    // (ULP at 6 ≈ 7.15e-7).
+    //
+    // **Continuity caveat at FOG-17a integer-wrap event:** the wrap
+    // shifts uPixelOrigin by 1536 raw px which translates to
+    // 1536 * uMetersPerPixel meters (zoom-dependent). At z=15 lat 48.5°,
+    // ~4853 m — shifts noiseUv by ~4.74 cells (NOT integer-multiple).
+    // The FBM rotation matrices preserve geometric continuity but not
+    // exact-period continuity at non-integer shifts. Plan 03.1-13+
+    // contingency: if Walk #5 surfaces residual wrap-stepping at the
+    // 128-sec cadence, pivot to periodic Worley/explicit-period Perlin
+    // OR make kPocFogIntegerWrapPeriodPx zoom-dependent.
+    //
+    // kNoiseTilePxMeters is constant-folded as a `const float` (NOT a
+    // uniform). MUST stay in lockstep with `kPocFogNoiseTilePxMeters` in
+    // `lib/config/constants.dart` (currently 1024.0). uMetersPerPixel IS
+    // a uniform (slot 41) because it changes per-paint with camera
+    // lat/zoom. If the Dart constant changes, this shader must be hand-
+    // edited to match.
+    const float kNoiseTilePxMeters = 1024.0;
+    vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    vec2 noiseUv = worldMeters / kNoiseTilePxMeters;
 
     // ---------- 7. Curl-rotated edge field ----------
     // Sample the SDF; near the boundary, locally rotate the curl-noise

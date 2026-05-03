@@ -125,6 +125,26 @@ void main() {
             'Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1 (would fail lower bound). '
             'Pre-FOG-17a the painter forwarded raw pixelOrigin in millions (would fail upper bound).',
       );
+
+      // Plan 03.1-12 FOG-18 — metersPerPixel range assertion.
+      // At zoom 8 lat 0° (worst-case zoomed-out at equator) ≈ 611 m/raw_px.
+      // At zoom 19 lat 80° (worst-case zoomed-in at high-lat) ≈ 0.034 m/raw_px.
+      // The (0.01, 200) range covers every reasonable zoom × lat regime
+      // for the POC's operating envelope; failing this assertion
+      // indicates a missing forward-call OR a hardcoded-zero regression
+      // at the painter level.
+      final mpp = renderer.renders.last.metersPerPixel;
+      expect(
+        mpp,
+        inExclusiveRange(0.01, 200.0),
+        reason:
+            'FOG-18 metersPerPixel regression: post-Plan-03.1-12 the painter forwards a non-zero '
+            'metersPerPixel computed via kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) / pow(2, zoom). '
+            'At zoom 8 lat 0° (worst case zoomed-out) metersPerPixel ≈ 611 m/raw_px; at zoom 19 lat 80° '
+            '(worst case zoomed-in) metersPerPixel ≈ 0.034 m/raw_px. The (0.01, 200) range covers every '
+            'reasonable zoom × lat regime; failing this assertion indicates a missing forward-call. '
+            'Got: $mpp.',
+      );
     });
   });
 }

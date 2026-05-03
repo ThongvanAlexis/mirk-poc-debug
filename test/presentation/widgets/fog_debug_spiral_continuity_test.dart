@@ -10,11 +10,12 @@ import 'package:mirk_poc_debug/config/constants.dart';
 
 /// FOG-14a (Plan 03.1-07 Branch B-3) — wrap-period regression gate.
 ///
-/// REWRITTEN for Plan 03.1-10. The test file name is preserved for
-/// git-history continuity; the test content adds a post-Plan-03.1-10
-/// ZERO-wraps sub-test under the world-coordinate formulation while
-/// RETAINING the pre-fix and B-3 sub-tests as historical regression-
-/// defense baselines.
+/// REWRITTEN for Plan 03.1-12. The test file name is preserved for
+/// git-history continuity; the test content adds a post-Plan-03.1-12
+/// ZERO-wraps sub-test under the world-METER formulation while
+/// RETAINING the pre-fix + B-3 + Plan 03.1-10 world-pixel sub-tests
+/// as historical regression-defense baselines. The progression of FOUR
+/// formulations is now coverage-tested in one file.
 ///
 /// ## Background — three formulations, three wrap regimes
 ///
@@ -27,13 +28,21 @@ import 'package:mirk_poc_debug/config/constants.dart';
 ///    uScaleNear)`. Wraps every ~37 raw px. Produces ~969 wraps over
 ///    the same sweep — Walk #3 confirmed user-perceptible stepping
 ///    persists at the wrap events.
-/// 3. **Plan 03.1-10 (world-coordinate sampling):**
+/// 3. **Plan 03.1-10 (world-coordinate sampling, pixel-space):**
 ///    `noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`.
-///    No `fract()` — each fragment samples noise at its world
+///    No `fract()` — each fragment samples noise at its world-pixel
 ///    position. Within a single `kPocFogIntegerWrapPeriodPx` window
 ///    (1500-px sweep here) ZERO wraps. Integer-wrap events fire only
 ///    at the kPocFogIntegerWrapPeriodPx boundary (~128 sec at Walk #3b
 ///    pan velocity).
+/// 4. **Plan 03.1-12 (world-meter sampling):**
+///    `noiseUv = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel /
+///    kNoiseTilePxMeters`. metersPerPixel-multiplication anchors noise
+///    to ground meters. At a fixed zoom, worldMeters evolves
+///    monotonically forward; ZERO wraps within a single integer-wrap
+///    window. The integer-wrap event at zoom 15 lat 48.5° shifts
+///    noiseUv by ~4.74 cells (non-integer-multiple — documented
+///    continuity caveat per `kPocFogNoiseTilePxMeters` docstring).
 ///
 /// ## Why retain the historical sub-tests
 ///
@@ -99,7 +108,7 @@ void main() {
       );
     });
 
-    test('Plan-03.1-10 POST-FIX (world-coordinate) — ZERO wraps over 1500-px sub-wrap-period sweep', () {
+    test('Plan-03.1-10 POST-FIX (world-coordinate, pixel-space) — ZERO wraps over 1500-px sub-wrap-period sweep', () {
       // Plan 03.1-10 FOG-17: the world-coordinate formulation
       // `noiseUv = (fragUv * uResolution + boundedPxOrigin) / kNoiseTilePx`
       // has NO fract() applied — there is no fractional offset that
@@ -114,6 +123,27 @@ void main() {
             'FOG-14a-POST-FIX-GREEN: Plan-03.1-10 world-coordinate formulation must produce ZERO wraps over a sub-1536-px sweep. '
             'No fract() is applied — there is no fractional offset that could wrap. If wraps are reported here, the FOG-17 fix '
             'has been silently reverted to the B-3 fract() formulation. Wrap count: $wrapCount.',
+      );
+    });
+
+    test('Plan-03.1-12 POST-FOG-18 (world-meter) — ZERO wraps over 1500-px sub-wrap-period sweep at z=15 lat 48.5°', () {
+      // Plan 03.1-12 FOG-18: meter-space formulation
+      //   `worldMeters = (fragUv * uResolution + boundedPxOrigin) * metersPerPixel;
+      //    noiseUv = worldMeters / kNoiseTilePxMeters`
+      // adds metersPerPixel-multiplication on top of FOG-17. metersPerPixel
+      // is positive at all valid lat/zoom combinations (cos(lat) > 0
+      // post-clamp; pow(2, zoom) > 0); the per-paint shader input
+      // continues to evolve monotonically forward at a fixed zoom.
+      // ZERO wraps within a single integer-wrap window.
+      final wrapCount = _countWraps(formulation: _Formulation.worldMeter);
+      expect(
+        wrapCount,
+        equals(0),
+        reason:
+            'FOG-14a-POST-FOG-18-GREEN: Plan-03.1-12 world-meter formulation must produce ZERO wraps over a sub-1536-px sweep '
+            'at a fixed zoom. metersPerPixel scales the worldPx coordinate but the per-paint delta stays monotonically '
+            'forward. If wraps are reported here, the FOG-18 fix has been silently reverted or the metersPerPixel '
+            'computation has been broken. Wrap count: $wrapCount.',
       );
     });
   });
@@ -135,6 +165,11 @@ enum _Formulation {
   /// FOG-17a Dart-side decomposition keeps `boundedPxOrigin` under
   /// `kPocFogIntegerWrapPeriodPx + 1`.
   worldCoordinate,
+
+  /// Plan-03.1-12 FOG-18: `noiseUv = (fragUv * uResolution + boundedPxOrigin) * metersPerPixel / kNoiseTilePxMeters`.
+  /// metersPerPixel computed at z=15 lat 48.5° (Walk #4 hike regime,
+  /// representative).
+  worldMeter,
 }
 
 /// Counts wrap events along a synthetic smooth-pan trajectory.
@@ -154,18 +189,20 @@ int _countWraps({required _Formulation formulation}) {
   const viewportWidth = 390.0;
   final maxScale = math.max(_scaleFar, math.max(_scaleMid, _scaleNear));
 
-  final paintCount = formulation == _Formulation.worldCoordinate ? 300 : 7200;
-  // Pre-fix + B-3 use a generic high magnitude (the wraps fire many
-  // times across the sweep; starting alignment is irrelevant). World-
-  // coordinate uses a magnitude aligned to start just above 0 in the
-  // post-FOG-17a bounded composite (intPx % 1536 ≈ 0) so the 1500-px
-  // sweep stays under the kPocFogIntegerWrapPeriodPx boundary and
-  // the integer-wrap event does not fire within the trajectory.
-  // 1536 * 651 = 999936 — chosen so 999936 % 1536 = 0 exactly, and
-  // 999936 + 1500 = 1001436 is still in the same wrap window.
-  final startMagnitude = formulation == _Formulation.worldCoordinate ? 999936.0 : 1.0e6;
+  // Sub-wrap-period sweeps for the FOG-17 + FOG-18 sub-tests so the
+  // integer-wrap event does NOT fire within the trajectory. Pre-fix
+  // + B-3 use the historical 36000-px sweep for the wrap-frequency
+  // ratio test.
+  final paintCount = (formulation == _Formulation.worldCoordinate || formulation == _Formulation.worldMeter) ? 300 : 7200;
+  final startMagnitude = (formulation == _Formulation.worldCoordinate || formulation == _Formulation.worldMeter) ? 999936.0 : 1.0e6;
   const deltaXPerPaint = 5.0;
   const fragXPx = viewportWidth * 0.5;
+
+  // FOG-18 metersPerPixel at z=15 lat 48.5° (Walk #4 hike regime). Used
+  // by the worldMeter formulation only.
+  const z = 15.0;
+  const lat = 48.5397;
+  final metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / 180.0) / math.pow(2.0, z).toDouble();
 
   var wrapCount = 0;
   double? previousValue;
@@ -193,9 +230,20 @@ int _countWraps({required _Formulation formulation}) {
         // FOG-17 world-coordinate formulation: noiseUv evolves monotonically.
         final worldPxX = fragXPx + boundedPxX;
         currentValue = worldPxX / kPocFogNoiseTilePx;
-        // Negative delta = wrap discontinuity (regression). Under the
-        // post-fix formulation noiseUv increases monotonically by ~0.013
-        // per paint.
+        if (previousValue != null && currentValue - previousValue < 0) {
+          wrapCount += 1;
+        }
+      case _Formulation.worldMeter:
+        // Apply FOG-17a decomposition (mirrors _FogPainter.paint()).
+        final intPx = pixelOriginX.truncateToDouble();
+        final fracPx = pixelOriginX - intPx;
+        final boundedPxX = (intPx % kPocFogIntegerWrapPeriodPx) + fracPx;
+        // FOG-18 world-meter formulation:
+        //   worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel
+        //   noiseUv = worldMeters / kNoiseTilePxMeters
+        final worldPxX = fragXPx + boundedPxX;
+        final worldMetersX = worldPxX * metersPerPixel;
+        currentValue = worldMetersX / kPocFogNoiseTilePxMeters;
         if (previousValue != null && currentValue - previousValue < 0) {
           wrapCount += 1;
         }

@@ -3,6 +3,7 @@
 // See LICENSE file for details
 
 import 'dart:io' show File;
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -199,6 +200,99 @@ void main() {
             'forwarding raw pixelOrigin and the fp32 precision regression has resurfaced.',
       );
       expect(forwarded.$2.abs(), lessThanOrEqualTo(kPocFogIntegerWrapPeriodPx + 1));
+    });
+
+    testWidgets('FOG-18 (Plan 03.1-12) — recording renderer captures metersPerPixel forwarded by the painter', (tester) async {
+      // At zoom 15 lat 48.5° (Walk #4 hike regime), the painter must
+      // forward metersPerPixel ≈ 3.16 m/raw_px to the renderer. This
+      // is defense-in-depth — the dedicated `fog_meter_decomposition_test.dart`
+      // covers the same property with more granularity, but pinning it
+      // here ensures the FOG-17a + FOG-18 fixes co-exist correctly at
+      // the painter-renderer interface boundary.
+      final mapController = MapController();
+      addTearDown(mapController.dispose);
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final discRepository = RevealDiscRepository();
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                mapController: mapController,
+                options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 15),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+
+      final painter = _findFogPainter(tester);
+      painter.paint(_MockCanvas(), const Size(400, 800));
+      expect(renderer.renders, isNotEmpty);
+      final mpp = renderer.renders.last.metersPerPixel;
+      const lat = 48.5397;
+      final expectedMpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / 180.0) / math.pow(2.0, 15.0).toDouble();
+      expect(
+        mpp,
+        closeTo(expectedMpp, 0.01),
+        reason:
+            'FOG-18 painter forward regression: at zoom 15 lat 48.5° the painter must forward '
+            'metersPerPixel ≈ $expectedMpp m/raw_px (got $mpp). If this fails, the FOG-18 metersPerPixel '
+            'forward at the painter-renderer interface has been disconnected.',
+      );
+    });
+
+    test('FOG-18 (Plan 03.1-12) — worldMeters product stays under documented precision-safe bound', () {
+      // After FOG-17a decomposition the bounded composite stays
+      // bounded under 1537 raw px regardless of input magnitude.
+      // After FOG-18 multiplication by metersPerPixel, the resulting
+      // worldMeters magnitude scales with zoom × lat. At z=15 lat 48.5°
+      // (Walk #4 hike regime), worldMeters at viewport edge
+      // ≈ (1537 + 430) * 3.16 ≈ 6_222 m. fp32 ULP at 6_222 is ~7.4e-4 m
+      // — irrelevant for noise sampling.
+      const lat = 48.5397;
+      const viewportEdgeRawPx = 430.0;
+      const maxBoundedComposite = kPocFogIntegerWrapPeriodPx + 1.0;
+      for (final z in <double>[10.0, 13.0, 15.0]) {
+        final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / 180.0) / math.pow(2.0, z).toDouble();
+        final maxWorldMeters = (maxBoundedComposite + viewportEdgeRawPx) * mpp;
+        // 250_000 m is the documented POC-operating-envelope ceiling
+        // (see fog_meter_decomposition_test.dart for derivation).
+        expect(
+          maxWorldMeters,
+          lessThan(250_000.0),
+          reason:
+              'POC-operating worldMeters must stay under 250_000 m at z=$z lat=$lat (got $maxWorldMeters m). '
+              'This pins the post-FOG-18 fp32 precision-safe envelope.',
+        );
+      }
     });
   });
 }

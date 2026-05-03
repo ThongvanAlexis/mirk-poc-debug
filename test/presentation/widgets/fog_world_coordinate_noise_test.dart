@@ -2,157 +2,150 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
 
-/// FOG-17 (Plan 03.1-10) — world-coordinate noise sampling: ZERO
-/// fract-style wrap-discontinuity events at all pixelOrigin magnitude
-/// regimes.
+/// FOG-18 (Plan 03.1-12) — world-meter anchor: ZERO wrap-discontinuity
+/// events under the meter-space simulator at all pixelOrigin × zoom
+/// combinations.
+///
+/// REWRITTEN from FOG-17 (Plan 03.1-10) world-coordinate noise sampling.
+/// File name preserved for git-history continuity even though the
+/// simulator has flipped from world-pixel formulation to world-meter
+/// formulation.
 ///
 /// ## Background
 ///
-/// The Plan 03.1-07 Branch B-3 partial-fix formulation
-///   `noiseUv = fragUv + fract(uPixelOrigin / tilePeriodPixels)`
-/// introduced fract-wrap discontinuities every ~16-65 raw px (Walk #3
-/// empirical: median 39 raw px between markers, 2.4 wrap events per
-/// perceived step). The Plan 03.1-10 FOG-17 fix replaces it with
-/// world-coordinate sampling:
-///   `worldPx = fragUv * uResolution + uPixelOrigin;
-///    noiseUv = worldPx / kNoiseTilePx;`
+/// Plan 03.1-07 Branch B-3 wrapped every ~16-65 raw px (Walk #3
+/// stepping persists at wrap events). Plan 03.1-10 FOG-17 replaced
+/// `fract()` with world-coordinate sampling — ZERO wraps within a
+/// single integer-wrap window — but anchored noise to pixel-space
+/// (Walk #4 Q5 zoom-scramble surfaced).
 ///
-/// Each fragment now samples noise at its OWN world-pixel position; as
-/// the camera pans, NEW world coordinates enter the viewport edges so
-/// NEW noise scrolls in — there is NO fract(), NO sliding offset that
-/// could wrap, and NO stepping mid-pan.
+/// Plan 03.1-12 FOG-18 anchors noise to METER-space:
+///   `worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+///    noiseUv = worldMeters / kNoiseTilePxMeters;`
+///
+/// Each fragment now samples noise at its world-meter position; the
+/// noise pattern is anchored to ground meters and zoom-invariant in
+/// geographic terms. As the camera pans, NEW world-meter coordinates
+/// enter the viewport edges so NEW noise scrolls in — no fract(), no
+/// sliding-offset wraps, no stepping mid-pan within a single zoom
+/// level.
 ///
 /// The FOG-17a Dart-side decomposition keeps `uPixelOrigin` bounded
-/// under `kPocFogIntegerWrapPeriodPx + 1` (= 1537 raw px) regardless of
-/// zoom level. Integer-wrap events fire every 1536 raw px of pan
-/// (≈ 128 sec at Walk #3b's 12 raw-px/s pan velocity, vs the
-/// pre-Plan-03.1-10 every-3-second stepping cadence — a ~40×
-/// perceptual reduction). Tests 1-3 use a sub-wrap-period synthetic
-/// sweep so the integer-wrap event does NOT fire within the trajectory
-/// and ZERO wraps is the expected count under the post-fix formulation.
-/// Test 4 documents the integer-wrap-event behaviour separately.
+/// under `kPocFogIntegerWrapPeriodPx + 1` (= 1537 raw px) regardless
+/// of zoom level. Integer-wrap events fire every 1536 raw px of pan
+/// (≈ 128 sec at Walk #3b's 12 raw-px/s pan velocity). Tests 1-3 use
+/// a sub-wrap-period synthetic sweep so the integer-wrap event does
+/// NOT fire within the trajectory; ZERO wraps is the expected count
+/// under the post-fix formulation.
 ///
 /// ## What's tested
 ///
 /// 1. Synthetic smooth-pan trajectory at three pixelOrigin magnitude
 ///    regimes (1.064M ≈ Walk #3b zoom 13, 4.26M ≈ Walk #2 zoom 16,
 ///    17.04M ≈ extrapolated zoom 19), with the FOG-17a Dart-side
-///    decomposition applied. Each regime: 300 paints @ 5 raw-px/paint
-///    over a 1500-px sweep (under one `kPocFogIntegerWrapPeriodPx`
-///    cycle). Asserts ZERO fract-style wrap-discontinuity events.
-/// 2. Integer-wrap-event continuity: documents the actual numerical
-///    behaviour at the wrap boundary — base-octave noise-grid input
-///    difference is exactly 4 grid units (no-op on the hash3 lattice);
-///    FBM-rotated octaves shift by non-integer multiples (continuity
-///    caveat per noise-function inspection in PLAN.md).
+///    decomposition AND the corresponding zoom-derived metersPerPixel.
+///    Each regime: 300 paints @ 5 raw-px/paint over a 1500-px sweep
+///    (under one `kPocFogIntegerWrapPeriodPx` cycle). Asserts ZERO
+///    wrap-discontinuity events in MEKER-space cell evolution.
+/// 2. Zoom-invariance documented in `fog_world_meter_anchor_test.dart`
+///    (separate file). This file's focus is wrap-events under
+///    smooth-pan trajectories at fixed zoom.
+
 void main() {
-  group('FOG-17 (Plan 03.1-10) — world-coordinate noise sampling: ZERO wrap events', () {
-    test('Walk #3b regime (pixelOriginX ≈ 1.064M) — ZERO fract-wraps over 1500-px sweep', () {
-      // Align the start magnitude so the post-FOG-17a bounded
-      // composite starts at 0 within the 1536-px wrap window — the
-      // 1500-px sweep then stays inside the window and the integer-
-      // wrap event does not fire within the trajectory. 1.064M ≈
-      // 1536 * 692 = 1062912 + 1088. Choose 1062912 (≈ 1.063M; same
-      // Walk #3b regime) so the test isolates the wrap-discontinuity
-      // detection from integer-wrap noise. Test 4 covers integer-wrap
-      // continuity separately.
-      final wrapCount = _countFractWrapEvents(startMagnitude: 1536.0 * 692);
+  group('FOG-18 (Plan 03.1-12) — world-meter anchor: ZERO wrap events under smooth-pan @ fixed zoom', () {
+    test('Walk #3b regime (pixelOriginX ≈ 1.064M, zoom 13 lat 48.5°) — ZERO wraps over 1500-px sweep', () {
+      // Align so the post-FOG-17a bounded composite starts at 0 within
+      // the 1536-px wrap window. 1536 * 692 = 1062912 ≈ 1.063M.
+      final wrapCount = _countMeterSpaceWrapEvents(startPixelOriginX: 1536.0 * 692, zoom: 13.0, lat: 48.5397);
       expect(
         wrapCount,
         equals(0),
         reason:
-            'FOG-17 invariant: the world-coordinate formulation `noiseUv = (fragUv * uResolution + boundedPxOrigin) / kNoiseTilePx` '
-            'has ZERO fract-style wrap-discontinuity events across a smooth-pan trajectory. '
-            'No fract() is applied per-fragment — there is no fractional offset that could wrap. '
-            'Pre-Plan-03.1-10 the B-3 formulation `fract(uPixelOrigin / tilePeriodPixels)` produced ~969 wraps over the FOG-14a 36000-px sweep '
-            '(~40 over a 1500-px sub-window). If wraps are reported here, the world-coordinate formulation has been silently reverted. '
+            'FOG-18 invariant: meter-space formulation `worldMeters = (fragUv * uResolution + boundedPxOrigin) * metersPerPixel; '
+            'noiseUv = worldMeters / kNoiseTilePxMeters` has ZERO wrap-discontinuity events across a smooth-pan trajectory '
+            'at a fixed zoom. As the camera pans, worldMeters evolves monotonically forward; no fract() is applied. '
+            'If wraps are reported here, the FOG-18 formulation has been silently reverted to a fract() formulation. '
             'Wrap count: $wrapCount.',
       );
     });
 
-    test('Walk #2 regime (pixelOriginX ≈ 4.26M) — ZERO fract-wraps over 1500-px sweep', () {
-      // 4.26M ≈ 1536 * 2773 = 4257528 + 2472. Align to 1536 * 2774 = 4260864
-      // (≈ 4.26M, same Walk #2 regime).
-      final wrapCount = _countFractWrapEvents(startMagnitude: 1536.0 * 2774);
+    test('Walk #2 regime (pixelOriginX ≈ 4.26M, zoom 16 lat 48.5°) — ZERO wraps over 1500-px sweep', () {
+      // 4.26M ≈ 1536 * 2774 = 4260864.
+      final wrapCount = _countMeterSpaceWrapEvents(startPixelOriginX: 1536.0 * 2774, zoom: 16.0, lat: 48.5397);
       expect(wrapCount, equals(0));
     });
 
-    test('Extrapolated zoom-19 regime (pixelOriginX ≈ 17.04M) — ZERO fract-wraps over 1500-px sweep', () {
-      // 17.04M ≈ 1536 * 11093 = 17038848 + 1152. Align to 1536 * 11094 = 17040384.
-      final wrapCount = _countFractWrapEvents(startMagnitude: 1536.0 * 11094);
+    test('Extrapolated zoom-19 regime (pixelOriginX ≈ 17.04M, lat 48.5°) — ZERO wraps over 1500-px sweep', () {
+      // 17.04M ≈ 1536 * 11094 = 17040384.
+      final wrapCount = _countMeterSpaceWrapEvents(startPixelOriginX: 1536.0 * 11094, zoom: 19.0, lat: 48.5397);
       expect(wrapCount, equals(0));
     });
 
-    test('Integer-wrap event: base-octave noise-grid input shifts by exactly 4 grid units', () {
+    test('Integer-wrap event documentation — meter-space shift is non-integer-multiple of cell size at Walk #4 hike zoom', () {
       // At the FOG-17a integer-wrap boundary, the Dart-side decomposition
       // shifts `uPixelOrigin` by exactly `kPocFogIntegerWrapPeriodPx`
-      // (1536) raw pixels. The world-coordinate formulation
-      // `noiseUv = worldPx / kNoiseTilePx` therefore shifts by exactly
-      // `kPocFogIntegerWrapPeriodPx / kPocFogNoiseTilePx` noise grid units.
+      // (1536) raw pixels. Post-FOG-18 the shader multiplies by
+      // uMetersPerPixel; the meter-space shift is therefore
+      // `1536 * uMetersPerPixel` meters at the active zoom.
       //
-      // The hash3 noise lattice has period 1.0 in each input axis; an
-      // integer-multiple shift is a no-op on the lattice corners, so
-      // the BASE octave hash3 sample is preserved across the wrap.
-      const expectedShiftGridUnits = kPocFogIntegerWrapPeriodPx / kPocFogNoiseTilePx;
+      // At z=15 lat 48.5° (mpp ≈ 3.16 m/raw_px), shift ≈ 4853 m;
+      // shift in noise-grid units ≈ 4853 / 1024 ≈ 4.74 cells. NOT
+      // integer-multiple. The base-octave noise lattice has period 1
+      // in noise-grid units; an integer-multiple shift is a no-op on
+      // the lattice corners, but a non-integer shift produces a
+      // perceptible discontinuity at the wrap boundary IF visible.
+      //
+      // Resolution: at Walk #3b's 12 raw-px/s pan velocity, the wrap
+      // fires every ~128 sec — below perceptual threshold per Walk
+      // #3b empirical evidence. Plan 03.1-13+ contingency documented
+      // in `kPocFogNoiseTilePxMeters` docstring + `_FogPainter.paint()`
+      // decomposition block.
+      const z = 15.0;
+      const lat = 48.5397;
+      final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / 180.0) / math.pow(2.0, z).toDouble();
+      final shiftMeters = kPocFogIntegerWrapPeriodPx * mpp;
+      final shiftCells = shiftMeters / kPocFogNoiseTilePxMeters;
+      // shift cells is ~4.74 — NOT an integer multiple of 1.0.
       expect(
-        expectedShiftGridUnits,
-        equals(4.0),
-        reason: '1536.0 / 384.0 must equal 4.0 exactly for the base-octave hash3 lattice to be preserved across the integer-wrap event.',
+        shiftCells,
+        closeTo(4.738, 0.01),
+        reason: 'Documented post-FOG-18 wrap-shift in cells at z=15 lat 48.5° — non-integer-multiple (~4.74 cells per wrap event).',
       );
-
-      // FBM-rotated octave shifts (documented continuity caveat):
-      // - octave Far  scale 2.9  → shift 4 * 2.9  = 11.6 noise grid units (NOT integer)
-      // - octave Mid  scale 5.1  → shift 4 * 5.1  = 20.4 noise grid units (NOT integer)
-      // - octave Near scale 10.5 → shift 4 * 10.5 = 42.0 noise grid units (integer; but
-      //   the FBM rotation matrices apply between octaves so the warped
-      //   UV is not equal to `noiseUv * uScale` in general — this test
-      //   documents the pre-rotation shift only).
-      const farShift = 4.0 * kMirkFogAtmosphericScaleFar;
-      const midShift = 4.0 * kMirkFogAtmosphericScaleMid;
-      const nearShift = 4.0 * kMirkFogAtmosphericScaleNear;
-      expect(farShift, closeTo(11.6, 1e-9));
-      expect(midShift, closeTo(20.4, 1e-9));
-      expect(nearShift, closeTo(42.0, 1e-9));
-
-      // The continuity caveat is documented in PLAN.md and the
-      // kPocFogIntegerWrapPeriodPx docstring; this test pins the actual
-      // numerical values so future reviewers can verify the math.
-      // Resolution: integer-wrap events fire every ~128 sec of
-      // continuous pan (kPocFogIntegerWrapPeriodPx / 12 raw-px-per-sec
-      // ≈ 128 sec) — a ~40× perceptual reduction vs the every-3-second
-      // stepping cadence pre-Plan-03.1-10.
+      // Documented 128-sec wrap cadence at Walk #3b 12 raw-px/s pan.
+      const walkVelocityRawPxPerSec = 12.0;
+      final wrapSecondsAtWalk3bVelocity = kPocFogIntegerWrapPeriodPx / walkVelocityRawPxPerSec;
+      expect(
+        wrapSecondsAtWalk3bVelocity,
+        closeTo(128.0, 0.5),
+        reason: 'Documented integer-wrap cadence: 1536 raw px / 12 raw-px-per-sec = ~128 sec — below perceptual threshold per Walk #3b empirical evidence.',
+      );
     });
   });
 }
 
-/// Synthetic harness applying the post-Plan-03.1-10 world-coordinate
+/// Synthetic harness applying the post-Plan-03.1-12 world-meter
 /// formulation. Returns the number of wrap-discontinuity events
-/// detected across a 1500-px sub-wrap-period sweep.
+/// detected across a 1500-px sub-wrap-period sweep at a fixed zoom.
 ///
 /// A wrap-discontinuity is a NEGATIVE delta in the noiseUv value
 /// between consecutive paints (the fragment's noise sample input
-/// jumping backwards over time). Under the post-fix formulation
-/// `noiseUv = worldPx / kPocFogNoiseTilePx` the noiseUv evolves
-/// monotonically forward — the only way a backwards delta could appear
-/// within the sub-wrap-period sweep window is if someone reverted the
-/// formulation back to a fract()-based one, which would inject
-/// 0.999→0.001 backwards jumps every ~37 raw pixels (B-3) or every
-/// ~390 raw pixels (Plan 03.1-04 viewport-width).
+/// jumping backwards). Under the post-fix formulation
+/// `noiseUv = worldMeters / kPocFogNoiseTilePxMeters` the noiseUv
+/// evolves monotonically forward at a fixed zoom — the only way a
+/// backwards delta could appear within the sub-wrap-period sweep is
+/// if the formulation reverts back to a fract()-based one OR if
+/// metersPerPixel is incorrectly negative.
 ///
 /// The 1500-px sweep stays under `kPocFogIntegerWrapPeriodPx` (= 1536)
 /// so the FOG-17a integer-wrap event does NOT fire within the
-/// trajectory. Test 4 covers integer-wrap-event continuity separately.
-///
-/// Detection threshold: any negative delta. Under the post-fix
-/// formulation noiseUv increases by `5 / 384 ≈ 0.013` per paint —
-/// strictly positive. A B-3 fract regression would produce
-/// `~-0.97` deltas at every wrap event. The test catches the
-/// regression direction, not just magnitude.
-int _countFractWrapEvents({required double startMagnitude}) {
+/// trajectory.
+int _countMeterSpaceWrapEvents({required double startPixelOriginX, required double zoom, required double lat}) {
   const paintCount = 300;
   const deltaXPerPaint = 5.0;
   const viewportWidth = 390.0;
@@ -160,27 +153,29 @@ int _countFractWrapEvents({required double startMagnitude}) {
   // Mid-viewport reference fragment (fragUv ≈ 0.5).
   const fragXPx = viewportWidth * 0.5;
 
+  // Compute metersPerPixel at the synthetic zoom × lat (mirrors
+  // _FogPainter.paint() FOG-18 computation).
+  final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / 180.0) / math.pow(2.0, zoom).toDouble();
+
   var wrapCount = 0;
   double? previousNoiseUv;
   for (var i = 0; i < paintCount; i++) {
-    final pixelOriginX = startMagnitude + i * deltaXPerPaint;
+    final pixelOriginX = startPixelOriginX + i * deltaXPerPaint;
 
     // Apply FOG-17a decomposition (mirrors _FogPainter.paint()).
     final intPx = pixelOriginX.truncateToDouble();
     final fracPx = pixelOriginX - intPx;
     final boundedPxX = (intPx % kPocFogIntegerWrapPeriodPx) + fracPx;
 
-    // FOG-17 world-coordinate formulation (mirrors atmospheric_fog.frag):
-    // worldPx = fragUv * uResolution + uPixelOrigin
-    // noiseUv = worldPx / kNoiseTilePx
+    // FOG-18 world-meter formulation (mirrors atmospheric_fog.frag):
+    //   worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel
+    //   noiseUv = worldMeters / kNoiseTilePxMeters
     final worldPxX = fragXPx + boundedPxX;
-    final noiseUvX = worldPxX / kPocFogNoiseTilePx;
+    final worldMetersX = worldPxX * mpp;
+    final noiseUvX = worldMetersX / kPocFogNoiseTilePxMeters;
 
     if (previousNoiseUv != null) {
       final delta = noiseUvX - previousNoiseUv;
-      // A backwards delta indicates a wrap discontinuity. Under the
-      // post-fix formulation the per-paint delta is +0.013; under B-3
-      // it would jump back at every wrap event.
       if (delta < 0) {
         wrapCount += 1;
       }
