@@ -246,25 +246,31 @@ void main() {
       expect(flutterMap.options.maxZoom, equals(kPocMaxZoom));
     });
 
-    testWidgets('CameraConstraint contains the padded Melun bbox', (tester) async {
+    testWidgets('CameraConstraint is unconstrained (Walk #4 debug-aid; Plan 03.1-11)', (tester) async {
+      // Walk #4 debug-aid: pan-bounds removed so the developer can pan to extreme
+      // pixelOrigin regions and empirically validate that the FOG-17a CPU-side
+      // integer/fractional decomposition keeps shader inputs bounded ~1537 raw
+      // px regardless of how far the camera has been panned. The padded Melun
+      // bbox was POC scoping (CONTEXT §Pan bounds), not a math or domain
+      // constraint — no MAP-XX / UX-XX requirement enforces it. If post-walk
+      // the developer wants a UX safety net back, the constraint can be
+      // restored to `CameraConstraint.contain(bounds: LatLngBounds(...))`
+      // verbatim (constants `kPocBbox*` + `kPocPanBoundsPadDegrees` retained
+      // in constants.dart for that scenario).
       installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
       final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
       final constraint = flutterMap.options.cameraConstraint;
-      expect(constraint, isA<CameraConstraint>(), reason: 'CameraConstraint MUST be set so the camera cannot pan outside the Melun bbox + soft pad.');
-      // Type-narrowing: CameraConstraint.contain creates a ContainCamera variant
-      // whose bounds field is a LatLngBounds covering the padded Melun bbox.
-      // The plan asserts ~0.02° pad on each axis; assert the bounds extend
-      // beyond the raw bbox by at least that margin.
-      final asContain = constraint as dynamic;
-      // ignore: avoid_dynamic_calls
-      final LatLngBounds bounds = asContain.bounds as LatLngBounds;
-      expect(bounds.south, lessThanOrEqualTo(kPocBboxLatMin - kPocPanBoundsPadDegrees + 1e-9));
-      expect(bounds.north, greaterThanOrEqualTo(kPocBboxLatMax + kPocPanBoundsPadDegrees - 1e-9));
-      expect(bounds.west, lessThanOrEqualTo(kPocBboxLonMin - kPocPanBoundsPadDegrees + 1e-9));
-      expect(bounds.east, greaterThanOrEqualTo(kPocBboxLonMax + kPocPanBoundsPadDegrees - 1e-9));
+      expect(
+        constraint.runtimeType.toString(),
+        equals('UnconstrainedCamera'),
+        reason:
+            'CameraConstraint MUST be CameraConstraint.unconstrained() for Walk #4 — '
+            'enables the developer to pan to extreme pixelOrigin regions and empirically '
+            'validate FOG-17a integer/fractional decomposition at large coordinate magnitudes.',
+      );
     });
 
     testWidgets('LOC-02: blue dot is absent when no fix has arrived', (tester) async {

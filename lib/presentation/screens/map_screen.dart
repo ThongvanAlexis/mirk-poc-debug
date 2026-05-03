@@ -325,17 +325,23 @@ class _MapScreenState extends State<MapScreen> {
           else
             FlutterMap(
               mapController: _mapController,
-              options: MapOptions(
-                initialCenter: const LatLng(kPocInitialCameraLat, kPocInitialCameraLon),
+              options: const MapOptions(
+                initialCenter: LatLng(kPocInitialCameraLat, kPocInitialCameraLon),
                 initialZoom: kPocInitialZoom,
                 minZoom: kPocMinZoom,
                 maxZoom: kPocMaxZoom,
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: LatLngBounds(
-                    const LatLng(kPocBboxLatMin - kPocPanBoundsPadDegrees, kPocBboxLonMin - kPocPanBoundsPadDegrees),
-                    const LatLng(kPocBboxLatMax + kPocPanBoundsPadDegrees, kPocBboxLonMax + kPocPanBoundsPadDegrees),
-                  ),
-                ),
+                // Walk #4 (Plan 03.1-11) debug-aid: pan-bounds CameraConstraint
+                // removed so the developer can pan to extreme pixelOrigin regions
+                // and empirically validate that the FOG-17a CPU-side integer/
+                // fractional decomposition keeps shader inputs bounded ~1537 raw
+                // px regardless of how far the camera has been panned. The padded
+                // Melun bbox was POC scoping (CONTEXT §Pan bounds), not a math
+                // or domain constraint — no MAP-XX / UX-XX requirement enforces
+                // it. If post-walk the developer wants a UX safety net back, the
+                // `CameraConstraint.contain(...)` call can be restored verbatim
+                // (constants `kPocBbox*` + `kPocPanBoundsPadDegrees` retained in
+                // constants.dart for that scenario).
+                cameraConstraint: CameraConstraint.unconstrained(),
                 // UX-02 (Plan 03.1-10) — disable two-finger rotation gestures so MobileLayerTransformer
                 // never accumulates rotation matrix elements (matrix[0,1,4,5]) in the canvas transform.
                 // Walk #3 (Plan 03.1-09 sub-section C) surfaced rotation-correlated fog mis-coverage:
@@ -347,7 +353,7 @@ class _MapScreenState extends State<MapScreen> {
                 // hypothetical post-POC iteration. The MapCompass widget is RETAINED — it always
                 // displays 0° (north up); leaving it in place is harmless and provides a visual
                 // confirmation that rotation is locked.
-                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+                interactionOptions: InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: <Widget>[
                 VectorTileLayer(
