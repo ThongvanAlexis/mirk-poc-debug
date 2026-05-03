@@ -93,7 +93,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03.1-05-PLAN.md — CANVAS-FRAME-ALIGNMENT (FOG-12) + SDF-CACHE-VIEWPORT-THRASH (PERF-08) + SANITY-NO-BACK-BUTTON (UX-01)
   - [x] 03.1-06-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #2 + `03.1-FALSIFICATION-2.md` — **VERDICT ITERATING-WITH-PARTIAL-PROGRESS 2026-05-02** (PERF-07 re-validated; FOG-12 + UX-01 confirmed-by-walk; FOG-11 falsified-by-walk-2; PERF-08 falsified-by-walk-2; new fog-rect viewport-coverage regression introduced by P03.1-05 → FOG-13 + FOG-14 requirements opened)
   - [ ] 03.1-07-PLAN.md — Mechanism investigation via debug-spiral shader (DEBUG-01) + iPhone observation checkpoint (B-0 gating step) + post-checkpoint mechanism-specific fix (FOG-14, FOG-15 — Branch B-1 fp32 precision / B-2 DPR scaling / B-3 tile-period mismatch / Branch A no-op / Branch C unknown)
-  - [ ] 03.1-08-PLAN.md — FOG-13 fog-rect viewport-coverage symmetric compensation: canvas.translate(-canvasOffset) at top of _FogPainter.paint() (Option b from FALSIFICATION-2 sub-section D row C-1)
+  - [x] 03.1-08-PLAN.md — FOG-13 fog-rect viewport-coverage symmetric compensation: `canvas.translate(-canvasOffset)` at top of `_FogPainter.paint()` (Option b from FALSIFICATION-2 sub-section D row C-1) — landed 2026-05-03 (3 atomic commits; new `fog_rect_viewport_coverage_test.dart` flips RED → GREEN; FOG-12 stays GREEN with mock-canvas no-op translate override; full suite 146 GREEN / 1 SKIPPED)
   - [ ] 03.1-09-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #3 + `03.1-FALSIFICATION-3.md` (empirical re-test for the layered Plan 03.1-07 + 03.1-08 fix bundle; verdict CONFIRMED-AFTER-FIX | DENIED-FINAL | ITERATING)
 
 ### Phase 4: Wisp Particles
