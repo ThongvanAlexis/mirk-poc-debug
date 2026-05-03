@@ -16,6 +16,7 @@ import 'package:mirk_poc_debug/infrastructure/mirk/sdf/revealed_sdf_builder.dart
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/digit_atlas_builder.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/fog_shader_uniforms.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
+import 'package:mirk_poc_debug/state/debug_spiral_state.dart';
 
 /// Synthetic-disc viewport bbox covering Melun town centre — the same lat
 /// range used elsewhere in the project's Phase 2 + 3 spec. The bbox shape
@@ -98,32 +99,53 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
   Object? _loadError;
   DateTime? _mountedAt;
 
-  /// Plan 03.1-07 — debug-spiral toggle state. `false` (default) renders
-  /// the production fog; `true` renders the debug-spiral diagnostic.
-  /// Toggling triggers a re-load via [_load] so the appropriate shader
-  /// program is loaded.
-  bool _useDebugSpiral = false;
+  /// Plan 03.1-07 + Plan 03.1-08-FIX FIX 2 — last loaded shader path. We
+  /// read [debugSpiralEnabled] at load time and cache the path so the
+  /// notifier listener can detect a real change vs. a stray notify and
+  /// trigger a single re-load. Without this, two listener fires for the
+  /// same target value would queue two redundant loads.
+  String _lastLoadedAssetPath = kPocFogShaderAssetPath;
 
   @override
   void initState() {
     super.initState();
     _mountedAt = DateTime.now();
+    debugSpiralEnabled.addListener(_onDebugSpiralToggleChanged);
+    unawaited(_load());
+  }
+
+  /// Plan 03.1-08-FIX FIX 2 — reacts to the global [debugSpiralEnabled]
+  /// notifier flipping. Triggers a re-load via [_load] when the desired
+  /// asset path differs from the currently loaded one. Idempotent: stray
+  /// notifications without a path change are silently ignored.
+  void _onDebugSpiralToggleChanged() {
+    if (!mounted) return;
+    final desiredPath = debugSpiralEnabled.value ? kPocDebugSpiralShaderAssetPath : kPocFogShaderAssetPath;
+    if (desiredPath == _lastLoadedAssetPath) return;
     unawaited(_load());
   }
 
   /// Loads the FragmentProgram (production OR debug-spiral, depending on
-  /// [_useDebugSpiral]) AND the synthetic SDF, then triggers a rebuild.
-  /// On error, surfaces the exception via [_loadError]; the build path
-  /// then renders an error message instead of the fog.
+  /// the global [debugSpiralEnabled] notifier) AND the synthetic SDF,
+  /// then triggers a rebuild. On error, surfaces the exception via
+  /// [_loadError]; the build path then renders an error message instead
+  /// of the fog.
   ///
-  /// Plan 03.1-07 — when [_useDebugSpiral] is true, also resolves the
+  /// Plan 03.1-07 — when [debugSpiralEnabled] is true, also resolves the
   /// digit atlas via [DigitAtlasBuilder.atlas] (or [widget.atlasOverride]
   /// if set). The atlas is process-cached so subsequent toggles ON are
   /// instant — only the first toggle ON triggers the ~30-50 ms async
   /// rasterization (acceptable for a debug-only diagnostic; the existing
   /// loading-spinner UX absorbs the blip).
+  ///
+  /// Plan 03.1-08-FIX FIX 2 — reads the global [debugSpiralEnabled]
+  /// notifier instead of a local field. The notifier is shared with the
+  /// MapScreen toggle (PocAppBar Switch) so flipping it on either screen
+  /// updates both.
   Future<void> _load() async {
-    final assetPath = _useDebugSpiral ? kPocDebugSpiralShaderAssetPath : kPocFogShaderAssetPath;
+    final useDebugSpiral = debugSpiralEnabled.value;
+    final assetPath = useDebugSpiral ? kPocDebugSpiralShaderAssetPath : kPocFogShaderAssetPath;
+    _lastLoadedAssetPath = assetPath;
     try {
       // Reset the visible state to "loading" while the new shader+atlas
       // resolve. Without this, the previous `_shader` would briefly
@@ -163,7 +185,7 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
       }
 
       ui.Image? atlas;
-      if (_useDebugSpiral) {
+      if (useDebugSpiral) {
         final atlasFuture = widget.atlasOverride != null ? widget.atlasOverride!() : DigitAtlasBuilder.atlas;
         atlas = await atlasFuture;
         if (!mounted) return;
@@ -173,7 +195,7 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
         _shader = program.fragmentShader();
         _digitAtlas = atlas;
       });
-      _log.info('ShaderSanityScreen: program (${_useDebugSpiral ? 'debug-spiral' : 'production'}) + synthetic SDF loaded successfully');
+      _log.info('ShaderSanityScreen: program (${useDebugSpiral ? 'debug-spiral' : 'production'}) + synthetic SDF loaded successfully');
     } on Object catch (e, st) {
       _log.severe('ShaderSanityScreen: failed to load fog shader', e, st);
       if (!mounted) return;
@@ -183,6 +205,7 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
 
   @override
   void dispose() {
+    debugSpiralEnabled.removeListener(_onDebugSpiralToggleChanged);
     _syntheticSdf?.dispose();
     // _digitAtlas is process-cached by DigitAtlasBuilder; do NOT dispose.
     super.dispose();
@@ -205,19 +228,23 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
         // route reached via context.push — context.pop() is required.
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         actions: <Widget>[
-          // Plan 03.1-07 — debug-spiral toggle. Default OFF; production
-          // fog renders at /sanity unchanged. Flipping ON triggers a
-          // re-load via _load() that swaps the shader path AND resolves
-          // the digit atlas (via DigitAtlasBuilder).
+          // Plan 03.1-07 + Plan 03.1-08-FIX FIX 2 — debug-spiral toggle.
+          // Default OFF; production fog renders at /sanity unchanged.
+          // Flipping ON updates the shared [debugSpiralEnabled] notifier;
+          // the listener in [_onDebugSpiralToggleChanged] then triggers
+          // [_load()] which swaps the shader path AND resolves the digit
+          // atlas via DigitAtlasBuilder. Same widget pattern as the
+          // PocAppBar Switch on /map so the toggle UX is identical
+          // across screens (state survives navigation between /map and
+          // /sanity).
           Tooltip(
             message: l10n.debugSpiralToggleTooltip,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Switch.adaptive(
-                value: _useDebugSpiral,
-                onChanged: (value) {
-                  setState(() => _useDebugSpiral = value);
-                  unawaited(_load());
+              child: ValueListenableBuilder<bool>(
+                valueListenable: debugSpiralEnabled,
+                builder: (BuildContext context, bool enabled, Widget? _) {
+                  return Switch.adaptive(value: enabled, onChanged: (bool value) => debugSpiralEnabled.value = value);
                 },
               ),
             ),
@@ -244,7 +271,10 @@ class _ShaderSanityScreenState extends State<ShaderSanityScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final uTimeSeconds = DateTime.now().difference(mountedAt).inMicroseconds / _microsPerSecond;
-    if (_useDebugSpiral) {
+    // Read the SHARED notifier — keeps the body in lockstep with
+    // whichever screen flipped the toggle. Re-rendering of this body on
+    // notifier change is driven by the [_load] setState chain.
+    if (debugSpiralEnabled.value) {
       final atlas = _digitAtlas;
       if (atlas == null) {
         return const Center(child: CircularProgressIndicator());

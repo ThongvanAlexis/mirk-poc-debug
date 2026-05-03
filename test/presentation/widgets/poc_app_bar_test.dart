@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/widgets/poc_app_bar.dart';
+import 'package:mirk_poc_debug/state/debug_spiral_state.dart';
 
 /// Pumps a MaterialApp with AppLocalizations wired so that buildPocAppBar
 /// can resolve l10n strings during widget tests.
@@ -54,5 +55,63 @@ void main() {
     await tester.pumpWidget(_wrap(title: 'Custom'));
     expect(find.text('Custom'), findsOneWidget);
     expect(find.text('MirkFall POC'), findsNothing);
+  });
+
+  group('Plan 03.1-08-FIX FIX 2 — global debug-spiral toggle', () {
+    setUp(() {
+      debugSpiralEnabled.value = false;
+    });
+    tearDown(() {
+      debugSpiralEnabled.value = false;
+    });
+
+    testWidgets('Switch is present in AppBar actions', (tester) async {
+      await tester.pumpWidget(_wrap());
+      expect(find.byType(Switch), findsOneWidget, reason: 'Plan 03.1-08-FIX FIX 2: PocAppBar must expose a Switch.adaptive for the debug-spiral toggle.');
+    });
+
+    testWidgets('Switch defaults to OFF (debugSpiralEnabled.value == false)', (tester) async {
+      await tester.pumpWidget(_wrap());
+      final switchWidget = tester.widget<Switch>(find.byType(Switch));
+      expect(switchWidget.value, isFalse, reason: 'Default state must be OFF — production fog rendering unchanged when toggle is OFF.');
+    });
+
+    testWidgets('Switch is wrapped in Tooltip with debugSpiralToggleTooltip l10n string (EN)', (tester) async {
+      await tester.pumpWidget(_wrap());
+      final tooltipFinder = find.ancestor(of: find.byType(Switch), matching: find.byType(Tooltip));
+      final tooltip = tester.widget<Tooltip>(tooltipFinder);
+      expect(tooltip.message, equals('Toggle debug spiral shader'));
+    });
+
+    testWidgets('flipping the Switch updates the global debugSpiralEnabled notifier', (tester) async {
+      await tester.pumpWidget(_wrap());
+      expect(debugSpiralEnabled.value, isFalse);
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(
+        debugSpiralEnabled.value,
+        isTrue,
+        reason: 'Tapping the Switch must flip the shared notifier — value is the source of truth shared with /map and /sanity.',
+      );
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(debugSpiralEnabled.value, isFalse, reason: 'Second tap must flip back to OFF.');
+    });
+
+    testWidgets('Switch reflects external notifier flips (cross-screen state propagation)', (tester) async {
+      await tester.pumpWidget(_wrap());
+      // Simulate /sanity flipping the notifier; /map's PocAppBar Switch
+      // must rebuild to ON via ValueListenableBuilder.
+      debugSpiralEnabled.value = true;
+      await tester.pump();
+      final switchWidget = tester.widget<Switch>(find.byType(Switch));
+      expect(
+        switchWidget.value,
+        isTrue,
+        reason:
+            'Plan 03.1-08-FIX FIX 2: PocAppBar Switch must rebuild via ValueListenableBuilder when the shared notifier flips externally — '
+            'this is what keeps /map and /sanity toggle UI in lockstep across navigation.',
+      );
+    });
   });
 }

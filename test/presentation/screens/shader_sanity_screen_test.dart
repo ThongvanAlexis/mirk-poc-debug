@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
+import 'package:mirk_poc_debug/state/debug_spiral_state.dart';
 
 /// Plan 03-06 Task 2 — ShaderSanityScreen (pre-walk gate) tests.
 ///
@@ -31,7 +32,21 @@ import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
 /// Plan 03.1-07 — Adds the debug-spiral toggle test group. Asserts the
 /// toggle defaults to OFF, flipping ON re-loads the shader with the
 /// debug-spiral asset path, flipping OFF restores the production path.
+///
+/// Plan 03.1-08-FIX FIX 2 — the toggle state moved from a per-screen
+/// `bool _useDebugSpiral` field to a top-level `ValueNotifier<bool>`
+/// (`lib/state/debug_spiral_state.dart`) shared with the MapScreen
+/// PocAppBar Switch. Tests reset the notifier in `setUp` so each test
+/// starts from a known OFF state — without the reset, a leaking flipped
+/// state from a prior test would corrupt later assertions.
 void main() {
+  setUp(() {
+    debugSpiralEnabled.value = false;
+  });
+  tearDown(() {
+    debugSpiralEnabled.value = false;
+  });
+
   testWidgets('shows CircularProgressIndicator while program is loading', (tester) async {
     // Hold the loader future open with a Completer so the screen stays in
     // the loading state under the test's full control.
