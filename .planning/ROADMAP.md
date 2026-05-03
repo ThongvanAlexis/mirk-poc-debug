@@ -85,14 +85,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal:** Diagnose why the same-Canvas fog renders + rotates correctly with the camera but does NOT translate during pan, apply a fix, and re-validate the falsification criteria on iPhone 17 Pro. Phase 3.1 either reverses the Plan 03-08 `DENIED` verdict to `CONFIRMED-AFTER-FIX` (unblocking Phase 4 + Phase 5) or strengthens it to `DENIED-FINAL` with deeper architectural diagnosis. Research (HIGH confidence) traced the bug to `_FogPainter.paint()` passing `offset: const (0.0, 0.0)` to the shader — a 3-line fix derives `uOffset` from `camera.pixelOrigin / size`. Phase 3.1 ships the fix, a CI-gating behavioural regression test, and permanent diagnostic instrumentation alongside.
 **Requirements**: FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, FOG-15, PERF-07, PERF-08, UX-01, DEBUG-01 (DEBUG-01 + FOG-15 added 2026-05-03 via Plan 03.1-07; FOG-14 refined)
 **Depends on**: Phase 3
-**Plans**: 9 plans (6 landed; 3 pending — Plans 03.1-07/08/09; per-iteration policy no hard cap)
+**Plans**: 9 plans (8 landed; 1 pending — Plan 03.1-09; per-iteration policy no hard cap)
   - [x] 03.1-01-PLAN.md — FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation
   - [x] 03.1-02-PLAN.md — Apply 3-line fix in `_FogPainter.paint()` + wire `FogTransformLogger` + FOG-09 behavioural transform-equality regression test + FOG-04 docstring augmentation + VALIDATION.md per-task map populated
   - [x] 03.1-03-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #1 + `03.1-FALSIFICATION.md` — **VERDICT ITERATING-WITH-MAJOR-PROGRESS 2026-05-02** (PERF-07 GREEN; constant-zero failure mode structurally addressed; new modulo-wrap shimmer + Canvas-frame reveal-offset modes surfaced — Plan 03.1-04 follow-up required)
   - [x] 03.1-04-PLAN.md — SHADER-MODULO-WRAP fix: rename uOffset→uPixelOrigin; per-fragment fract() inside shader; FOG-11 behavioural smooth-noise test
   - [x] 03.1-05-PLAN.md — CANVAS-FRAME-ALIGNMENT (FOG-12) + SDF-CACHE-VIEWPORT-THRASH (PERF-08) + SANITY-NO-BACK-BUTTON (UX-01)
   - [x] 03.1-06-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #2 + `03.1-FALSIFICATION-2.md` — **VERDICT ITERATING-WITH-PARTIAL-PROGRESS 2026-05-02** (PERF-07 re-validated; FOG-12 + UX-01 confirmed-by-walk; FOG-11 falsified-by-walk-2; PERF-08 falsified-by-walk-2; new fog-rect viewport-coverage regression introduced by P03.1-05 → FOG-13 + FOG-14 requirements opened)
-  - [ ] 03.1-07-PLAN.md — Mechanism investigation via debug-spiral shader (DEBUG-01) + iPhone observation checkpoint (B-0 gating step) + post-checkpoint mechanism-specific fix (FOG-14, FOG-15 — Branch B-1 fp32 precision / B-2 DPR scaling / B-3 tile-period mismatch / Branch A no-op / Branch C unknown)
+  - [x] 03.1-07-PLAN.md — Mechanism investigation via debug-spiral shader (DEBUG-01) + iPhone observation checkpoint (B-0 gating step) + post-checkpoint mechanism-specific fix — **Branch B-3 (noise-tile-period mismatch) SELECTED + LANDED 2026-05-03** per developer's iPhone 17 Pro Walk #2 production-conditions observation: *"the translation isn't smooth, it's 'stepped'... while zooming it's being translated a lot"*. Fix: `fract(uPixelOrigin / tilePeriodPixels)` where `tilePeriodPixels = uResolution / max(uScaleFar, uScaleMid, uScaleNear)`; derived in-shader, no new uniform, `totalFloatSlots = 41` preserved. Applied to both `atmospheric_fog.frag` (production) and `atmospheric_fog_debug_spiral.frag` (debug). FOG-14 closes via test pair (`fog_debug_spiral_continuity_test.dart` 3/3 GREEN + `fog_tile_period_invariant_test.dart` 3/3 GREEN). FOG-15 closes via the structural fix landing GREEN. Documented partial-fix: wraps still happen at sub-perceptible noise-tile period (~16-65 px); if Walk #3 surfaces residual high-zoom stepping, Plan 03.1-10 may need a world-coordinate-noise rewrite.
   - [x] 03.1-08-PLAN.md — FOG-13 fog-rect viewport-coverage symmetric compensation: `canvas.translate(-canvasOffset)` at top of `_FogPainter.paint()` (Option b from FALSIFICATION-2 sub-section D row C-1) — landed 2026-05-03 (3 atomic commits; new `fog_rect_viewport_coverage_test.dart` flips RED → GREEN; FOG-12 stays GREEN with mock-canvas no-op translate override; full suite 146 GREEN / 1 SKIPPED)
   - [ ] 03.1-09-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #3 + `03.1-FALSIFICATION-3.md` (empirical re-test for the layered Plan 03.1-07 + 03.1-08 fix bundle; verdict CONFIRMED-AFTER-FIX | DENIED-FINAL | ITERATING)
 
@@ -128,7 +128,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
-| 03.1. Fix Fog Pan-Translation | 7/9 | In Progress|  |
+| 03.1. Fix Fog Pan-Translation | 8/9 | In Progress|  |
 | 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
 | 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
