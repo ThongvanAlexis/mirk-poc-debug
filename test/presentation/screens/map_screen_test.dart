@@ -172,16 +172,53 @@ void main() {
       expect(flutterMap.options.initialZoom, equals(kPocInitialZoom));
     });
 
-    testWidgets('InteractionOptions enables all flags', (tester) async {
+    testWidgets('UX-02 — FlutterMap.interactionOptions has rotate flag cleared (rotation gestures disabled)', (tester) async {
+      // UX-02 (Plan 03.1-10) — Walk #3 (Plan 03.1-09 sub-section C) surfaced
+      // rotation-correlated fog mis-coverage: Plan 03.1-08's
+      // `canvas.translate(-canvasOffset)` compensates ONLY translation
+      // (matrix[12], matrix[13]); rotation (matrix[0,1,4,5]) is untouched, so
+      // MobileLayerTransformer rotation during pinch-zoom-rotate causes the
+      // fog rect to rotate with the canvas leaving wedges of un-fogged map at
+      // viewport corners. Developer-endorsed POC scope reduction (Walk #3 Q2):
+      // disable rotation entirely; FOG-16 path (b) full canvas-inverse-
+      // transform stays deferred to hypothetical post-POC.
+      //
+      // This test asserts the InteractionOptions.flags bitmask has the rotate
+      // bit cleared while drag and pinchZoom remain enabled. Mechanical
+      // defense against any future PR that re-enables rotation by reverting
+      // back to `InteractiveFlag.all`.
       installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
       final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
-      expect(flutterMap.options.interactionOptions.flags, equals(InteractiveFlag.all));
+      final flags = flutterMap.options.interactionOptions.flags;
+      expect(
+        flags & InteractiveFlag.rotate,
+        equals(0),
+        reason:
+            'UX-02: FlutterMap.interactionOptions.flags MUST have the rotate bit cleared. '
+            'Pre-Plan-03.1-10 the flags were `InteractiveFlag.all`; post-Plan-03.1-10 they '
+            'must be `InteractiveFlag.all & ~InteractiveFlag.rotate`. If this assertion fails, '
+            'the UX-02 fix has been reverted and FOG-16 rotation-correlated fog mis-coverage '
+            'will resurface in production.',
+      );
     });
 
-    testWidgets('pinch zoom flag is set (sub-flag of all)', (tester) async {
+    testWidgets('UX-02 — drag flag remains enabled (panning still works)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
+      await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
+      await _pumpUntilTileProviderLoaded(tester);
+
+      final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
+      expect(
+        flutterMap.options.interactionOptions.flags & InteractiveFlag.drag,
+        isNonZero,
+        reason: 'UX-02 must NOT disable panning — only the rotate bit is cleared.',
+      );
+    });
+
+    testWidgets('pinch zoom flag is set (sub-flag of all & ~rotate)', (tester) async {
       installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);

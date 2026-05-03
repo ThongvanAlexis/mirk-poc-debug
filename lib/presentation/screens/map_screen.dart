@@ -336,7 +336,18 @@ class _MapScreenState extends State<MapScreen> {
                     const LatLng(kPocBboxLatMax + kPocPanBoundsPadDegrees, kPocBboxLonMax + kPocPanBoundsPadDegrees),
                   ),
                 ),
-                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
+                // UX-02 (Plan 03.1-10) — disable two-finger rotation gestures so MobileLayerTransformer
+                // never accumulates rotation matrix elements (matrix[0,1,4,5]) in the canvas transform.
+                // Walk #3 (Plan 03.1-09 sub-section C) surfaced rotation-correlated fog mis-coverage:
+                // Plan 03.1-08's `canvas.translate(-canvasOffset)` compensates only translation; rotation
+                // remains uncompensated, leaving wedges of un-fogged map at viewport corners during
+                // pinch-zoom-rotate. Disabling rotation is the developer-endorsed POC scope reduction
+                // per Walk #3 Q2 verbatim ("disable rotation for now, only pan and zoom, north is up.
+                // simplier"). FOG-16 path (b) full canvas-inverse-transform stays deferred to
+                // hypothetical post-POC iteration. The MapCompass widget is RETAINED — it always
+                // displays 0° (north up); leaving it in place is harmless and provides a visual
+                // confirmation that rotation is locked.
+                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: <Widget>[
                 VectorTileLayer(
