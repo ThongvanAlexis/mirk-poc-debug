@@ -50,12 +50,13 @@ precision mediump float;
 // share that uniform layout (it only declares uResolution / uTime /
 // uPixelOrigin / uDigitAtlas) so the values are constant-folded here.
 // MUST stay in lockstep with `kMirkFogAtmosphericScaleFar/Mid/Near`
-// in `lib/config/constants.dart`. If those constants change, this
-// shader must rebuild and the developer must re-walk the spiral
-// observation under production gesture conditions.
-#define DEBUG_SPIRAL_SCALE_FAR  1.5
-#define DEBUG_SPIRAL_SCALE_MID  6.0
-#define DEBUG_SPIRAL_SCALE_NEAR 24.0
+// in `lib/config/constants.dart` (currently 2.9 / 5.1 / 10.5). If
+// those constants change, this shader must rebuild and the developer
+// must re-walk the spiral observation under production gesture
+// conditions.
+#define DEBUG_SPIRAL_SCALE_FAR  2.9
+#define DEBUG_SPIRAL_SCALE_MID  5.1
+#define DEBUG_SPIRAL_SCALE_NEAR 10.5
 
 // ---------- Uniforms (slots 0..4 match production shader) ----------
 
