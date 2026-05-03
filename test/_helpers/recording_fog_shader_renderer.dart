@@ -29,6 +29,7 @@ class RecordedFogRender {
     required this.sdfRect,
     required this.sdfImage,
     required this.namedFloatArgs,
+    required this.metersPerPixel,
   });
 
   /// Painter `size` argument — drives the `uResolution` uniform.
@@ -58,6 +59,14 @@ class RecordedFogRender {
   /// presence of all 20 entries (`driftZFar` … `boundaryDensityBoost`).
   final Map<String, double> namedFloatArgs;
 
+  /// FOG-18 (Plan 03.1-12) — world-meter anchor `uMetersPerPixel` value
+  /// (slot 41). Computed at the painter as
+  /// `kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) / pow(2, zoom)`.
+  /// Tests assert that this value is non-zero AND that it changes
+  /// across paints when the synthetic camera's zoom changes (defends
+  /// against a hardcoded-cached regression at the painter level).
+  final double metersPerPixel;
+
   /// Counts every distinct float slot observed. The recording renderer
   /// records:
   ///
@@ -67,17 +76,20 @@ class RecordedFogRender {
   ///   * 1 float from [baseAlpha]
   ///   * 4 floats from [sdfRect]
   ///   * `namedFloatArgs.length` floats (kMirkFog* constants)
+  ///   * 1 float from [metersPerPixel] (FOG-18 slot 41)
   ///
-  /// At kMirkFog* count = 20 (Plan 03-05 baseline), total is `2+1+2+1+4+20 = 30`.
-  /// FOG-05's "41 slots" invariant counts every uniform float in
-  /// `FogShaderUniforms.totalFloatSlots` (resolution=2 + time=1 + pixelOrigin=2 +
-  /// uBase=4 + uHighlight=4 + uShadow=4 + 20 kMirkFog floats + sdfRect=4 = 41).
-  /// The recording renderer does NOT record uHighlight / uShadow because the
-  /// production code path passes those as compile-time constants (ARGB ints
-  /// hard-coded in `_FragmentShaderFogRenderer`); tests assert FOG-05 by
-  /// inspecting the production renderer source, while THIS getter measures
-  /// what flowed through the renderer interface for behavioural coverage.
-  int get totalFloatSlotsObserved => 2 + 1 + 2 + 1 + 4 + namedFloatArgs.length;
+  /// At kMirkFog* count = 20 + post-FOG-18 metersPerPixel, total is
+  /// `2+1+2+1+4+20+1 = 31`. Production FogShaderUniforms.totalFloatSlots
+  /// is 42 (post-FOG-18 — adds slot 41 uMetersPerPixel; resolution=2 +
+  /// time=1 + pixelOrigin=2 + uBase=4 + uHighlight=4 + uShadow=4 + 20
+  /// kMirkFog floats + sdfRect=4 + metersPerPixel=1 = 42). The recording
+  /// renderer does NOT record uHighlight / uShadow because the
+  /// production code path passes those as compile-time constants (ARGB
+  /// ints hard-coded in `_FragmentShaderFogRenderer`); tests assert
+  /// FOG-05 by inspecting the production renderer source, while THIS
+  /// getter measures what flowed through the renderer interface for
+  /// behavioural coverage.
+  int get totalFloatSlotsObserved => 2 + 1 + 2 + 1 + 4 + namedFloatArgs.length + 1;
 }
 
 /// Test impl of [FogShaderRenderer] — records every `render(...)` call into
@@ -103,6 +115,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
+    required double metersPerPixel,
   }) {
     renders.add(
       RecordedFogRender(
@@ -113,6 +126,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
         sdfRect: sdfRect,
         sdfImage: sdfImage,
         namedFloatArgs: Map<String, double>.from(mirkFogConstants),
+        metersPerPixel: metersPerPixel,
       ),
     );
   }

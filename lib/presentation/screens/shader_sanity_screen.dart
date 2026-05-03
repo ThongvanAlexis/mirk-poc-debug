@@ -3,6 +3,7 @@
 // See LICENSE file for details
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -47,6 +48,12 @@ const double _microsPerSecond = 1e6;
 /// precision degradation (B-1) would be visible if it's the root cause.
 const double _debugSpiralSyntheticPixelOriginSpeedXPxPerSec = 411.0;
 const double _debugSpiralSyntheticPixelOriginSpeedYPxPerSec = 0.0;
+
+/// Plan 03.1-12 FOG-18 — degrees-per-half-turn (180.0). Hoisted so
+/// the magic `180.0` doesn't appear inline in the synthetic
+/// `metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat * π/180) /
+/// pow(2, zoom)` computation in /sanity painters.
+const double _kSanityDegreesPerHalfTurn = 180.0;
 
 /// Pre-walk gate (`/sanity` route).
 ///
@@ -311,6 +318,17 @@ class _FogSanityPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // FOG-18 (Plan 03.1-12) — /sanity feeds a synthetic metersPerPixel
+    // value (real camera not available on /sanity). Computed at
+    // kPocInitialCameraLat (Melun centre) and kPocInitialZoom (z=13) — a
+    // representative hike-regime value (~12.66 m/raw_px). The /sanity
+    // diagnostic still reflects the FOG-18 architectural change at a
+    // representative zoom; if developers need to verify zoom-variance,
+    // they should toggle the debug-spiral on /map (which uses the live
+    // MapCamera).
+    final latRadians = kPocInitialCameraLat * math.pi / _kSanityDegreesPerHalfTurn;
+    final syntheticMetersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, kPocInitialZoom).toDouble();
+
     FogShaderUniforms.setAll(
       shader,
       resolution: size,
@@ -342,6 +360,7 @@ class _FogSanityPainter extends CustomPainter {
       boundaryDensityBoost: kMirkFogBoundaryDensityBoost,
       sdfRect: _identitySdfRect,
       sdfImage: sdfImage,
+      metersPerPixel: syntheticMetersPerPixel,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
@@ -382,11 +401,21 @@ class _DebugSpiralPainter extends CustomPainter {
     // declaration order. Plan 03.1-08-FIX FIX 3: the original Plan
     // 03.1-07 landing bound at slot 1, leaving the atlas unbound on
     // iPhone Impeller — the user's "no shader displayed" report.
+    // FOG-18 (Plan 03.1-12) — /sanity debug-spiral feeds a synthetic
+    // metersPerPixel value at kPocInitialCameraLat / kPocInitialZoom
+    // (the same hike-regime constants as the production sanity painter).
+    // The /sanity trajectory is synthetic-time-driven and stays at a
+    // single zoom; on-device zoom-axis verification happens via the
+    // /map debug-spiral toggle.
+    final latRadians = kPocInitialCameraLat * math.pi / _kSanityDegreesPerHalfTurn;
+    final syntheticMetersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, kPocInitialZoom).toDouble();
+
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
     shader.setFloat(3, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedXPxPerSec);
     shader.setFloat(4, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedYPxPerSec);
+    shader.setFloat(5, syntheticMetersPerPixel); // ← FOG-18 slot 5 (debug-spiral has slots 0..5 + sampler).
     shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }

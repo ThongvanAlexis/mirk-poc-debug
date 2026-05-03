@@ -2,11 +2,14 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
+
+import 'package:mirk_poc_debug/config/constants.dart';
 
 /// Plan 03.1-08-FIX FIX 2 — DEBUG-ONLY diagnostic layer for `/map`.
 ///
@@ -143,12 +146,28 @@ class _DebugSpiralMapPainter extends CustomPainter {
     // leaving the atlas effectively unbound on iPhone Impeller; same
     // mistake propagated into this layer when it was ported from the
     // /sanity-screen _DebugSpiralPainter.
+    // FOG-18 (Plan 03.1-12) — debug-spiral mirrors production fog's
+    // world-meter anchor. Compute metersPerPixel via the same
+    // Web-Mercator ground-resolution formula and forward via the new
+    // shader-side slot 5 uniform `uMetersPerPixel`.
+    //
+    // The debug-spiral shader's cell-numbering reflects the meter-space
+    // coordinate system post-FOG-18: cells are physical squares of
+    // ground (200 m per cell at any zoom — kPocDebugSpiralCellSizeMeters)
+    // regardless of zoom level. Visual confirmation that FOG-18 landed:
+    // cells appear larger when zoomed in, smaller when zoomed out
+    // (matching the developer's Walk #4 Q5 expectation).
+    final clampedLatDeg = camera.center.latitude.clamp(-_kDebugSpiralPolarLatClampDeg, _kDebugSpiralPolarLatClampDeg);
+    final latRadians = clampedLatDeg * math.pi / _kDebugSpiralDegreesPerHalfTurn;
+    final metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, camera.zoom).toDouble();
+
     final pixelOrigin = camera.pixelOrigin;
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
     shader.setFloat(3, pixelOrigin.x.toDouble());
     shader.setFloat(4, pixelOrigin.y.toDouble());
+    shader.setFloat(5, metersPerPixel); // ← FOG-18 slot 5 (debug-spiral has slots 0..5 + sampler).
     shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
     canvas.restore();
@@ -174,3 +193,12 @@ const double _microsecondsPerSecond = 1e6;
 /// self-contained — diagnostic-only, no cross-file dependency).
 const int _canvasTransformTxIndex = 12;
 const int _canvasTransformTyIndex = 13;
+
+/// Polar latitude clamp for the FOG-18 metersPerPixel computation in the debug
+/// spiral painter. Mirrors `_FogPainter`'s clamp; cos(±90°) → 0 would zero out
+/// the spiral coordinate.
+const double _kDebugSpiralPolarLatClampDeg = 89.0;
+
+/// Degrees-per-half-turn — `lat * π / 180.0` converts latitude in degrees to
+/// radians for the FOG-18 metersPerPixel computation.
+const double _kDebugSpiralDegreesPerHalfTurn = 180.0;

@@ -2,6 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -18,14 +19,16 @@ import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/fog_shader_uniforms.dart';
 import 'package:mirk_poc_debug/presentation/widgets/fog_clip_path.dart';
 
-/// Abstraction over the 41-uniform + 1-sampler population step.
+/// Abstraction over the 42-uniform + 1-sampler population step
+/// (post-Plan-03.1-12 FOG-18 — was 41 pre-fix).
 ///
 /// Production impl ([_FragmentShaderFogRenderer]) delegates to
 /// `FogShaderUniforms.setAll(...)` — the locked single source of truth for
-/// the 41-slot layout (BUG-009 / BUG-014 Iter 2 fix).
+/// the 42-slot layout (BUG-009 / BUG-014 Iter 2 fix; Plan 03.1-12 FOG-18
+/// added slot 41 `uMetersPerPixel`).
 ///
 /// Widget tests inject `RecordingFogShaderRenderer` (test/_helpers) so
-/// FOG-05 41-slot coverage can be asserted without a real
+/// FOG-05 42-slot coverage can be asserted without a real
 /// `ui.FragmentShader` (test envs have no GPU and
 /// `FragmentProgram.fromAsset` fails without an asset bundle).
 abstract class FogShaderRenderer {
@@ -34,6 +37,10 @@ abstract class FogShaderRenderer {
   /// [mirkFogConstants] carries every `kMirkFog*` numeric constant by named
   /// key so the test impl can record the exact float values without having
   /// to inspect the production code's hard-coded constant names.
+  ///
+  /// [metersPerPixel] (Plan 03.1-12 FOG-18) — Web-Mercator ground-resolution
+  /// at the camera's current lat × zoom. Forwarded to slot 41 by the
+  /// production impl; recorded as a field by the test impl.
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
@@ -43,6 +50,7 @@ abstract class FogShaderRenderer {
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
+    required double metersPerPixel,
   });
 }
 
@@ -63,6 +71,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
+    required double metersPerPixel,
   }) {
     if (shader == null) return; // production never passes null; defensive guard.
     FogShaderUniforms.setAll(
@@ -96,6 +105,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       boundaryDensityBoost: mirkFogConstants['boundaryDensityBoost']!,
       sdfRect: sdfRect,
       sdfImage: sdfImage,
+      metersPerPixel: metersPerPixel,
     );
   }
 }
@@ -506,6 +516,53 @@ class _FogPainter extends CustomPainter {
     final boundedY = (intPxY % kPocFogIntegerWrapPeriodPx) + fracPxY;
     final appliedPixelOrigin = (boundedX, boundedY);
 
+    // FOG-18 (Plan 03.1-12) — world-meter anchor.
+    //
+    // Walk #4 (Plan 03.1-11 Sub-section Q5) surfaced the architectural
+    // failure mode: FOG-17 pixel-space anchor caused noise to slide
+    // rapidly during zoom (uPixelOrigin doubles per zoom level →
+    // fragments under any given screen position sample completely
+    // different noise positions per zoom step) AND cells stayed pinned
+    // in screen-space rather than scaling with the world (raw-pixel
+    // const kNoiseTilePx = 384 px on screen at every zoom level).
+    //
+    // The fix: anchor noise to ground meters. Compute metersPerPixel via
+    // the Web-Mercator EPSG:3857 ground-resolution formula:
+    //
+    //   metersPerPixel = (2π × earthRadiusMeters × cos(lat)) /
+    //                    (256 × 2^zoom)
+    //                  ≈ kWebMercatorMetersPerPxAtEquatorZ0 × cos(lat) /
+    //                    2^zoom
+    //
+    // Forward as a NEW uniform `uMetersPerPixel` (slot 41;
+    // FogShaderUniforms.totalFloatSlots advances 41 → 42 in this plan).
+    // The shader uses uMetersPerPixel to convert the FOG-17 worldPx
+    // coordinate to worldMeters:
+    //
+    //   vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) *
+    //                      uMetersPerPixel;
+    //   vec2 noiseUv = worldMeters / kNoiseTilePxMeters;
+    //
+    // At a fixed geographic point, worldMeters is zoom-INVARIANT:
+    // zoom-doubling of uPixelOrigin is exactly cancelled by zoom-halving
+    // of uMetersPerPixel. The noise sample at that geographic point is
+    // therefore zoom-invariant — FOG-18 acceptance property.
+    //
+    // FOG-17a integer/fractional decomposition (above) is RETAINED — it
+    // operates on raw pixel units BEFORE the shader multiplies by
+    // uMetersPerPixel. Boundedness analysis: post-fix `worldMeters <=
+    // ~6200 m at z=15` and `<= ~387 m at z=19`; `noiseUv <= ~6.05` worst
+    // case (kNoiseTilePxMeters = 1024.0) — well within fp32 precision.
+    //
+    // Polar guard: cos(±90°) → 0 would make metersPerPixel = 0 and the
+    // shader would compute worldMeters = 0 everywhere → noise pattern
+    // collapses to a single sample. Clamp lat to ±89° to guard against
+    // pathological inputs (Walks #1-4 are all at lat ~48.5°; the clamp
+    // is defense-in-depth for unanticipated camera positions).
+    final clampedLatDeg = camera.center.latitude.clamp(-_kPolarLatClampDeg, _kPolarLatClampDeg);
+    final latRadians = clampedLatDeg * math.pi / _kDegreesPerHalfTurn;
+    final metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, camera.zoom).toDouble();
+
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
@@ -537,6 +594,7 @@ class _FogPainter extends CustomPainter {
       sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
+      metersPerPixel: metersPerPixel, // ← Plan 03.1-12 FOG-18 — world-meter anchor.
     );
 
     // Production-only paint step: drawing the shader onto the canvas requires
@@ -570,3 +628,14 @@ const double _microsecondsPerSecond = 1e6;
 /// `m[14]` = tz.
 const int _canvasTransformTxIndex = 12;
 const int _canvasTransformTyIndex = 13;
+
+/// Polar latitude clamp for the FOG-18 metersPerPixel computation. cos(±90°) → 0
+/// would make metersPerPixel = 0; clamp to ±89° to guard against pathological
+/// camera positions (Walks #1-4 are all at lat ~48.5°; the clamp is
+/// defense-in-depth).
+const double _kPolarLatClampDeg = 89.0;
+
+/// Degrees-per-half-turn — `lat * π / 180.0` converts latitude in degrees to
+/// radians. Hoisted so the magic `180.0` doesn't appear inline in the FOG-18
+/// metersPerPixel computation.
+const double _kDegreesPerHalfTurn = 180.0;

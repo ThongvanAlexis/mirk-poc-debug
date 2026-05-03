@@ -47,14 +47,22 @@ import 'dart:ui' show Size;
 /// | 38    | uSdfRectOriginY          | float  |
 /// | 39    | uSdfRectSizeX            | float  |
 /// | 40    | uSdfRectSizeY            | float  |
+/// | 41    | uMetersPerPixel          | float  |
 ///
 /// Sampler 0: uSdf — set via `setImageSampler(0, sdfImage)`.
+///
+/// Plan 03.1-12 (FOG-18) — slot 41 added: `uMetersPerPixel` carries the
+/// Web-Mercator ground-resolution (meters per raw pixel) at the camera's
+/// current lat/zoom. The shader multiplies the FOG-17 worldPx by this
+/// value to get worldMeters, then samples noise at world-meter
+/// coordinates (zoom-invariant in geographic terms). Slot count
+/// advances 41 → 42; under Flutter Impeller's per-shader uniform limit.
 class FogShaderUniforms {
   const FogShaderUniforms._();
 
   /// Total number of float uniform slots. Useful for tests that want
   /// to assert the layout shape.
-  static const int totalFloatSlots = 41;
+  static const int totalFloatSlots = 42;
 
   /// Sets every uniform on [shader] in one call. Caller supplies
   /// already-decoded scalars / colours / records — no re-parsing inside.
@@ -89,6 +97,7 @@ class FogShaderUniforms {
     required double boundaryDensityBoost,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
+    required double metersPerPixel,
   }) {
     // uResolution — slots 0, 1
     shader.setFloat(0, resolution.width);
@@ -156,6 +165,15 @@ class FogShaderUniforms {
     shader.setFloat(38, sdfRect.$2);
     shader.setFloat(39, sdfRect.$3);
     shader.setFloat(40, sdfRect.$4);
+    // uMetersPerPixel — slot 41 (Plan 03.1-12 FOG-18 — world-meter anchor).
+    // Shader uses this to convert the FOG-17 worldPx coordinate to
+    // worldMeters: `worldMeters = (fragUv * uResolution + uPixelOrigin) *
+    // uMetersPerPixel`. At a fixed geographic point, worldMeters is
+    // zoom-INVARIANT (uPixelOrigin doubles per zoom step, uMetersPerPixel
+    // halves) — the FOG-18 acceptance property. See `_FogPainter.paint()`
+    // metersPerPixel computation block + `kPocFogNoiseTilePxMeters`
+    // docstring for the full architectural rationale.
+    shader.setFloat(41, metersPerPixel);
     // SDF sampler — index 0
     shader.setImageSampler(0, sdfImage);
   }

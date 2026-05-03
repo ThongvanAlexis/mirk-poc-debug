@@ -341,6 +341,15 @@ const int kPocFogTransformBufferMaxSamples = 240;
 /// regime while above floating-point noise.
 const double kPocCanvasTransformEpsilon = 1e-6;
 
+/// **Plan 03.1-12 transition:** under FOG-18 (Plan 03.1-12, world-
+/// meter anchor) the production + debug-spiral shaders no longer
+/// reference `kNoiseTilePx` directly in active code — `kNoiseTilePxMeters`
+/// (the shader-side constant mirroring [kPocFogNoiseTilePxMeters]) is
+/// the active noise tile period. This Dart constant is RETAINED as
+/// historical reference + as the noise-grid alignment divisor for
+/// the FOG-17a Dart-side decomposition's pixel-space invariant
+/// `kPocFogIntegerWrapPeriodPx % kPocFogNoiseTilePx == 0`.
+///
 /// FOG-17 (Plan 03.1-10) — noise tile period in raw pixels for the
 /// world-coordinate noise sampling formulation. The shader's
 /// `noiseUv = worldPx / kNoiseTilePx` sets the cell size of the
@@ -384,6 +393,17 @@ const double kPocCanvasTransformEpsilon = 1e-6;
 /// is at an exact noise-grid boundary multiple).
 const double kPocFogNoiseTilePx = 384.0;
 
+/// **Plan 03.1-12 transition:** under FOG-18 (Plan 03.1-12, world-
+/// meter anchor) the FOG-17a integer/fractional decomposition
+/// PERSISTS unchanged — it operates on `camera.pixelOrigin` raw
+/// pixel units BEFORE the shader multiplies by `uMetersPerPixel`.
+/// The bounded-composite forwarded to the shader still has
+/// magnitude under `kPocFogIntegerWrapPeriodPx + 1`. The meter-
+/// space wrap event therefore fires at `1536 * metersPerPixel`
+/// meter intervals (zoom-dependent; ~4853 m at z=15 lat 48.5°,
+/// ~76 km at z=10 lat 48.5°). See [kPocFogNoiseTilePxMeters]
+/// docstring for the meter-space continuity caveat.
+///
 /// FOG-17a (Plan 03.1-10) — integer wrap period for the CPU-side
 /// integer/fractional decomposition of `camera.pixelOrigin`.
 ///
@@ -460,4 +480,116 @@ const String kPocDebugSpiralShaderAssetPath = 'assets/shaders/atmospheric_fog_de
 /// while small enough that a 390-px-wide viewport shows ~5 cells across.
 /// MUST stay in lockstep with `DEBUG_SPIRAL_CELL_SIZE_PX` in
 /// `assets/shaders/atmospheric_fog_debug_spiral.frag`.
+///
+/// **Plan 03.1-12 transition:** post-FOG-18 the debug-spiral shader
+/// computes cell size in METERS via [kPocDebugSpiralCellSizeMeters];
+/// this raw-pixel value is RETAINED as a deprecated `#define` in the
+/// shader source for historical reference + future regression-defense
+/// substring scanning, but the active code uses meter-space cells.
 const double kPocDebugSpiralCellSizePx = 80.0;
+
+// ─── Phase 3.1 Plan 03.1-12 — FOG-18 world-meter anchor ─────────────
+
+/// FOG-18 (Plan 03.1-12) — Web-Mercator meters-per-pixel constant at
+/// the equator at zoom 0. Used by `_FogPainter.paint()` and
+/// `_DebugSpiralMapPainter.paint()` to compute the per-paint
+/// `metersPerPixel` value forwarded to the shaders via the new
+/// `uMetersPerPixel` uniform.
+///
+/// Derivation (EPSG:3857 Web-Mercator standard):
+///   metersPerPixel(lat, zoom) = (2π × earthRadiusMeters × cos(lat)) /
+///                               (256 × 2^zoom)
+///                             ≈ 156543.03392 × cos(lat) / 2^zoom
+///
+/// where 156543.03392 = `2π × 6378137 / 256`.
+///
+/// Verification samples:
+///   - z=0  lat=0°:    156543.03 m/raw_px (1 raw_px = 156.5 km at equator)
+///   - z=13 lat=48.5°: 12.66 m/raw_px (Phase 2 walk regime)
+///   - z=15 lat=48.5°: 3.16 m/raw_px (typical Walk #4 regime)
+///   - z=19 lat=48.5°: 0.198 m/raw_px
+const double kWebMercatorMetersPerPxAtEquatorZ0 = 156543.03392;
+
+/// FOG-18 (Plan 03.1-12) — noise tile period in METERS for the
+/// world-meter anchor noise sampling formulation. The shader's
+/// `noiseUv = worldMeters / kNoiseTilePxMeters` sets the cell size of
+/// the hash3 noise grid in meter-space (cells are physical squares of
+/// ground regardless of zoom).
+///
+/// MUST stay in lockstep with `kNoiseTilePxMeters` const float in
+/// `assets/shaders/atmospheric_fog.frag` AND
+/// `assets/shaders/atmospheric_fog_debug_spiral.frag`. The shader
+/// shadows this value as a `const float` (NOT a uniform — only
+/// `uMetersPerPixel` is added as a new uniform; slot count goes 41
+/// → 42). If this constant changes, BOTH shader sources must be hand-
+/// edited to match (the build pipeline does not substitute Dart
+/// constants into shader source).
+///
+/// 1024.0 m chosen to preserve on-screen noise frequency parity with
+/// the pre-Plan-03.1-12 (FOG-17 pixel-space) formulation at the
+/// typical hike zoom (z=15 lat 48.5°, the Walk #4 regime). Derivation:
+///
+/// - FOG-17 on-screen noise cell at z=15 ≈ kPocFogNoiseTilePx /
+///   maxScale ≈ 384 / 10.5 ≈ 36.6 raw px.
+/// - FOG-18 on-screen noise cell at z=15 lat 48.5° ≈
+///   kPocFogNoiseTilePxMeters / metersPerPixel(z=15, lat 48.5°) /
+///   maxScale ≈ 1024 / 3.16 / 10.5 ≈ 30.9 raw px.
+/// - At z=10 (zoomed out) the cell on screen is ≈ 1024 / 100 / 10.5
+///   ≈ 1 raw px (sub-pixel — invisible noise; this is the EXPECTED
+///   behaviour for FOG-18 — at zoomed-out scales the noise grain
+///   visually disappears because the cells are much smaller than a
+///   raw pixel; users see uniform fog density which is the visually
+///   correct outcome for "fog covering large geographic area").
+/// - At z=19 (zoomed in to extreme) the cell on screen is ≈ 1024 /
+///   0.2 / 10.5 ≈ 488 raw px — cells are visibly LARGE on screen
+///   (zooming in makes cells bigger, exactly matching the
+///   developer's Walk #4 Q5 expectation: *"I should see the number
+///   getting bigger"*).
+///
+/// 1024 = 2^10 (power-of-2-friendly). Sized for the hike scale (1
+/// km cell ≈ a city block of ground; visually pleasing grain).
+///
+/// Earlier draft considered `kPocFogNoiseTilePxMeters = 256.0` —
+/// REJECTED on grounds that 256 m at z=15 ≈ 7.7 raw px noise cell —
+/// too fine; users would perceive busy noise at hike zoom. 2048.0
+/// also REJECTED on grounds that 2048 m at z=15 ≈ 62 raw px noise
+/// cell — twice the pre-fix grain; perceptibly different visual
+/// character.
+///
+/// **Caveat — meter-space integer-wrap continuity:** the FOG-17a
+/// pixel-space integer wrap (every kPocFogIntegerWrapPeriodPx = 1536
+/// raw px) translates to a meter-space shift of
+/// `1536 * metersPerPixel` meters at any given zoom. At z=15 lat
+/// 48.5° that's 1536 × 3.16 ≈ 4853 m. The shift in noise-grid units
+/// is `(1536 × metersPerPixel) / kPocFogNoiseTilePxMeters` ≈ 4.74
+/// cells at z=15 — NOT an integer multiple. The wrap event therefore
+/// produces a non-integer-multiple shift in the noise pattern at the
+/// wrap boundary. At z=15 walk velocity 12 raw px/s the wrap fires
+/// every ~128 sec — below perceptual threshold per Walk #3b empirical
+/// evidence (~3-sec stepping perceptible; ~128-sec sub-perceptible).
+/// **Plan 03.1-13+ contingency:** if Walk #5 surfaces residual
+/// wrap-stepping at the 128-sec cadence, two paths: (a) pivot to a
+/// periodic-noise function (Worley/explicit-period Perlin) whose
+/// lattice IS preserved under any shift; (b) make
+/// kPocFogIntegerWrapPeriodPx zoom-dependent so the meter-space
+/// wrap is always an integer-multiple of kPocFogNoiseTilePxMeters.
+/// See `_FogPainter.paint()` decomposition block for the full
+/// continuity rationale.
+const double kPocFogNoiseTilePxMeters = 1024.0;
+
+/// FOG-18 (Plan 03.1-12) — debug-spiral cell size in meters. Used by
+/// the debug-spiral shaders to compute cell indices in meter-space
+/// (cells are physical squares of ground regardless of zoom — the
+/// digit numbering reflects the meter-space coordinate system).
+///
+/// MUST stay in lockstep with `kDebugSpiralCellSizeMeters` const
+/// float in `assets/shaders/atmospheric_fog_debug_spiral.frag`.
+///
+/// 200.0 m chosen to preserve cell-size visual character continuity
+/// with the pre-Plan-03.1-12 (FOG-17 raw-pixel) formulation at the
+/// typical hike zoom. Derivation:
+///
+/// - Pre-fix DEBUG_SPIRAL_CELL_SIZE_PX = 80.0 (raw px).
+/// - At z=15 lat 48.5°, post-fix cell ≈ 200 / 3.16 ≈ 63 raw px on
+///   screen — close to pre-fix 80 raw px (visual character preserved).
+const double kPocDebugSpiralCellSizeMeters = 200.0;
