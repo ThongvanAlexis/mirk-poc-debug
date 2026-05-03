@@ -264,7 +264,36 @@ void main() {
     // (and produced the per-paint global discontinuity documented in
     // 03.1-FALSIFICATION.md Finding 3). Each fragment now computes its
     // own modulo in floating-point precision local to its UV.
-    vec2 noiseUv = fragUv + fract(uPixelOrigin / uResolution);
+    //
+    // Plan 03.1-07 Branch B-3 (tile-period-aware fract):
+    // Walk #2 (03.1-FALSIFICATION-2.md sub-section D row B-3) confirmed
+    // user-observable "stepped" translation under PRODUCTION gesture
+    // conditions on iPhone 17 Pro: pan a little → smooth, then a sudden
+    // jump; zoom → translated a lot. Mechanism: `fract(uPixelOrigin /
+    // uResolution)` wraps every viewport-width (~390 px). When
+    // `uPixelOrigin` crosses one viewport-width during gesture, the
+    // offset jumps 0.999 → 0.001 producing the visible step; pinch-zoom
+    // changes uPixelOrigin by 8× across zoom 13 → zoom 16, so `fract`
+    // cycles many times per frame. The wrap period mismatched the noise-
+    // tile period (~1/maxScale viewport-widths), so each wrap shifted
+    // the screen-space noise pattern by an inter-octave-difference
+    // fraction.
+    //
+    // Fix: align the wrap period with the noise tile, not the viewport.
+    // `tilePeriodPixels = uResolution / max(uScaleFar, uScaleMid,
+    // uScaleNear)` is recomputed per-fragment per-paint from the existing
+    // runtime uniforms `uScaleFar/Mid/Near` (slots 20..22). No new
+    // uniform — `FogShaderUniforms.totalFloatSlots` (41) is locked.
+    //
+    // Documented partial-fix: this moves the wrap from ~390 px to
+    // ~16-65 px depending on `maxScale`. Wraps still happen but at
+    // sub-perceptible magnitudes within a single octave. If Walk #3
+    // surfaces residual stepping at very high zoom (where fp32 precision
+    // also degrades), Plan 03.1-10 may need a world-coordinate-noise
+    // rewrite. Iteration path documented in 03.1-07-SUMMARY.md.
+    float maxScale = max(uScaleFar, max(uScaleMid, uScaleNear));
+    vec2 tilePeriodPixels = uResolution / maxScale;
+    vec2 noiseUv = fragUv + fract(uPixelOrigin / tilePeriodPixels);
 
     // ---------- 7. Curl-rotated edge field ----------
     // Sample the SDF; near the boundary, locally rotate the curl-noise
