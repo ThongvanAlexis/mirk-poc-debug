@@ -136,7 +136,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
-| 03.1. Fix Fog Pan-Translation | 12/13 | In Progress (5th iteration; Plan 03.1-12 software-fix landed 2026-05-03 — FOG-18 world-meter anchor in BOTH shaders + Dart-side metersPerPixel; Plan 03.1-13 (Walk #5 UAT) pending execution) |  |
+| 03.1. Fix Fog Pan-Translation | 12/13 | In Progress|  |
 | 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
 | 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
