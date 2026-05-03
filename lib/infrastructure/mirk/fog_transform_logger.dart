@@ -13,17 +13,24 @@ import 'package:logging/logging.dart';
 import 'package:mirk_poc_debug/config/constants.dart';
 
 /// 1-second JSONL rollup of per-paint fog Canvas-transform vs camera-pixelOrigin
-/// vs applied-uOffset diagnostics (FOG-10).
+/// vs applied-uOffset vs metersPerPixel diagnostics (FOG-10 + FOG-18).
 ///
 /// Sibling to `SdfRebuildLogger` (FOG-03) and `FrameDeltaProbe` (FOG-08).
 /// All three rollup loggers emit on `now ~/ 1000` boundaries via wall-clock-aligned
 /// timers so post-walk grep can join the three streams by `epochSecond`. This is
 /// the load-bearing guarantee of CONTEXT §log-timeline-alignment.
 ///
-/// Captured per paint: 8 diagnostic doubles (canvasTx, canvasTy, pixelOriginX,
-/// pixelOriginY, centerLat, centerLon, uOffsetX, uOffsetY). The rollup emits
-/// min, median, and max for each field — 24 numeric values plus epochSecond +
-/// sampleCount = 26 keys total per JSONL line.
+/// Captured per paint: 9 diagnostic doubles (canvasTx, canvasTy, pixelOriginX,
+/// pixelOriginY, centerLat, centerLon, uOffsetX, uOffsetY, metersPerPixel).
+/// The rollup emits min, median, and max for each field — 27 numeric values
+/// plus epochSecond + sampleCount = 29 keys total per JSONL line.
+///
+/// Plan 03.1-13 (Walk #5 pre-walk gate) augmented the rollup with
+/// `metersPerPixel` for FOG-18 walk-time-validation. The field carries the
+/// per-paint Web-Mercator ground resolution forwarded to the shader's new
+/// `uMetersPerPixel` slot 41 uniform; post-walk grep verifies the metersPerPixel
+/// signature is non-zero, evolves smoothly with camera zoom, and matches the
+/// expected formula `kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) / pow(2, zoom)`.
 ///
 /// Idle seconds (no [recordPaint] calls) emit nothing — same convention as
 /// `SdfRebuildLogger` + `FrameDeltaProbe` (RESEARCH §Pattern B).
@@ -65,8 +72,8 @@ class FogTransformLogger {
     }
   }
 
-  /// Records one paint observation. Captures 8 diagnostic doubles extracted
-  /// from the four named arguments:
+  /// Records one paint observation. Captures 9 diagnostic doubles extracted
+  /// from the five named arguments:
   /// * `canvasTransform[12]` and `[13]` — column-major translation slots from
   ///   `Canvas.getTransform()` (RESEARCH §Pitfall D).
   /// * `cameraPixelOrigin.x/y` — `MapCamera.pixelOrigin` (the world-pixel
@@ -75,6 +82,11 @@ class FogTransformLogger {
   ///   geographic centre).
   /// * `appliedUOffset.$1/$2` — the (uOffsetX, uOffsetY) value the painter
   ///   forwarded to the shader.
+  /// * `metersPerPixel` — the per-paint Web-Mercator ground resolution
+  ///   forwarded to the shader's `uMetersPerPixel` slot 41 (FOG-18; Plan
+  ///   03.1-12). Computed as
+  ///   `kWebMercatorMetersPerPxAtEquatorZ0 * cos(latClamped) / pow(2, zoom)`
+  ///   per paint at the painter site.
   ///
   /// Buffer overflow drops the oldest sample FIFO-style — same discipline as
   /// `FrameDeltaProbe._buffer`.
@@ -83,6 +95,7 @@ class FogTransformLogger {
     required Point<double> cameraPixelOrigin,
     required LatLng cameraCenter,
     required (double, double) appliedUOffset,
+    required double metersPerPixel,
   }) {
     _frameCounter += 1;
     _buffer.add(
@@ -96,6 +109,7 @@ class FogTransformLogger {
         centerLon: cameraCenter.longitude,
         uOffsetX: appliedUOffset.$1,
         uOffsetY: appliedUOffset.$2,
+        metersPerPixel: metersPerPixel,
       ),
     );
     while (_buffer.length > kPocFogTransformBufferMaxSamples) {
@@ -116,8 +130,8 @@ class FogTransformLogger {
   void _emitRollup() {
     if (_buffer.isEmpty) return;
     final sampleCount = _buffer.length;
-    // Materialise eight sorted column-views once per emit. O(8 × N × log N) per
-    // second — at N=240 that's ~8 × 240 × 8 ≈ 15 k comparisons, well under the
+    // Materialise nine sorted column-views once per emit. O(9 × N × log N) per
+    // second — at N=240 that's ~9 × 240 × 8 ≈ 17 k comparisons, well under the
     // JSONL-emit budget per RESEARCH §Pattern B sample-rate tradeoff.
     final canvasTxStats = computeStats(_buffer.map((s) => s.canvasTx).toList()..sort());
     final canvasTyStats = computeStats(_buffer.map((s) => s.canvasTy).toList()..sort());
@@ -127,6 +141,7 @@ class FogTransformLogger {
     final centerLonStats = computeStats(_buffer.map((s) => s.centerLon).toList()..sort());
     final uOffsetXStats = computeStats(_buffer.map((s) => s.uOffsetX).toList()..sort());
     final uOffsetYStats = computeStats(_buffer.map((s) => s.uOffsetY).toList()..sort());
+    final metersPerPixelStats = computeStats(_buffer.map((s) => s.metersPerPixel).toList()..sort());
 
     // WALL-CLOCK source — REQUIRED for grep-correlation with SdfRebuildLogger
     // and FrameDeltaProbe, both of which derive epochSecond identically.
@@ -159,14 +174,20 @@ class FogTransformLogger {
       'uOffsetYMin': uOffsetYStats.$1.toStringAsFixed(6),
       'uOffsetYMedian': uOffsetYStats.$2.toStringAsFixed(6),
       'uOffsetYMax': uOffsetYStats.$3.toStringAsFixed(6),
+      // FOG-18 (Plan 03.1-12 software fix bundle; Plan 03.1-13 Walk #5
+      // diagnostic verification). Per-paint Web-Mercator ground resolution
+      // forwarded to the shader's `uMetersPerPixel` slot 41 uniform.
+      'metersPerPixelMin': metersPerPixelStats.$1.toStringAsFixed(6),
+      'metersPerPixelMedian': metersPerPixelStats.$2.toStringAsFixed(6),
+      'metersPerPixelMax': metersPerPixelStats.$3.toStringAsFixed(6),
     });
     _log.info(line);
     _buffer.clear();
   }
 }
 
-/// Immutable per-paint observation. Nine final fields (frameCounter +
-/// 8 diagnostic doubles) — kept private because the JSONL rollup is the only
+/// Immutable per-paint observation. Ten final fields (frameCounter +
+/// 9 diagnostic doubles) — kept private because the JSONL rollup is the only
 /// supported consumer outside the logger.
 @immutable
 class _FogTransformSample {
@@ -180,6 +201,7 @@ class _FogTransformSample {
     required this.centerLon,
     required this.uOffsetX,
     required this.uOffsetY,
+    required this.metersPerPixel,
   });
 
   final int frameCounter;
@@ -191,4 +213,5 @@ class _FogTransformSample {
   final double centerLon;
   final double uOffsetX;
   final double uOffsetY;
+  final double metersPerPixel;
 }

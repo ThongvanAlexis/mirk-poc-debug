@@ -579,6 +579,7 @@ class _FogPainter extends CustomPainter {
       cameraPixelOrigin: pixOrigin,
       cameraCenter: camera.center,
       appliedUOffset: appliedPixelOrigin,
+      metersPerPixel: metersPerPixel, // ← Plan 03.1-13 Walk #5 — FOG-18 diagnostic verification signature.
     );
 
     // FOG-05: populate all 41 uniforms via the locked single source of truth

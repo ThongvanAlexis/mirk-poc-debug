@@ -46,18 +46,21 @@ void main() {
           cameraPixelOrigin: const Point<double>(100.0, 50.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.1, 0.2),
+          metersPerPixel: 12.66,
         );
         logger.recordPaint(
           canvasTransform: _matrixWithTranslation(tx: 0.0, ty: 0.0),
           cameraPixelOrigin: const Point<double>(200.0, 60.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.2, 0.3),
+          metersPerPixel: 6.33,
         );
         logger.recordPaint(
           canvasTransform: _matrixWithTranslation(tx: 0.0, ty: 0.0),
           cameraPixelOrigin: const Point<double>(300.0, 70.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.3, 0.4),
+          metersPerPixel: 3.16,
         );
         // Wait at least 2 rollup intervals so the timer fires deterministically.
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -65,7 +68,9 @@ void main() {
         expect(captured, hasLength(greaterThanOrEqualTo(1)));
         final firstLine = captured.first.message;
         final decoded = json.decode(firstLine) as Map<String, Object?>;
-        // 26 keys: epochSecond + sampleCount + 8 fields × (Min,Median,Max).
+        // 29 keys: epochSecond + sampleCount + 9 fields × (Min,Median,Max).
+        // FOG-18 (Plan 03.1-12 + Walk #5 diagnostic-verification): metersPerPixel
+        // field added to the rollup at Plan 03.1-13 Task 1.
         expect(
           decoded.keys,
           containsAll(<String>[
@@ -95,12 +100,19 @@ void main() {
             'uOffsetYMin',
             'uOffsetYMedian',
             'uOffsetYMax',
+            'metersPerPixelMin',
+            'metersPerPixelMedian',
+            'metersPerPixelMax',
           ]),
         );
         expect(decoded['sampleCount'], 3);
         expect(decoded['pixelOriginXMin'], '100.000000');
         expect(decoded['pixelOriginXMedian'], '200.000000');
         expect(decoded['pixelOriginXMax'], '300.000000');
+        // FOG-18 metersPerPixel signature: sorted ascending [3.16, 6.33, 12.66] → min=3.16, median=6.33, max=12.66.
+        expect(decoded['metersPerPixelMin'], '3.160000');
+        expect(decoded['metersPerPixelMedian'], '6.330000');
+        expect(decoded['metersPerPixelMax'], '12.660000');
       } finally {
         await sub.cancel();
       }
@@ -134,6 +146,7 @@ void main() {
             cameraPixelOrigin: Point<double>(i.toDouble(), i.toDouble()),
             cameraCenter: const LatLng(48.5397, 2.6553),
             appliedUOffset: (i.toDouble() % 1.0, i.toDouble() % 1.0),
+            metersPerPixel: 12.66,
           );
         }
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -162,6 +175,7 @@ void main() {
           cameraPixelOrigin: const Point<double>(1024.0, 768.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.5, 0.25),
+          metersPerPixel: 3.16,
         );
         logger.stop();
         // stop() emits via _log.info synchronously; onRecord delivery is
