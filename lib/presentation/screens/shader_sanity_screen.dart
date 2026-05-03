@@ -373,16 +373,21 @@ class _DebugSpiralPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // The debug-spiral shader uses 5 float slots (0..4) plus sampler 1.
-    // Slot map matches production fog slots 0..4 verbatim so the
-    // coordinate-system formulation `fragUv + fract(uPixelOrigin /
-    // uResolution)` reads identically.
+    // The debug-spiral shader uses 5 float slots (0..4) plus sampler 0.
+    // Slot map for floats matches production fog slots 0..4 verbatim so
+    // the coordinate-system formulation `fragUv + fract(uPixelOrigin /
+    // uResolution)` reads identically. Sampler slot is 0 (not 1) — the
+    // shader has only one declared sampler; Flutter's
+    // `setImageSampler(N, image)` indexes per-shader from 0 in
+    // declaration order. Plan 03.1-08-FIX FIX 3: the original Plan
+    // 03.1-07 landing bound at slot 1, leaving the atlas unbound on
+    // iPhone Impeller — the user's "no shader displayed" report.
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
     shader.setFloat(3, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedXPxPerSec);
     shader.setFloat(4, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedYPxPerSec);
-    shader.setImageSampler(1, atlas);
+    shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
 

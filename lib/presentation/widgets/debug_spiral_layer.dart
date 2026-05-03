@@ -135,13 +135,21 @@ class _DebugSpiralMapPainter extends CustomPainter {
     //   2    → uTime
     //   3..4 → uPixelOrigin (REAL camera.pixelOrigin — the load-bearing
     //          difference vs. /sanity's synthetic trajectory)
+    //
+    // Sampler slot 0 (NOT 1) — Flutter's setImageSampler indexes per-
+    // shader from 0 in declaration order. The debug-spiral shader has
+    // only one declared sampler (uDigitAtlas) so its slot is 0. Plan
+    // 03.1-08-FIX FIX 3 — the Plan 03.1-07 landing bound at slot 1,
+    // leaving the atlas effectively unbound on iPhone Impeller; same
+    // mistake propagated into this layer when it was ported from the
+    // /sanity-screen _DebugSpiralPainter.
     final pixelOrigin = camera.pixelOrigin;
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
     shader.setFloat(3, pixelOrigin.x.toDouble());
     shader.setFloat(4, pixelOrigin.y.toDouble());
-    shader.setImageSampler(1, atlas);
+    shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
     canvas.restore();
   }

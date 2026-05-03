@@ -55,9 +55,19 @@ uniform float uTime;
 // trajectory; production-screen would feed `camera.pixelOrigin`.
 uniform vec2  uPixelOrigin;
 
-// Digit atlas sampler — sampler slot 1 (production's sampler 0 is the
-// SDF; the debug shader uses a distinct slot so the DigitAtlasBuilder
-// integration is independent of the production SDF pipeline).
+// Digit atlas sampler — sampler slot 0. Flutter's FragmentShader
+// `setImageSampler(N, image)` indexes samplers in declaration order,
+// starting from 0; this shader declares only a single sampler so its
+// slot is unconditionally 0. The original Plan 03.1-07 landing
+// commented "slot 1 (production's sampler 0 is SDF)", which mis-read
+// Flutter's binding model — slot numbering is PER-SHADER, not global,
+// so the debug shader's only sampler is slot 0 regardless of what the
+// production shader does. The Plan 03.1-08-FIX FIX 3 corrects this:
+// the Dart call site now binds via `setImageSampler(0, atlas)`. Without
+// this fix the atlas was never bound on iPhone Impeller (slot 1 was
+// effectively unused; texture() reads on uDigitAtlas returned 0.0,
+// rendering only the dark-grey background — the user's "no shader
+// displayed" report on /sanity).
 uniform sampler2D uDigitAtlas;
 
 out vec4 fragColor;
