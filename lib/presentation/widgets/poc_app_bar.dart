@@ -12,11 +12,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../infrastructure/logging/file_logger.dart';
+import '../../infrastructure/mirk/dev_marker_logger.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/debug_spiral_state.dart';
 
 /// AppBar factory shared across every Phase 1+2+3 Scaffold (LOG-04 + Phase 3
-/// shader-sanity entry point + Plan 03.1-08-FIX FIX 2 debug-spiral toggle).
+/// shader-sanity entry point + Plan 03.1-08-FIX FIX 2 debug-spiral toggle +
+/// Plan 03.1-09-CORR dev-observation marker).
 ///
 /// Returns a Material 3 AppBar with the following actions:
 ///   1. `Switch.adaptive` (Plan 03.1-08-FIX FIX 2) — toggles the global
@@ -26,12 +28,19 @@ import '../../state/debug_spiral_state.dart';
 ///      production fog rendering unchanged. Wrapped in
 ///      [ValueListenableBuilder] so the Switch's `value:` reflects the
 ///      shared notifier state across both screens.
-///   2. `Icons.science` → navigates to `/sanity` via `context.push(...)` so
+///   2. `Icons.bug_report` → emits a one-shot `dev_marker` JSONL line via
+///      [DevMarkerLogger.emit] into the active `FileLogger` sink
+///      (Plan 03.1-09-CORR). Tap during a walk the moment a symptom is
+///      observed; post-walk grep correlates the marker `epochMs` against
+///      the per-second pixelOrigin / canvasTransform / sdf-rebuild
+///      rollups. Hardcoded `tag: "steppy_translation"` for Walk #4 — a
+///      future plan MAY split this into multiple per-tag buttons.
+///   3. `Icons.science` → navigates to `/sanity` via `context.push(...)` so
 ///      a back button on the sanity screen can `pop()` to return to the
 ///      previous route (UX-01, Plan 03.1-05). Per CLAUDE.md GoRouter rule:
 ///      "if the word retour has meaning in UX → push" (Phase 3 pre-walk
 ///      gate — see ShaderSanityScreen).
-///   3. `Icons.share` → gzips [FileLogger.activeFilename] to a temp `.gz`
+///   4. `Icons.share` → gzips [FileLogger.activeFilename] to a temp `.gz`
 ///      file and routes it through the system share sheet (LOG-04). The
 ///      button's `onPressed` is null when no active log exists, leaving it
 ///      visually disabled.
@@ -41,8 +50,10 @@ import '../../state/debug_spiral_state.dart';
 /// Encapsulating these actions in this factory enforces the LOG-04 contract —
 /// share is reachable from EVERY screen — keeps the science action
 /// declaration in a single place (the only entry point to the /sanity
-/// pre-walk gate), AND makes the debug-spiral toggle universally
-/// accessible (Plan 03.1-08-FIX FIX 2).
+/// pre-walk gate), makes the debug-spiral toggle universally accessible
+/// (Plan 03.1-08-FIX FIX 2), AND makes the dev-marker button reachable
+/// from `/map` (the production gesture surface) AND `/sanity` (the
+/// pre-walk gate) without per-screen wiring duplication.
 PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
   final l10n = AppLocalizations.of(context)!;
   final activeFilename = FileLogger.activeFilename;
@@ -67,6 +78,15 @@ PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
             },
           ),
         ),
+      ),
+      // Plan 03.1-09-CORR — developer-observation marker. One-shot JSONL
+      // line emitted into the active log file the moment the developer
+      // observes a symptom during a walk (Walk #4: "steppy translation").
+      // Hardcoded tag for now; future plan MAY split into multi-tag.
+      IconButton(
+        icon: const Icon(Icons.bug_report),
+        tooltip: l10n.devMarkerButtonTooltip,
+        onPressed: () => DevMarkerLogger.emit(tag: 'steppy_translation'),
       ),
       IconButton(icon: const Icon(Icons.science), tooltip: l10n.shaderSanityTooltip, onPressed: () => context.push('/sanity')),
       IconButton(
