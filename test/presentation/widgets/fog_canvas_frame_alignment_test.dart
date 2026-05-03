@@ -185,6 +185,16 @@ class _RecordingMockCanvas extends Fake implements Canvas {
     clipPaths.add(path);
   }
 
+  /// Plan 03.1-08 (FOG-13) — `_FogPainter.paint()` now calls
+  /// `canvas.translate(-canvasOffset.dx, -canvasOffset.dy)` after the
+  /// clipPath. The FOG-12 test does NOT assert on translate args (that's
+  /// FOG-13's job in `fog_rect_viewport_coverage_test.dart`), but the mock
+  /// must accept the call without throwing UnimplementedError via Fake's
+  /// noSuchMethod. The clip-path-bounds assertion below is unaffected
+  /// because clipPath geometry is established BEFORE the translate.
+  @override
+  void translate(double dx, double dy) {}
+
   @override
   void drawRect(Rect rect, Paint paint) {}
 

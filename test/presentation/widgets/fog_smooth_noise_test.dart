@@ -164,6 +164,14 @@ class _MockCanvas extends Fake implements Canvas {
   @override
   void clipPath(ui.Path path, {bool doAntiAlias = true}) {}
 
+  /// Plan 03.1-08 (FOG-13) — `_FogPainter.paint()` now calls
+  /// `canvas.translate(-canvasOffset.dx, -canvasOffset.dy)` after the
+  /// clipPath. The mock accepts the call as a no-op; this test asserts on
+  /// pixelOrigin tuple values forwarded to the renderer (NOT on canvas
+  /// transform stack), so the translate is irrelevant to the assertion.
+  @override
+  void translate(double dx, double dy) {}
+
   @override
   void drawRect(Rect rect, Paint paint) {}
 
