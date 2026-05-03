@@ -77,53 +77,55 @@ void main() {
 
       // Sequence of 10 small moves, each ~11 m (~3 raw pixels at zoom 13).
       // Pre-Plan-03.1-04 the Dart call site's `% 1.0` would produce
-      // ~size.width-magnitude jumps across the wrap boundary; post-fix
-      // the painter forwards full-precision pixelOrigin so consecutive
-      // values are single-digit raw-pixel deltas.
+      // ~size.width-magnitude jumps across the wrap boundary; Plan
+      // 03.1-04..12 forwarded full-precision pixelOrigin (then bounded
+      // pixel composite under FOG-17a). Plan 03.1-14 Fix B′ flipped the
+      // semantic to METER space: the painter forwards
+      // `(intMeters % kPocFogIntegerWrapPeriodMeters) + fracMeters` —
+      // bounded under 4097 m regardless of zoom × lat. Consecutive
+      // values during a smooth pan are sub-meter to single-digit-meter
+      // deltas at the Walk #4 hike regime.
       final captureds = <(double, double)>[];
       for (var i = 0; i < 10; i++) {
         mapController.move(LatLng(48.5397 + i * 0.0001, 2.6553 + i * 0.0001), 13);
         await _settleSdf(tester);
         final painter = _findFogPainter(tester);
         painter.paint(_MockCanvas(), const Size(400, 800));
-        captureds.add(renderer.renders.last.pixelOrigin);
+        captureds.add(renderer.renders.last.worldMetersOrigin);
       }
 
       // Assert every consecutive-paint delta is below the threshold.
-      // Pre-Plan-03.1-04 the modulo wrap produces ~size.width-magnitude
-      // jumps (>>1e3) — would FAIL here. Post-fix the deltas are
-      // single-digit raw pixels.
+      // Plan 03.1-14 Fix B′ — meter-space bounded composite. The active
+      // ceiling [kPocFogSmoothMetersMaxDelta] = 4097 m bounds wrap-event
+      // magnitudes; smooth-pan deltas are sub-meter at hike regime.
       for (var i = 1; i < captureds.length; i++) {
         final dx = (captureds[i].$1 - captureds[i - 1].$1).abs();
         final dy = (captureds[i].$2 - captureds[i - 1].$2).abs();
         expect(
           dx,
-          lessThan(kPocFogSmoothCoordinateMaxDelta),
+          lessThan(kPocFogSmoothMetersMaxDelta),
           reason:
-              'FOG-11 regression at step $i: pixelOrigin.x jumped by $dx (threshold $kPocFogSmoothCoordinateMaxDelta). '
-              'A modulo-wrap discontinuity at the Dart call site would produce ~size.width-magnitude jumps; '
-              'a smooth pan produces single-digit raw-pixel deltas.',
+              'FOG-11 regression at step $i: worldMetersOrigin.x jumped by $dx m (threshold $kPocFogSmoothMetersMaxDelta m). '
+              'Plan 03.1-14 Fix B′: a smooth pan produces sub-meter to single-digit-meter deltas; only a wrap event '
+              '(every 4096 m of camera meter-space pan) approaches the threshold.',
         );
-        expect(dy, lessThan(kPocFogSmoothCoordinateMaxDelta), reason: 'FOG-11 regression at step $i: pixelOrigin.y jumped by $dy.');
+        expect(dy, lessThan(kPocFogSmoothMetersMaxDelta), reason: 'FOG-11 regression at step $i: worldMetersOrigin.y jumped by $dy m.');
       }
 
-      // Post-FOG-17a bounded-magnitude regime: the painter forwards
-      // `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`, which lives in
-      // [0, kPocFogIntegerWrapPeriodPx]. This range catches BOTH:
-      // - pre-fix-style millions (`1064000 > 1537` would FAIL upper bound)
-      // - naive `% 1.0` regressions (under 1 would FAIL lower bound — the
-      //   `inExclusiveRange(0, ...)` excludes 0 itself; in practice the
-      //   non-trivial pixelOriginX modulo is rarely exactly 0, but if it
-      //   IS, the consecutive-paint delta assertions above already cover
-      //   the smoothness regression separately).
+      // Plan 03.1-14 Fix B′ bounded-magnitude regime: the painter
+      // forwards `(intMeters % kPocFogIntegerWrapPeriodMeters) +
+      // fracMeters`, which lives in [0, kPocFogIntegerWrapPeriodMeters].
+      // This range catches BOTH:
+      // - pre-fix-style millions (would FAIL upper bound)
+      // - naive `% 1.0` regressions (under 1 would FAIL lower bound)
       expect(
         captureds.last.$1,
-        inExclusiveRange(0, kPocFogIntegerWrapPeriodPx + 1),
+        inExclusiveRange(0, kPocFogIntegerWrapPeriodMeters + 1),
         reason:
-            'FOG-11 magnitude regression: post-FOG-17a bounded-magnitude regime — '
-            'forwarded value is `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx ∈ [0, kPocFogIntegerWrapPeriodPx]`. '
-            'Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1 (would fail lower bound). '
-            'Pre-FOG-17a the painter forwarded raw pixelOrigin in millions (would fail upper bound).',
+            'FOG-11 magnitude regression: Plan 03.1-14 Fix B′ bounded-magnitude regime — '
+            'forwarded value is `(intMeters % kPocFogIntegerWrapPeriodMeters) + fracMeters ∈ [0, kPocFogIntegerWrapPeriodMeters]` '
+            '(meter space). Pre-Plan-03.1-14 the painter forwarded a pixel-space bounded composite under 1537 raw px '
+            '(superseded). Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1.',
       );
 
       // Plan 03.1-12 FOG-18 — metersPerPixel range assertion.

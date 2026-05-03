@@ -136,8 +136,8 @@ class _DebugSpiralMapPainter extends CustomPainter {
     // /sanity-screen _DebugSpiralPainter):
     //   0..1 → uResolution
     //   2    → uTime
-    //   3..4 → uPixelOrigin (REAL camera.pixelOrigin — the load-bearing
-    //          difference vs. /sanity's synthetic trajectory)
+    //   3..4 → uWorldMetersOrigin (Plan 03.1-14 Fix B′ — meter-space bounded
+    //          composite; was uPixelOrigin pre-Plan-03.1-14)
     //
     // Sampler slot 0 (NOT 1) — Flutter's setImageSampler indexes per-
     // shader from 0 in declaration order. The debug-spiral shader has
@@ -146,27 +146,47 @@ class _DebugSpiralMapPainter extends CustomPainter {
     // leaving the atlas effectively unbound on iPhone Impeller; same
     // mistake propagated into this layer when it was ported from the
     // /sanity-screen _DebugSpiralPainter.
-    // FOG-18 (Plan 03.1-12) — debug-spiral mirrors production fog's
-    // world-meter anchor. Compute metersPerPixel via the same
-    // Web-Mercator ground-resolution formula and forward via the new
-    // shader-side slot 5 uniform `uMetersPerPixel`.
+    //
+    // Plan 03.1-14 (Fix B′ — FOG-19) — debug-spiral mirrors production
+    // fog's meter-space FOG-17a decomposition. Compute metersPerPixel
+    // via the Web-Mercator ground-resolution formula; convert
+    // pixelOrigin to meter-space FIRST, then decompose. Slots 3..4 now
+    // forward `boundedMetersX/Y` (a meter-space bounded composite under
+    // kPocFogIntegerWrapPeriodMeters + 1 = 4097 m) instead of raw
+    // pixelOrigin. The shader's noiseUv computation flipped to
+    // `(fragUv * uResolution) * uMetersPerPixel + uWorldMetersOrigin`
+    // (slot indices 3..4 unchanged; semantic flips to meter-space).
     //
     // The debug-spiral shader's cell-numbering reflects the meter-space
-    // coordinate system post-FOG-18: cells are physical squares of
-    // ground (200 m per cell at any zoom — kPocDebugSpiralCellSizeMeters)
-    // regardless of zoom level. Visual confirmation that FOG-18 landed:
-    // cells appear larger when zoomed in, smaller when zoomed out
-    // (matching the developer's Walk #4 Q5 expectation).
+    // coordinate system: cells are physical squares of ground (200 m
+    // per cell at any zoom — kPocDebugSpiralCellSizeMeters) regardless
+    // of zoom level. Cell numbering at fixed map position is now ALSO
+    // continuous across wrap boundaries because every wrap injects a
+    // CONSTANT-magnitude phase shift INVARIANT across all wrap events
+    // (Octave 1 bit-identical via hash3 period-1; Octaves 2 + 3 receive
+    // a deterministic ≈ 11% fbm3-dynamic-range residual shift bounded
+    // analytically).
     final clampedLatDeg = camera.center.latitude.clamp(-_kDebugSpiralPolarLatClampDeg, _kDebugSpiralPolarLatClampDeg);
     final latRadians = clampedLatDeg * math.pi / _kDebugSpiralDegreesPerHalfTurn;
     final metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, camera.zoom).toDouble();
 
+    // Plan 03.1-14 Fix B′ — meter-space FOG-17a decomposition (mirror of
+    // _FogPainter.paint()).
     final pixelOrigin = camera.pixelOrigin;
+    final worldMetersX = pixelOrigin.x * metersPerPixel;
+    final worldMetersY = pixelOrigin.y * metersPerPixel;
+    final intMetersX = worldMetersX.truncateToDouble();
+    final intMetersY = worldMetersY.truncateToDouble();
+    final fracMetersX = worldMetersX - intMetersX;
+    final fracMetersY = worldMetersY - intMetersY;
+    final boundedMetersX = (intMetersX % kPocFogIntegerWrapPeriodMeters) + fracMetersX;
+    final boundedMetersY = (intMetersY % kPocFogIntegerWrapPeriodMeters) + fracMetersY;
+
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
-    shader.setFloat(3, pixelOrigin.x.toDouble());
-    shader.setFloat(4, pixelOrigin.y.toDouble());
+    shader.setFloat(3, boundedMetersX); // ← Plan 03.1-14 Fix B′ — meter-space bounded composite (was raw pixelOrigin.x pre-Plan-03.1-14).
+    shader.setFloat(4, boundedMetersY); // ← Plan 03.1-14 Fix B′ — meter-space bounded composite (was raw pixelOrigin.y pre-Plan-03.1-14).
     shader.setFloat(5, metersPerPixel); // ← FOG-18 slot 5 (debug-spiral has slots 0..5 + sampler).
     shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);

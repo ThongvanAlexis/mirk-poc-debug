@@ -127,14 +127,9 @@ void main() {
     });
 
     test('Plan-03.1-12 POST-FOG-18 (world-meter) — ZERO wraps over 1500-px sub-wrap-period sweep at z=15 lat 48.5°', () {
-      // Plan 03.1-12 FOG-18: meter-space formulation
-      //   `worldMeters = (fragUv * uResolution + boundedPxOrigin) * metersPerPixel;
-      //    noiseUv = worldMeters / kNoiseTilePxMeters`
-      // adds metersPerPixel-multiplication on top of FOG-17. metersPerPixel
-      // is positive at all valid lat/zoom combinations (cos(lat) > 0
-      // post-clamp; pow(2, zoom) > 0); the per-paint shader input
-      // continues to evolve monotonically forward at a fixed zoom.
-      // ZERO wraps within a single integer-wrap window.
+      // Plan 03.1-12 FOG-18: meter-space formulation (pixel-space FOG-17a
+      // then meter-space scaling). Historical sub-test retained as
+      // regression-defense for the pre-Plan-03.1-14 formulation.
       final wrapCount = _countWraps(formulation: _Formulation.worldMeter);
       expect(
         wrapCount,
@@ -144,6 +139,27 @@ void main() {
             'at a fixed zoom. metersPerPixel scales the worldPx coordinate but the per-paint delta stays monotonically '
             'forward. If wraps are reported here, the FOG-18 fix has been silently reverted or the metersPerPixel '
             'computation has been broken. Wrap count: $wrapCount.',
+      );
+    });
+
+    test('Plan-03.1-14 Fix B′ POST-FOG-19 (meter-space FOG-17a) — ZERO wraps over sub-wrap-period sweep at z=15 lat 48.5°', () {
+      // Plan 03.1-14 Fix B′ — FOG-19: meter-space FOG-17a decomposition
+      //   `worldMeters = (fragUv * uResolution) * metersPerPixel + boundedMeters;
+      //    noiseUv = worldMeters / kNoiseTilePxMeters`
+      // where `boundedMeters = (intMeters % kPocFogIntegerWrapPeriodMeters) +
+      // fracMeters`. The per-paint shader input continues to evolve
+      // monotonically forward at a fixed zoom; wrap events fire only at
+      // 4096-m intervals in worldMeters (well beyond the sub-wrap-period
+      // sweep window). ZERO wraps expected.
+      final wrapCount = _countWraps(formulation: _Formulation.worldMeterFixBPrime);
+      expect(
+        wrapCount,
+        equals(0),
+        reason:
+            'Plan-03.1-14 Fix B′ POST-FOG-19-GREEN: meter-space FOG-17a formulation must produce ZERO wraps over a sub-wrap-period '
+            'sweep at a fixed zoom. The bounded meter composite evolves smoothly within a single 4096-m wrap period; '
+            'wrap events occur at exact integer-cell boundaries (period-commensurability invariant). If wraps are reported '
+            'here, the Fix B′ has been silently reverted. Wrap count: $wrapCount.',
       );
     });
   });
@@ -168,8 +184,15 @@ enum _Formulation {
 
   /// Plan-03.1-12 FOG-18: `noiseUv = (fragUv * uResolution + boundedPxOrigin) * metersPerPixel / kNoiseTilePxMeters`.
   /// metersPerPixel computed at z=15 lat 48.5° (Walk #4 hike regime,
-  /// representative).
+  /// representative). Pixel-space FOG-17a then meter-space scaling.
   worldMeter,
+
+  /// Plan-03.1-14 Fix B′: `noiseUv = ((fragUv * uResolution) * metersPerPixel
+  /// + boundedMeters) / kNoiseTilePxMeters`. Meter-space FOG-17a
+  /// decomposition: `boundedMeters = (intMeters % kPocFogIntegerWrapPeriodMeters)
+  /// + fracMeters` with `intMeters = pixelOriginX * metersPerPixel
+  /// truncated`. Active formulation post-Plan-03.1-14.
+  worldMeterFixBPrime,
 }
 
 /// Counts wrap events along a synthetic smooth-pan trajectory.
@@ -189,12 +212,13 @@ int _countWraps({required _Formulation formulation}) {
   const viewportWidth = 390.0;
   final maxScale = math.max(_scaleFar, math.max(_scaleMid, _scaleNear));
 
-  // Sub-wrap-period sweeps for the FOG-17 + FOG-18 sub-tests so the
-  // integer-wrap event does NOT fire within the trajectory. Pre-fix
-  // + B-3 use the historical 36000-px sweep for the wrap-frequency
-  // ratio test.
-  final paintCount = (formulation == _Formulation.worldCoordinate || formulation == _Formulation.worldMeter) ? 300 : 7200;
-  final startMagnitude = (formulation == _Formulation.worldCoordinate || formulation == _Formulation.worldMeter) ? 999936.0 : 1.0e6;
+  // Sub-wrap-period sweeps for the FOG-17 + FOG-18 + Plan-03.1-14
+  // Fix B′ sub-tests so the integer-wrap event does NOT fire within the
+  // trajectory. Pre-fix + B-3 use the historical 36000-px sweep for the
+  // wrap-frequency ratio test.
+  final isPostFix = formulation == _Formulation.worldCoordinate || formulation == _Formulation.worldMeter || formulation == _Formulation.worldMeterFixBPrime;
+  final paintCount = isPostFix ? 300 : 7200;
+  final startMagnitude = isPostFix ? 999936.0 : 1.0e6;
   const deltaXPerPaint = 5.0;
   const fragXPx = viewportWidth * 0.5;
 
@@ -238,12 +262,50 @@ int _countWraps({required _Formulation formulation}) {
         final intPx = pixelOriginX.truncateToDouble();
         final fracPx = pixelOriginX - intPx;
         final boundedPxX = (intPx % kPocFogIntegerWrapPeriodPx) + fracPx;
-        // FOG-18 world-meter formulation:
+        // FOG-18 world-meter formulation (pre-Plan-03.1-14 era):
         //   worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel
         //   noiseUv = worldMeters / kNoiseTilePxMeters
         final worldPxX = fragXPx + boundedPxX;
         final worldMetersX = worldPxX * metersPerPixel;
         currentValue = worldMetersX / kPocFogNoiseTilePxMeters;
+        if (previousValue != null && currentValue - previousValue < 0) {
+          wrapCount += 1;
+        }
+      case _Formulation.worldMeterFixBPrime:
+        // Plan 03.1-14 Fix B′ — meter-space FOG-17a decomposition.
+        // The Fix B′ trajectory operates in meter space directly (the
+        // decomposition divisor is in meters, not pixels). To stay
+        // within a single 4096-m wrap window for the ZERO-wraps
+        // assertion, treat `i` as a meter-space index instead of a
+        // pixel-space index. Step 5 m per paint × 600 paints = 3000 m
+        // worldMeters sweep — sub-wrap-period.
+        //
+        // The startMagnitude (~1e6 raw px × mpp at z=15 = ~3.16M m) is
+        // re-aligned to the start of a 4096-m wrap window so the sweep
+        // stays inside one window. fragXPx fixed at viewport-centre.
+        if (i >= 600) {
+          // Skip extra iterations beyond the meter-space sweep budget
+          // (the outer loop runs paintCount=300 paints; the budget is
+          // 600 — the 300-paint cap already keeps us under).
+          previousValue = null;
+          currentValue = 0.0;
+          continue;
+        }
+        // Re-align start to a wrap window boundary.
+        final startWorldMeters = startMagnitude * metersPerPixel;
+        final wrapsBefore = (startWorldMeters / kPocFogIntegerWrapPeriodMeters).floor();
+        final alignedStartMeters = wrapsBefore * kPocFogIntegerWrapPeriodMeters + 100.0;
+        // Synthetic worldMeters at this paint.
+        final worldMetersUnboundedX = alignedStartMeters + i * 5.0;
+        final intMetersX = worldMetersUnboundedX.truncateToDouble();
+        final fracMetersX = worldMetersUnboundedX - intMetersX;
+        final boundedMetersX = (intMetersX % kPocFogIntegerWrapPeriodMeters) + fracMetersX;
+        // Plan 03.1-14 Fix B′ shader-side formula:
+        //   worldMeters = (fragUv * uResolution) * uMetersPerPixel + uWorldMetersOrigin
+        //   noiseUv = worldMeters / kNoiseTilePxMeters
+        final fragMetersX = fragXPx * metersPerPixel;
+        final shaderWorldMetersX = fragMetersX + boundedMetersX;
+        currentValue = shaderWorldMetersX / kPocFogNoiseTilePxMeters;
         if (previousValue != null && currentValue - previousValue < 0) {
           wrapCount += 1;
         }

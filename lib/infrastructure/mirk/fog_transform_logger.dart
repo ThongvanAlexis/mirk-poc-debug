@@ -81,7 +81,15 @@ class FogTransformLogger {
   /// * `cameraCenter.latitude/longitude` — `MapCamera.center` (the camera's
   ///   geographic centre).
   /// * `appliedUOffset.$1/$2` — the (uOffsetX, uOffsetY) value the painter
-  ///   forwarded to the shader.
+  ///   forwarded to the shader. Plan 03.1-14 Fix B′ flipped the SEMANTIC
+  ///   of this field from pixel-space (Plan 03.1-12 era; bounded under
+  ///   `kPocFogIntegerWrapPeriodPx + 1` = 1537 raw px) to meter-space
+  ///   (Plan 03.1-14 era; bounded under `kPocFogIntegerWrapPeriodMeters
+  ///   + 1` = 4097 m). The JSONL field name `uOffsetX/Y` is preserved
+  ///   for grep-correlation continuity (the Walk #5 marker analysis
+  ///   grepped on `uOffsetX/Y`); the new `coordinateSpace` JSONL field
+  ///   disambiguates pre-Plan-03.1-14 logs (implicit pixel-space) from
+  ///   post-Plan-03.1-14 logs (explicit meter-space).
   /// * `metersPerPixel` — the per-paint Web-Mercator ground resolution
   ///   forwarded to the shader's `uMetersPerPixel` slot 41 (FOG-18; Plan
   ///   03.1-12). Computed as
@@ -180,6 +188,14 @@ class FogTransformLogger {
       'metersPerPixelMin': metersPerPixelStats.$1.toStringAsFixed(6),
       'metersPerPixelMedian': metersPerPixelStats.$2.toStringAsFixed(6),
       'metersPerPixelMax': metersPerPixelStats.$3.toStringAsFixed(6),
+      // Plan 03.1-14 Fix B′ — FOG-19. The uOffsetX/Y values flipped semantic
+      // from pixel-space (Plan 03.1-12 era) to meter-space (Plan 03.1-14
+      // era). The JSONL field name preserved for grep-correlation
+      // continuity (the Walk #5 marker analysis grepped on `uOffsetX/Y`);
+      // the `coordinateSpace` field disambiguates pre-Plan-03.1-14 logs
+      // (implicit pixel-space) from post-Plan-03.1-14 logs (explicit
+      // meter-space).
+      'coordinateSpace': 'meters',
     });
     _log.info(line);
     _buffer.clear();

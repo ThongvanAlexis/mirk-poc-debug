@@ -393,6 +393,21 @@ const double kPocCanvasTransformEpsilon = 1e-6;
 /// is at an exact noise-grid boundary multiple).
 const double kPocFogNoiseTilePx = 384.0;
 
+/// **Plan 03.1-14 (Fix B′) supersession — 2026-05-03:** this constant
+/// is no longer the active decomposition divisor. The active
+/// decomposition operates in METER space using
+/// [kPocFogIntegerWrapPeriodMeters] (4096 m). RETAINED here for git
+/// history and pre-Plan-03.1-14 regression tests
+/// (`@Tags(['historical'])` sub-test groups in
+/// fog_pixel_origin_decomposition_test + fog_debug_spiral_continuity_test).
+/// See `.planning/phases/03.1-fix-fog-pan-translation/03.1-FALSIFICATION-5.md`
+/// for the period-commensurability gap that motivated the meter-space
+/// pivot. The Plan 03.1-12-era invariant
+/// `kPocFogIntegerWrapPeriodPx % kPocFogNoiseTilePx == 0` (= `1536 %
+/// 384 == 0`) expressed a pixel-space-only relationship and is
+/// historically interesting but irrelevant to the active meter-space
+/// FOG-19 decomposition.
+///
 /// **Plan 03.1-12 transition:** under FOG-18 (Plan 03.1-12, world-
 /// meter anchor) the FOG-17a integer/fractional decomposition
 /// PERSISTS unchanged — it operates on `camera.pixelOrigin` raw
@@ -441,6 +456,10 @@ const double kPocFogNoiseTilePx = 384.0;
 /// `fog_pixel_origin_decomposition_test.dart`.
 const double kPocFogIntegerWrapPeriodPx = 1536.0;
 
+/// **Plan 03.1-14 (Fix B′) supersession — 2026-05-03:** retained for
+/// historical regression tests; the active meter-space ceiling is
+/// [kPocFogSmoothMetersMaxDelta] = 4097.0.
+///
 /// FOG-11 — maximum acceptable consecutive-paint delta in pixelOrigin
 /// (raw world-pixel units) before declaring a discontinuity. Used in the
 /// behavioural smooth-noise-coordinate-evolution test (Plan 03.1-04
@@ -576,6 +595,145 @@ const double kWebMercatorMetersPerPxAtEquatorZ0 = 156543.03392;
 /// See `_FogPainter.paint()` decomposition block for the full
 /// continuity rationale.
 const double kPocFogNoiseTilePxMeters = 1024.0;
+
+/// Plan 03.1-14 (Fix B′ — FOG-19) — meter-space integer wrap period for
+/// the [_FogPainter] CPU-side meter-space decomposition.
+///
+/// Walk #5 (Plan 03.1-13) empirically falsified the Plan 03.1-12 design's
+/// reliance on Plan 03.1-10 FOG-17a integer/fractional decomposition in
+/// PIXEL space. The FOG-17a wrap period [kPocFogIntegerWrapPeriodPx] =
+/// 1536 raw px translated to a non-integer-multiple shift in
+/// noise-grid units at every wrap event:
+///
+///   noiseUv shift per wrap = (1536 × metersPerPixel) /
+///                            kPocFogNoiseTilePxMeters
+///
+/// At z=15 lat 48.535° (mpp = 3.162) this evaluates to 4.7421 cells —
+/// a 0.7421-cell sub-cell discontinuity per wrap event. Walk #5
+/// developer fired 2 dev-markers tagged `steppy_translation`, both
+/// correlated with Y-axis FOG-17a wrap events in fog_transform JSONL
+/// within ±1 sec. Same mechanism caused Q5 zoom-scramble (zoom changes
+/// pixelOrigin doubles AND mpp halves; bounded_pixels × mpp produces
+/// zoom-dependent shader input).
+///
+/// Plan 03.1-14 Fix B′ moves the integer/fractional decomposition to
+/// METER space. The wrap period in meter space is chosen as an
+/// INTEGER MULTIPLE of [kPocFogNoiseTilePxMeters] (1024 m) — 4096 m
+/// = 4 × 1024 m. At every wrap event the noiseUv shift is exactly 4
+/// integer cells. The base-octave hash3 has integer period 1; a +4
+/// shift in noiseUv lands on the IDENTICAL hash sample. The base-
+/// octave (Octave 1) is bit-identical at every wrap. Octaves 2 + 3 of
+/// the fbm3 chain (atmospheric_fog.frag lines 193-207) apply uniform-
+/// scaling matrices `M_1 = 2.03 · I` and `M_2 = 2.05 · I` to the
+/// integer-cell shift `V = (-4, 0, 0)`, producing fractional sub-voxel
+/// shifts of magnitude 0.12 and 0.646 respectively — Octaves 2 + 3 do
+/// NOT bit-identically reproduce pre-wrap output. The per-wrap fbm3
+/// amplitude discontinuity is bounded analytically by
+/// [kPocFogFbmDiscontinuityBound] (≈ 11% of fbm3 dynamic range). The
+/// CRITICAL property is that this discontinuity is the SAME at every
+/// wrap (deterministic from constant `M_1`, `M_2`, `V`; zoom-
+/// independent; lat-independent), eliminating the pre-fix variable-
+/// magnitude stepping signal that Walk #5 perceived. Whether the
+/// residual constant-phase shift is sub-perceptual is empirically
+/// validated by Walk #6 PRIMARY GATE; if not, fall-back to option D-3
+/// (periodic Worley noise primitive — Plan 03.1-16+ scope).
+///
+/// MUST satisfy the invariant
+///   `kPocFogIntegerWrapPeriodMeters % kPocFogNoiseTilePxMeters == 0`
+/// (= `4096 % 1024 == 0`). If this constant changes, both the
+/// invariant AND the shader source's continuity assumptions need
+/// re-validation (the wrap MUST inject an integer-cell shift in
+/// noiseUv).
+///
+/// Choice of 4096 m (4 cells per wrap):
+/// - 1024 m (1 cell/wrap) — viable; chosen 4096 instead for more pan
+///   headroom before wraps fire (the wrap signature is INVARIANT
+///   across all events under integer-cell-shift, so the choice is
+///   purely cosmetic from a stepping-perception standpoint).
+/// - 2048 m (2 cells/wrap) — viable.
+/// - 4096 m (4 cells/wrap) — CHOSEN. Power-of-2 friendly. Generous
+///   pan headroom.
+/// - 8192 m (8 cells/wrap) — viable; 4096 chosen instead for a slight
+///   tighter bound on worldMeters magnitude in fp32 precision-sensitive
+///   regimes.
+///
+/// **Boundedness analysis:** post-fix, the painter forwards
+/// `appliedWorldMetersOrigin = (boundedMetersX, boundedMetersY)` to
+/// the shader, with magnitude under [kPocFogIntegerWrapPeriodMeters]
+/// + 1 = 4097 m. The shader computes `worldMeters = (fragUv *
+/// uResolution) * uMetersPerPixel + uWorldMetersOrigin`, where
+/// `(fragUv * uResolution) * uMetersPerPixel` is bounded by viewport
+/// width × mpp ≤ 430 × 3.16 ≈ 1359 m at z=15 lat 48.5°. Total
+/// worldMeters ≤ ~5456 m at z=15. fp32 precision at 5456 ≈ 6e-4 m,
+/// well under sub-cell precision needed for noise sampling.
+///
+/// At zoom 19 lat 48.5° mpp ≈ 0.198: `(fragUv * uResolution) * mpp` ≤
+/// 430 × 0.198 ≈ 85 m; total worldMeters ≤ ~4182 m; fp32 precision
+/// ≈ 5e-4 m. fp32 precision is preserved throughout.
+///
+/// At zoom 10 lat 0° (pathological — equator, far zoom-out, mpp ≈
+/// 152.87): `(fragUv * uResolution) * mpp` ≤ 430 × 152.87 ≈ 65_734 m;
+/// total worldMeters ≤ ~69_831 m; fp32 precision at 69_831 ≈ 8e-3 m.
+/// noiseUv ≤ ~68; fp32 precision ≈ 8e-6 cell. Sub-cell precision
+/// preserved.
+///
+/// See `_FogPainter.paint()` decomposition block for the full
+/// continuity-at-wrap proof; see `03.1-FALSIFICATION-5.md` for the
+/// Walk #5 empirical evidence + diagnosis.
+const double kPocFogIntegerWrapPeriodMeters = 4096.0;
+
+/// Plan 03.1-14 (Fix B′) — deterministic ceiling for assertions on the
+/// active meter-space decomposition's bounded composite. Mirrors the
+/// role [kPocFogSmoothCoordinateMaxDelta] played in pixel-space
+/// before Plan 03.1-14.
+///
+/// Used by FOG-19 / FOG-09 / FOG-11 widget tests:
+///   `expect(captureds.last.worldMetersOrigin.$1,
+///           inExclusiveRange(0, kPocFogSmoothMetersMaxDelta))`
+///
+/// Equals `kPocFogIntegerWrapPeriodMeters + 1` = 4097.0 (the +1
+/// accommodates the fractional-meters carry).
+const double kPocFogSmoothMetersMaxDelta = kPocFogIntegerWrapPeriodMeters + 1;
+
+/// Plan 03.1-14 (Fix B′ — FOG-19) — analytical upper bound on the
+/// per-wrap fbm3 amplitude discontinuity at a meter-space wrap event.
+///
+/// Derived from the fbm3 chain in `assets/shaders/atmospheric_fog.frag`
+/// lines 193-207: per-octave matrices `M_1 = 2.03 · I` and
+/// `M_2 = 2.05 · I` (uniform scaling, NOT rotation despite the line
+/// 191-192 docstring) applied to the integer-cell wrap shift
+/// `V = (-4, 0, 0)`. The wrap shift propagates through the fbm3 chain
+/// as:
+///   - Octave 1: bit-identical (hash3 period-1 absorbs the integer shift).
+///   - Octave 2 input shift: `M_1 · V = (-8.12, 0, 0)` — fractional
+///     part `0.12` is visible (different sub-voxel sampled).
+///   - Octave 3 input shift: `M_1 · M_2 · V = (-16.646, 0, 0)` —
+///     fractional part `0.646` is visible.
+///
+/// Bounded by `0.25 · max||∇noise3|| · 0.12 + 0.125 · max||∇noise3|| ·
+/// 0.646 ≈ 0.188` in fbm3 units, where `max||∇noise3|| ≈ 1.7` is the
+/// gradient bound for trilinear-interpolated value-noise (the
+/// primitive used by `noise3` in atmospheric_fog.frag lines 152-189).
+/// fbm3 dynamic range is ≈ 1.75 (sum of weights 0.5 + 0.25 + 0.125,
+/// each octave in `[-1, +1]`); per-wrap discontinuity ≈ 11% of dynamic
+/// range. Margin to 0.20 captures rounding + safety.
+///
+/// Used by `fog_meter_wrap_invisibility_test.dart` to assert the FULL
+/// 3-octave fbm3 chain's residual discontinuity stays under bound at
+/// every wrap event (NOT just the base octave). The CRITICAL property
+/// is NOT that the discontinuity is zero — it is that the
+/// discontinuity is CONSTANT across all wrap events (deterministic
+/// from constant `M_1`, `M_2`, `V`), zoom-independent, and lat-
+/// independent. This eliminates the pre-fix Walk #5 stepping signal
+/// (which arose from variable-magnitude per-wrap shifts).
+///
+/// If Walk #6 PRIMARY GATE surfaces residual stepping despite this
+/// bound holding architecturally, the fall-back path is option D-3
+/// (pivot to periodic Worley noise primitive with lattice period
+/// preserved across all FBM octaves); see Plan 03.1-14
+/// `<continuity_proof_for_plan_03_1_14>` `if_walk_6_surfaces_residual_stepping`
+/// section.
+const double kPocFogFbmDiscontinuityBound = 0.20;
 
 /// FOG-18 (Plan 03.1-12) — debug-spiral cell size in meters. Used by
 /// the debug-spiral shaders to compute cell indices in meter-space

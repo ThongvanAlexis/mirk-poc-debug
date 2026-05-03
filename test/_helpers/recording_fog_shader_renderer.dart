@@ -24,7 +24,7 @@ class RecordedFogRender {
   const RecordedFogRender({
     required this.resolution,
     required this.timeSeconds,
-    required this.pixelOrigin,
+    required this.worldMetersOrigin,
     required this.baseAlpha,
     required this.sdfRect,
     required this.sdfImage,
@@ -38,11 +38,15 @@ class RecordedFogRender {
   /// LIVE `uTime` value at the moment of paint.
   final double timeSeconds;
 
-  /// `uPixelOrigin` 2-tuple — full-precision world-pixel origin from the
-  /// painter's `camera.pixelOrigin` (Plan 03.1-04 contract). The shader
-  /// applies `fract()` per-fragment; the Dart call site forwards the
-  /// values verbatim without any modulo.
-  final (double, double) pixelOrigin;
+  /// Plan 03.1-14 (Fix B′ — FOG-19) — meter-space bounded composite
+  /// forwarded to the shader as the slot-3/4 uniform `uWorldMetersOrigin`.
+  /// Computed at the painter as `(intMeters % kPocFogIntegerWrapPeriodMeters)
+  /// + fracMeters`. Magnitude is under `kPocFogIntegerWrapPeriodMeters + 1`
+  /// = 4097 m regardless of pixelOrigin magnitude. Pre-Plan-03.1-14, this
+  /// field was named `pixelOrigin` and carried the FOG-17a pixel-space
+  /// bounded composite — flipped semantically by Plan 03.1-14 to close
+  /// the period-commensurability gap that Walk #5 surfaced.
+  final (double, double) worldMetersOrigin;
 
   /// Base-colour alpha — slot 8 in the FogShaderUniforms layout.
   final double baseAlpha;
@@ -72,7 +76,7 @@ class RecordedFogRender {
   ///
   ///   * 2 floats from [resolution] (width, height)
   ///   * 1 float from [timeSeconds]
-  ///   * 2 floats from [pixelOrigin]
+  ///   * 2 floats from [worldMetersOrigin]
   ///   * 1 float from [baseAlpha]
   ///   * 4 floats from [sdfRect]
   ///   * `namedFloatArgs.length` floats (kMirkFog* constants)
@@ -81,7 +85,7 @@ class RecordedFogRender {
   /// At kMirkFog* count = 20 + post-FOG-18 metersPerPixel, total is
   /// `2+1+2+1+4+20+1 = 31`. Production FogShaderUniforms.totalFloatSlots
   /// is 42 (post-FOG-18 — adds slot 41 uMetersPerPixel; resolution=2 +
-  /// time=1 + pixelOrigin=2 + uBase=4 + uHighlight=4 + uShadow=4 + 20
+  /// time=1 + worldMetersOrigin=2 + uBase=4 + uHighlight=4 + uShadow=4 + 20
   /// kMirkFog floats + sdfRect=4 + metersPerPixel=1 = 42). The recording
   /// renderer does NOT record uHighlight / uShadow because the
   /// production code path passes those as compile-time constants (ARGB
@@ -110,7 +114,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) pixelOrigin,
+    required (double, double) worldMetersOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -121,7 +125,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
       RecordedFogRender(
         resolution: resolution,
         timeSeconds: timeSeconds,
-        pixelOrigin: pixelOrigin,
+        worldMetersOrigin: worldMetersOrigin,
         baseAlpha: baseAlpha,
         sdfRect: sdfRect,
         sdfImage: sdfImage,

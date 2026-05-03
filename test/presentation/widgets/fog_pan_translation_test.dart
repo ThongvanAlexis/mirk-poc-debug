@@ -127,7 +127,7 @@ void main() {
         isNotEmpty,
         reason: 'paint() must have run through the renderer at least once — if empty, the SDF future never resolved within the runAsync budget.',
       );
-      final initialPixelOrigin = renderer.renders.last.pixelOrigin;
+      final initialPixelOrigin = renderer.renders.last.worldMetersOrigin;
 
       // ~1.5 km NE of Melun town centre (still inside the Phase 2 Melun
       // bbox + cameraConstraint pad). At zoom 13 (256 × 2^13 = 2_097_152
@@ -153,27 +153,27 @@ void main() {
       // post-pan camera snapshot, NOT the cached pre-pan instance.
       final pannedPainter = _findFogPainter(tester);
       pannedPainter.paint(_MockCanvas(), const Size(400, 800));
-      final pannedPixelOrigin = renderer.renders.last.pixelOrigin;
+      final pannedPixelOrigin = renderer.renders.last.worldMetersOrigin;
 
       expect(
         (pannedPixelOrigin.$1 - initialPixelOrigin.$1).abs(),
         greaterThan(kPocCanvasTransformEpsilon),
         reason:
-            'Plan 03-08 regression: uPixelOrigin.x did not change after a programmatic pan. '
-            'The painter MUST forward a camera.pixelOrigin-derived value to shaderRenderer.render(pixelOrigin:). '
+            'Plan 03-08 regression: uWorldMetersOrigin.x did not change after a programmatic pan. '
+            'The painter MUST forward a camera.pixelOrigin-derived value (after Plan 03.1-14 Fix B′ meter-space '
+            'decomposition) to shaderRenderer.render(worldMetersOrigin:). '
             'Pre-FOG-17a: raw pixelOrigin (zoom 13 magnitude ~1e6). '
-            'Post-FOG-17a: bounded composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`. '
-            'Post-FOG-18 (Plan 03.1-12): the painter ALSO forwards metersPerPixel per paint, but the FOG-09 assertion '
-            'continues to test the pixelOrigin-track-camera-pan property which is unchanged (the bounded composite '
-            'still moves with camera pan). The FOG-18 zoom-derived metersPerPixel re-derivation is asserted in a '
-            'separate sub-test below. '
-            'Either way, a programmatic pan MUST produce a non-zero delta in the forwarded value. '
+            'Plan 03.1-10..12: bounded pixel composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx` (superseded). '
+            'Plan 03.1-14 Fix B′ — FOG-19: bounded meter composite `(intMeters % kPocFogIntegerWrapPeriodMeters) + '
+            'fracMeters`. The painter ALSO forwards metersPerPixel per paint (Plan 03.1-12 FOG-18); the FOG-09 '
+            'assertion continues to test the camera-pan-track property — the meter-space bounded composite still '
+            'moves with camera pan. A programmatic pan MUST produce a non-zero delta in the forwarded value. '
             'Pre-fix HEAD passed const (0.0, 0.0) and tripped this assertion.',
       );
       expect(
         (pannedPixelOrigin.$2 - initialPixelOrigin.$2).abs(),
         greaterThan(kPocCanvasTransformEpsilon),
-        reason: 'Plan 03-08 regression: uPixelOrigin.y did not change after a programmatic pan.',
+        reason: 'Plan 03-08 regression: uWorldMetersOrigin.y did not change after a programmatic pan (Plan 03.1-14 Fix B′ — meter-space bounded composite).',
       );
     });
 
@@ -256,7 +256,7 @@ void main() {
     });
 
     testWidgets(
-      'RED-guard (skip:true; manual run against pre-fix HEAD SHA 280dd04 — verifies guard catches Plan 03-08 failure mode): painter passes pixelOrigin: const (0.0, 0.0) exact',
+      'RED-guard (skip:true; manual run against pre-fix HEAD SHA 280dd04 — verifies guard catches Plan 03-08 failure mode): painter passes worldMetersOrigin: const (0.0, 0.0) exact',
       (tester) async {
         // Same setUp as the primary test — pump FlutterMap + FogLayer at Melun zoom 13.
         // Capture renderer.renders.first.pixelOrigin.
@@ -314,7 +314,7 @@ void main() {
         await tester.pump();
         final painter = _findFogPainter(tester);
         painter.paint(_MockCanvas(), const Size(400, 800));
-        final initialPixelOrigin = renderer.renders.first.pixelOrigin;
+        final initialPixelOrigin = renderer.renders.first.worldMetersOrigin;
         expect(initialPixelOrigin, equals((0.0, 0.0)));
       },
       skip: true,

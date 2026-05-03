@@ -333,7 +333,7 @@ class _FogSanityPainter extends CustomPainter {
       shader,
       resolution: size,
       time: uTimeSeconds,
-      pixelOrigin: const (0.0, 0.0),
+      worldMetersOrigin: const (0.0, 0.0),
       baseArgb: kMirkFogAtmosphericBaseColorArgb,
       baseAlpha: 1.0,
       highlightArgb: kMirkFogAtmosphericHighlightColorArgb,
@@ -392,29 +392,42 @@ class _DebugSpiralPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // The debug-spiral shader uses 5 float slots (0..4) plus sampler 0.
-    // Slot map for floats matches production fog slots 0..4 verbatim so
-    // the coordinate-system formulation `fragUv + fract(uPixelOrigin /
-    // uResolution)` reads identically. Sampler slot is 0 (not 1) — the
-    // shader has only one declared sampler; Flutter's
-    // `setImageSampler(N, image)` indexes per-shader from 0 in
-    // declaration order. Plan 03.1-08-FIX FIX 3: the original Plan
-    // 03.1-07 landing bound at slot 1, leaving the atlas unbound on
-    // iPhone Impeller — the user's "no shader displayed" report.
-    // FOG-18 (Plan 03.1-12) — /sanity debug-spiral feeds a synthetic
-    // metersPerPixel value at kPocInitialCameraLat / kPocInitialZoom
-    // (the same hike-regime constants as the production sanity painter).
-    // The /sanity trajectory is synthetic-time-driven and stays at a
-    // single zoom; on-device zoom-axis verification happens via the
-    // /map debug-spiral toggle.
+    // The debug-spiral shader uses 6 float slots (0..5) plus sampler 0.
+    // Sampler slot is 0 (not 1) — the shader has only one declared
+    // sampler; Flutter's `setImageSampler(N, image)` indexes per-shader
+    // from 0 in declaration order. Plan 03.1-08-FIX FIX 3: the original
+    // Plan 03.1-07 landing bound at slot 1, leaving the atlas unbound
+    // on iPhone Impeller — the user's "no shader displayed" report.
+    //
+    // Plan 03.1-14 (Fix B′ — FOG-19) — /sanity debug-spiral mirrors the
+    // production meter-space FOG-17a decomposition. Synthetic time-
+    // driven pixelOrigin trajectory → multiply by syntheticMpp →
+    // decompose in METER space → forward bounded composite via slots 3
+    // and 4. The /sanity trajectory stays at a single zoom; on-device
+    // zoom-axis verification happens via the /map debug-spiral toggle.
     final latRadians = kPocInitialCameraLat * math.pi / _kSanityDegreesPerHalfTurn;
     final syntheticMetersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, kPocInitialZoom).toDouble();
+
+    // Plan 03.1-14 Fix B′ — synthetic meter-space decomposition mirror
+    // of _FogPainter.paint(). The synthetic pixelOrigin trajectory is
+    // (uTime × speedXPxPerSec, uTime × speedYPxPerSec) raw px; convert
+    // to meter-space, decompose, forward.
+    final syntheticPixelOriginX = uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedXPxPerSec;
+    final syntheticPixelOriginY = uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedYPxPerSec;
+    final syntheticWorldMetersX = syntheticPixelOriginX * syntheticMetersPerPixel;
+    final syntheticWorldMetersY = syntheticPixelOriginY * syntheticMetersPerPixel;
+    final intMetersX = syntheticWorldMetersX.truncateToDouble();
+    final intMetersY = syntheticWorldMetersY.truncateToDouble();
+    final fracMetersX = syntheticWorldMetersX - intMetersX;
+    final fracMetersY = syntheticWorldMetersY - intMetersY;
+    final boundedMetersX = (intMetersX % kPocFogIntegerWrapPeriodMeters) + fracMetersX;
+    final boundedMetersY = (intMetersY % kPocFogIntegerWrapPeriodMeters) + fracMetersY;
 
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
     shader.setFloat(2, uTimeSeconds);
-    shader.setFloat(3, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedXPxPerSec);
-    shader.setFloat(4, uTimeSeconds * _debugSpiralSyntheticPixelOriginSpeedYPxPerSec);
+    shader.setFloat(3, boundedMetersX); // ← Plan 03.1-14 Fix B′ — synthetic meter-space bounded composite.
+    shader.setFloat(4, boundedMetersY); // ← Plan 03.1-14 Fix B′ — synthetic meter-space bounded composite.
     shader.setFloat(5, syntheticMetersPerPixel); // ← FOG-18 slot 5 (debug-spiral has slots 0..5 + sampler).
     shader.setImageSampler(0, atlas);
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);

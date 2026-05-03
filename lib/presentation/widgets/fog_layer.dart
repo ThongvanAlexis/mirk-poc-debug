@@ -41,11 +41,15 @@ abstract class FogShaderRenderer {
   /// [metersPerPixel] (Plan 03.1-12 FOG-18) — Web-Mercator ground-resolution
   /// at the camera's current lat × zoom. Forwarded to slot 41 by the
   /// production impl; recorded as a field by the test impl.
+  ///
+  /// [worldMetersOrigin] (Plan 03.1-14 Fix B′ — FOG-19) — meter-space
+  /// bounded composite; replaces the pre-Plan-03.1-14 `pixelOrigin` named
+  /// param. Slot indices unchanged at 3..4; semantic flips to meter-space.
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) pixelOrigin,
+    required (double, double) worldMetersOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -66,7 +70,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required ui.FragmentShader? shader,
     required Size resolution,
     required double timeSeconds,
-    required (double, double) pixelOrigin,
+    required (double, double) worldMetersOrigin,
     required double baseAlpha,
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
@@ -78,7 +82,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       shader,
       resolution: resolution,
       time: timeSeconds,
-      pixelOrigin: pixelOrigin,
+      worldMetersOrigin: worldMetersOrigin,
       baseArgb: kMirkFogAtmosphericBaseColorArgb,
       baseAlpha: baseAlpha,
       highlightArgb: kMirkFogAtmosphericHighlightColorArgb,
@@ -443,154 +447,90 @@ class _FogPainter extends CustomPainter {
     // here would re-introduce the multi-snapshot anti-pattern.
     frameDeltaProbe.recordFogUniformPopulation(cameraSnapshotMicros);
 
-    // FIX (Plan 03.1-04, layered on Plan 03.1-02) — forward FULL-PRECISION
-    // pixelOrigin to the shader; the shader applies `fract()` per-fragment.
+    // Plan 03.1-14 (Fix B′ — FOG-19): supersedes Plan 03.1-12 era pixel-
+    // space FOG-17a decomposition. Walk #5 (Plan 03.1-13) empirically
+    // falsified the pixel-space approach via 2 dev-markers correlated with
+    // FOG-17a wrap events at 0.74-cell sub-cell discontinuity (z=15 lat
+    // 48.5° mpp ≈ 3.16 — wrap shifts by 1536 × 3.16 / 1024 ≈ 4.74 cells,
+    // non-integer-multiple). The meter-space decomposition guarantees an
+    // integer-multiple cell shift at every wrap (4096 m / 1024 m = 4
+    // cells exactly) → Octave 1 bit-identical via hash3 period-1; Octaves
+    // 2 + 3 receive a CONSTANT deterministic phase shift bounded ≈ 11%
+    // of fbm3 dynamic range INVARIANT across all wrap events; the
+    // constant-magnitude property eliminates the pre-fix variable-
+    // magnitude stepping signal. See `.planning/phases/03.1-fix-fog-pan-
+    // translation/03.1-FALSIFICATION-5.md` Sub-section D row D-1 for
+    // the empirical anchor.
     //
-    // Plan 03.1-02 derived `(uOffsetX, uOffsetY) = (pixelOrigin.x / size.width) % 1.0`
-    // at this Dart call site. Per 03.1-FALSIFICATION.md Finding 3, the modulo wrap at
-    // ~120 Hz produced visible single-frame discontinuities (uOffsetX sweeping
-    // 0.005..0.99 5-10× per 1-Hz rollup during gesture) — the developer's
-    // "seed of the mirk was changing" failure mode (observation 2).
-    //
-    // The fix: pass full-precision pixelOrigin to the shader; rename the
-    // uniform to uPixelOrigin (slot 3..4 unchanged); apply `fract()`
-    // per-fragment inside the fragment shader so each pixel's noise sample
-    // coordinate is continuous across paints.
-    //
-    // FOG-07 single-snapshot invariant preserved: this consumes the painter's
-    // existing `camera` field (passed by FogLayer.build from the same
-    // MapCamera.of(context) read).
-    // Identity uSdfRect (slots 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH
-    // §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
-    // FOG-17a (Plan 03.1-10) — CPU-side integer/fractional decomposition.
-    //
-    // The pure FOG-17 world-coordinate noise sampling
-    // (`noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`,
-    // applied per-fragment in the shader) exposes fp32 precision
-    // degradation at high zoom: Walk #2 captured pixelOriginX up to
-    // 4.26M; fp32 mantissa is 24 bits, so ULP at 4.26M is ≈ 0.5 raw px —
-    // catastrophic for sub-noise-cell sampling (the per-octave
-    // `noiseUv * uScale*` would have ±0.5 * uScale = ±5.25 noise-grid
-    // unit jitter at maxScale=10.5).
-    //
-    // The decomposition splits pixelOrigin into integer + fractional
-    // Dart-side and forwards a bounded composite to the shader:
-    //
-    //   (intPxX, fracPxX) = (pxOrigin.x.truncateToDouble(),
-    //                        pxOrigin.x - pxOrigin.x.truncateToDouble())
-    //   forwarded.x = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX
-    //
-    // Shader input magnitude stays under `kPocFogIntegerWrapPeriodPx + 1`
-    // (~1537 raw px) regardless of camera.pixelOrigin magnitude. fp32
-    // ULP at 1536 is ≈ 2.4e-4 raw px — three orders of magnitude better.
-    //
-    // The integer wrap fires every `kPocFogIntegerWrapPeriodPx` raw px
-    // of pan; because `kPocFogIntegerWrapPeriodPx % kPocFogNoiseTilePx
-    // == 0` (1536 = 4 * 384), the wrap event lands at an integer
-    // multiple of the noise grid period. The FBM rotation +
-    // octave-scale machinery still introduces sub-grid-period
-    // discontinuity at the wrap (`4 * 2.9 = 11.6` etc. — not exactly
-    // integer-period in the rotated octave space) BUT the wrap
-    // frequency is ~40× lower than pre-Plan-03.1-10 stepping (every
-    // ~128 sec of continuous pan vs every ~3 sec). Plan 03.1-12+
-    // contingency: if Walk #4 surfaces residual integer-wrap
-    // stepping, pivot to a periodic-noise function (Worley/explicit-
-    // period Perlin) whose lattice IS preserved under integer shifts.
-    //
-    // The fogTransformLogger continues to forward `appliedUOffset` =
-    // the bounded composite (NOT the raw camera.pixelOrigin) so
-    // post-walk JSONL grep can verify the decomposition is in effect.
-    final pixOrigin = camera.pixelOrigin;
-    final intPxX = pixOrigin.x.truncateToDouble();
-    final intPxY = pixOrigin.y.truncateToDouble();
-    final fracPxX = pixOrigin.x - intPxX;
-    final fracPxY = pixOrigin.y - intPxY;
-    // Dart's `%` operator on doubles returns a value in [0, divisor) for
-    // positive divisor — handles negative integer parts correctly
-    // (intPx = -1536 → -1536 % 1536 = 0; intPx = -1700 → -1700 % 1536 =
-    // 1372). The fractional remainder is sign-preserved by the
-    // truncateToDouble call: pxOrigin = -100.5 → intPx = -100,
-    // fracPx = -0.5; the composite is sign-correct because both
-    // pieces sum to the original bounded magnitude.
-    final boundedX = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX;
-    final boundedY = (intPxY % kPocFogIntegerWrapPeriodPx) + fracPxY;
-    final appliedPixelOrigin = (boundedX, boundedY);
-
-    // FOG-18 (Plan 03.1-12) — world-meter anchor.
-    //
-    // Walk #4 (Plan 03.1-11 Sub-section Q5) surfaced the architectural
-    // failure mode: FOG-17 pixel-space anchor caused noise to slide
-    // rapidly during zoom (uPixelOrigin doubles per zoom level →
-    // fragments under any given screen position sample completely
-    // different noise positions per zoom step) AND cells stayed pinned
-    // in screen-space rather than scaling with the world (raw-pixel
-    // const kNoiseTilePx = 384 px on screen at every zoom level).
-    //
-    // The fix: anchor noise to ground meters. Compute metersPerPixel via
-    // the Web-Mercator EPSG:3857 ground-resolution formula:
-    //
-    //   metersPerPixel = (2π × earthRadiusMeters × cos(lat)) /
-    //                    (256 × 2^zoom)
-    //                  ≈ kWebMercatorMetersPerPxAtEquatorZ0 × cos(lat) /
-    //                    2^zoom
-    //
-    // Forward as a NEW uniform `uMetersPerPixel` (slot 41;
-    // FogShaderUniforms.totalFloatSlots advances 41 → 42 in this plan).
-    // The shader uses uMetersPerPixel to convert the FOG-17 worldPx
-    // coordinate to worldMeters:
-    //
-    //   vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) *
-    //                      uMetersPerPixel;
-    //   vec2 noiseUv = worldMeters / kNoiseTilePxMeters;
-    //
-    // At a fixed geographic point, worldMeters is zoom-INVARIANT:
-    // zoom-doubling of uPixelOrigin is exactly cancelled by zoom-halving
-    // of uMetersPerPixel. The noise sample at that geographic point is
-    // therefore zoom-invariant — FOG-18 acceptance property.
-    //
-    // FOG-17a integer/fractional decomposition (above) is RETAINED — it
-    // operates on raw pixel units BEFORE the shader multiplies by
-    // uMetersPerPixel. Boundedness analysis: post-fix `worldMeters <=
-    // ~6200 m at z=15` and `<= ~387 m at z=19`; `noiseUv <= ~6.05` worst
-    // case (kNoiseTilePxMeters = 1024.0) — well within fp32 precision.
+    // FOG-18 (Plan 03.1-12) world-meter anchor RETAINED — compute
+    // metersPerPixel FIRST, then convert pixelOrigin to meter-space
+    // BEFORE decomposing. At a fixed geographic point, worldMeters is
+    // zoom-INVARIANT (the metersPerPixel-halving cancels the worldPx-
+    // doubling exactly). The Walk #4 Q5 zoom-scramble + Walk #5 Q1 pan-
+    // stepping both close under this single architectural correction:
+    // bounded_meters is a function of geographic position (modulo
+    // 4096 m), zoom-invariant by construction.
     //
     // Polar guard: cos(±90°) → 0 would make metersPerPixel = 0 and the
     // shader would compute worldMeters = 0 everywhere → noise pattern
     // collapses to a single sample. Clamp lat to ±89° to guard against
-    // pathological inputs (Walks #1-4 are all at lat ~48.5°; the clamp
+    // pathological inputs (Walks #1-5 are all at lat ~48.5°; the clamp
     // is defense-in-depth for unanticipated camera positions).
+    //
+    // FOG-07 single-snapshot invariant preserved: this consumes the
+    // painter's existing `camera` field (passed by FogLayer.build from
+    // the same MapCamera.of(context) read). Identity uSdfRect (slots
+    // 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH §Anti-Pattern 1.
+    final pixOrigin = camera.pixelOrigin;
     final clampedLatDeg = camera.center.latitude.clamp(-_kPolarLatClampDeg, _kPolarLatClampDeg);
     final latRadians = clampedLatDeg * math.pi / _kDegreesPerHalfTurn;
     final metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRadians) / math.pow(2.0, camera.zoom).toDouble();
 
-    // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
-    // shader call so the logged tuple is the actual value forwarded.
+    // Convert camera pixelOrigin to meter-space FIRST, then decompose in
+    // METER space. Dart's `%` operator on doubles returns a value in
+    // [0, divisor) for positive divisor — handles negative integer parts
+    // correctly. The fractional remainder is sign-preserved by the
+    // truncateToDouble call.
+    final worldMetersX = pixOrigin.x * metersPerPixel;
+    final worldMetersY = pixOrigin.y * metersPerPixel;
+    final intMetersX = worldMetersX.truncateToDouble();
+    final intMetersY = worldMetersY.truncateToDouble();
+    final fracMetersX = worldMetersX - intMetersX;
+    final fracMetersY = worldMetersY - intMetersY;
+    final boundedMetersX = (intMetersX % kPocFogIntegerWrapPeriodMeters) + fracMetersX;
+    final boundedMetersY = (intMetersY % kPocFogIntegerWrapPeriodMeters) + fracMetersY;
+    final appliedWorldMetersOrigin = (boundedMetersX, boundedMetersY);
+
+    // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE
+    // the shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
     // painting.dart line 6436).
     //
-    // The `appliedUOffset` parameter NAME is preserved for back-compat with
-    // the 03.1-03 walk's session log JSONL keys (uOffsetXMin/Median/Max,
-    // uOffsetYMin/Median/Max). The VALUE forwarded is now full-precision
-    // pixelOrigin (zoom-13 ~1e6, zoom-15+ ~4e6) instead of the modulo-1.0
-    // fraction (0..1); post-walk grep tooling reads the higher magnitude
-    // directly without any key rename.
+    // The `appliedUOffset` parameter NAME is preserved for back-compat
+    // with the 03.1-03 walk's session log JSONL keys (uOffsetXMin/
+    // Median/Max, uOffsetYMin/Median/Max). The VALUE flipped semantic
+    // pre-Plan-03.1-14 (pixel-space bounded composite) → post-Plan-
+    // 03.1-14 (meter-space bounded composite); the JSONL emit body
+    // adds a `coordinateSpace: 'meters'` field to disambiguate at
+    // grep-time. Magnitude under kPocFogIntegerWrapPeriodMeters + 1
+    // = 4097 m regardless of zoom × lat.
     fogTransformLogger.recordPaint(
       canvasTransform: canvasTransform, // ← Plan 03.1-05: reuse the single allocation from above (single-snapshot at the matrix level).
       cameraPixelOrigin: pixOrigin,
       cameraCenter: camera.center,
-      appliedUOffset: appliedPixelOrigin,
+      appliedUOffset: appliedWorldMetersOrigin, // ← Plan 03.1-14 Fix B′ semantic flip: meter-space bounded composite.
       metersPerPixel: metersPerPixel, // ← Plan 03.1-13 Walk #5 — FOG-18 diagnostic verification signature.
     );
 
-    // FOG-05: populate all 41 uniforms via the locked single source of truth
-    // (FogShaderUniforms.setAll — production impl) OR record them
+    // FOG-05: populate all 42 uniforms via the locked single source of
+    // truth (FogShaderUniforms.setAll — production impl) OR record them
     // (RecordingFogShaderRenderer — widget test impl). Identity uSdfRect
     // is non-negotiable per CONTEXT.md / RESEARCH §Anti-Pattern 1.
     shaderRenderer.render(
       shader: shader,
       resolution: size,
       timeSeconds: uTimeSeconds,
-      pixelOrigin: appliedPixelOrigin, // ← Plan 03.1-04 — full-precision; shader applies `fract()` per-fragment.
+      worldMetersOrigin: appliedWorldMetersOrigin, // ← Plan 03.1-14 Fix B′ — meter-space bounded composite (slots 3..4 renamed from uPixelOrigin).
       baseAlpha: 1.0,
       sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
       sdfImage: sdfImage!,

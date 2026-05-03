@@ -32,8 +32,17 @@ import '../../../_helpers/recording_fog_shader_renderer.dart';
 /// Both presence checks ship as sub-tests below so future regressions
 /// (silent revert, slot-count drift, missing setFloat call) are caught
 /// mechanically without a sideload UAT walk.
+///
+/// **Plan 03.1-14 update (Fix B′ — FOG-19 meter-space anchor):** slot
+/// count STAYS at 42; slot 3..4 SEMANTIC RENAME from `uPixelOrigin`
+/// (FOG-17a pixel-space bounded composite) to `uWorldMetersOrigin`
+/// (Fix B′ meter-space bounded composite). The shader-side declaration
+/// `uniform vec2 uWorldMetersOrigin;` lives in
+/// `assets/shaders/atmospheric_fog.frag`; the Dart-side
+/// `FogShaderUniforms.setAll` calls `shader.setFloat(3, worldMetersOrigin.$1)`
+/// and `shader.setFloat(4, worldMetersOrigin.$2)`.
 void main() {
-  test('FogShaderUniforms.totalFloatSlots == 42 — slot-count gate (Plan 03.1-12 FOG-18 advances 41 → 42)', () {
+  test('FogShaderUniforms.totalFloatSlots == 42 — slot-count gate (Plan 03.1-12 FOG-18 advanced 41 → 42; Plan 03.1-14 keeps 42)', () {
     expect(FogShaderUniforms.totalFloatSlots, 42);
   });
 
@@ -61,6 +70,24 @@ void main() {
     );
   });
 
+  test('FOG-19 (Plan 03.1-14 Fix B′) — atmospheric_fog.frag declares slot 3..4 uWorldMetersOrigin uniform in active code', () {
+    final fragSource = File('assets/shaders/atmospheric_fog.frag').readAsStringSync();
+    final activeSource = fragSource
+        .split('\n')
+        .map((line) {
+          final commentIdx = line.indexOf('//');
+          return commentIdx >= 0 ? line.substring(0, commentIdx) : line;
+        })
+        .join('\n');
+    expect(
+      activeSource.contains('uniform vec2  uWorldMetersOrigin;') || activeSource.contains('uniform vec2 uWorldMetersOrigin;'),
+      isTrue,
+      reason:
+          'Plan 03.1-14 (Fix B′) regression: slot-3/4 uniform must be named uWorldMetersOrigin (semantic flip from FOG-17a-pixel-space '
+          'to FOG-19-meter-space). If this assertion fails, the Plan 03.1-14 Fix B′ has been reverted at the shader side.',
+    );
+  });
+
   test('FOG-18 (Plan 03.1-12) — FogShaderUniforms.setAll source contains `shader.setFloat(41, metersPerPixel)`', () {
     final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
     expect(
@@ -72,9 +99,26 @@ void main() {
     );
   });
 
-  group('FogShaderRenderer (Plan 03.1-04 — pixelOrigin contract)', () {
+  test('FOG-19 (Plan 03.1-14 Fix B′) — FogShaderUniforms.setAll source forwards worldMetersOrigin to slots 3..4', () {
+    final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
+    expect(
+      source,
+      contains(r'shader.setFloat(3, worldMetersOrigin.$1)'),
+      reason:
+          'Plan 03.1-14 (Fix B′) regression: FogShaderUniforms.setAll must emit `shader.setFloat(3, worldMetersOrigin.\$1)` '
+          '(slot 3 — meter-space bounded composite X). If this assertion fails, the Dart-side forward has been reverted.',
+    );
+    expect(
+      source,
+      contains(r'shader.setFloat(4, worldMetersOrigin.$2)'),
+      reason:
+          'Plan 03.1-14 (Fix B′) regression: FogShaderUniforms.setAll must emit `shader.setFloat(4, worldMetersOrigin.\$2)` (slot 4 — meter-space bounded composite Y).',
+    );
+  });
+
+  group('FogShaderRenderer (Plan 03.1-14 Fix B′ — worldMetersOrigin contract)', () {
     // The plan called for a unit test that mocks `ui.FragmentShader` to
-    // assert `setAll(pixelOrigin: ...)` writes slots 3 and 4 verbatim.
+    // assert `setAll(worldMetersOrigin: ...)` writes slots 3 and 4 verbatim.
     // `ui.FragmentShader` is declared `base` in dart:ui (sky_engine
     // painting.dart), so it CANNOT be implemented from outside its library —
     // any attempt produces "The class 'FragmentShader' can't be implemented
@@ -82,25 +126,24 @@ void main() {
     //
     // The achievable equivalent at the FogShaderRenderer interface boundary:
     // assert that `RecordingFogShaderRenderer` (the test seam injected by
-    // FogLayer for unit-level coverage) preserves a high-magnitude pixelOrigin
-    // tuple verbatim across the renamed `pixelOrigin:` named arg. This proves
-    // the rename plumbing (interface → impl → captured field) is end-to-end
-    // wired without any Dart-side modulo; combined with the production-side
-    // `_FragmentShaderFogRenderer` (which delegates to `FogShaderUniforms.setAll`
-    // with the SAME pixelOrigin value), the contract is locked: a high-magnitude
-    // tuple flows through the renderer interface unaltered.
-    test('RecordingFogShaderRenderer captures full-precision pixelOrigin verbatim (no Dart-side modulo)', () {
+    // FogLayer for unit-level coverage) preserves a meter-space bounded
+    // composite verbatim across the `worldMetersOrigin:` named arg. This
+    // proves the rename plumbing (interface → impl → captured field) is
+    // end-to-end wired without any Dart-side modulo; combined with the
+    // production-side `_FragmentShaderFogRenderer` (which delegates to
+    // `FogShaderUniforms.setAll` with the SAME worldMetersOrigin value),
+    // the contract is locked.
+    test('RecordingFogShaderRenderer captures meter-space bounded composite verbatim', () {
       final renderer = RecordingFogShaderRenderer();
-      // High-magnitude values matching the 03.1-03 walk's Finding 2
-      // pixelOrigin range (~4.26e6 at zoom 16). These would lose
-      // precision under any Dart-side `% 1.0`.
-      const px = 4255934.927218;
-      const py = 1234567.890123;
+      // Synthetic meter-space bounded composite values, both within
+      // [0, kPocFogIntegerWrapPeriodMeters + 1] = [0, 4097].
+      const wmX = 3245.123456;
+      const wmY = 1024.987654;
       renderer.render(
         shader: null,
         resolution: const Size(400, 800),
         timeSeconds: 0,
-        pixelOrigin: (px, py),
+        worldMetersOrigin: (wmX, wmY),
         baseAlpha: 1,
         sdfRect: const (0, 0, 1, 1),
         sdfImage: _NullImage(),
@@ -108,12 +151,12 @@ void main() {
         metersPerPixel: 3.16, // FOG-18 (Plan 03.1-12) — synthetic z=15 lat 48.5° value.
       );
       expect(renderer.renders, hasLength(1));
-      expect(renderer.renders.last.pixelOrigin, (px, py));
-      // Defence-in-depth: assert the captured magnitude is still in the
-      // raw-pixel regime. A future regression that re-introduces a
-      // Dart-side `% 1.0` would compress these into [0, 1) and trip this.
-      expect(renderer.renders.last.pixelOrigin.$1, greaterThan(1e6));
-      expect(renderer.renders.last.pixelOrigin.$2, greaterThan(1e6));
+      expect(renderer.renders.last.worldMetersOrigin, (wmX, wmY));
+      // Defence-in-depth: assert the captured magnitude is in the
+      // expected meter-space range, NOT the historical pixel-space
+      // millions regime.
+      expect(renderer.renders.last.worldMetersOrigin.$1, lessThan(4097.0));
+      expect(renderer.renders.last.worldMetersOrigin.$2, lessThan(4097.0));
     });
   });
 }

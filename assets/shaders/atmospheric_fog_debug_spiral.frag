@@ -72,10 +72,13 @@ uniform vec2  uResolution;
 // Time in seconds since session start. Slot 2.
 uniform float uTime;
 
-// World pixel-origin — same name + slot as production for direct
-// comparison. Slot 3..4. Sanity-screen feeds a synthetic time-driven
-// trajectory; production-screen would feed `camera.pixelOrigin`.
-uniform vec2  uPixelOrigin;
+// World camera anchor in METER SPACE — bounded composite forwarded by
+// the Dart-side painter after the meter-space integer/fractional
+// decomposition (Plan 03.1-14 Fix B′ — FOG-19). Magnitude stays under
+// `kPocFogIntegerWrapPeriodMeters + 1` = 4097 m. Pre-Plan-03.1-14 this
+// uniform was named `uPixelOrigin` and carried raw pixelOrigin.
+// Semantic flips to meter-space; slot 3..4 unchanged.
+uniform vec2  uWorldMetersOrigin;
 
 // World meters per raw pixel (Web-Mercator EPSG:3857). Used to
 // convert worldPx to worldMeters so the spiral cells are physical
@@ -140,16 +143,30 @@ void main() {
     #endif
 
     // Plan 03.1-12 — FOG-18 world-meter anchor (mirror of production
-    // fog's architectural completion). The spiral cell-numbering now
+    // fog's architectural completion). The spiral cell-numbering
     // reflects meter-space coordinates: cells are physical squares of
     // ground (kDebugSpiralCellSizeMeters = 200 m per cell at any zoom)
     // regardless of zoom level. Visual confirmation that FOG-18 landed:
     // cells appear larger when zoomed in, smaller when zoomed out
     // (matching the developer's Walk #4 Q5 expectation).
     //
-    // See production atmospheric_fog.frag for the full FOG-18
+    // Plan 03.1-14 Fix B′ — FOG-19 meter-space anchor (slot 3..4 rename
+    // uPixelOrigin → uWorldMetersOrigin; semantic flip). Pre-Plan-03.1-14
+    // (FOG-18 era):
+    //   vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    // Post-Plan-03.1-14 (FOG-19): the camera anchor is forwarded in METER
+    // space directly; the fragment-offset-in-meters term is computed
+    // inside the shader. Cell numbering at fixed map position is now
+    // ALSO continuous across wrap boundaries because every wrap injects
+    // a CONSTANT-magnitude phase shift INVARIANT across all wrap events
+    // (Octave 1 bit-identical via hash3 period-1; Octaves 2 + 3 receive
+    // a deterministic ≈ 11% fbm3-dynamic-range residual shift bounded
+    // analytically; the constant-magnitude property eliminates the
+    // pre-fix variable-magnitude stepping).
+    //
+    // See production atmospheric_fog.frag for the full FOG-18 + FOG-19
     // architectural rationale + zoom-invariance proof + continuity
-    // caveat.
+    // proof.
     //
     // kNoiseTilePxMeters MUST stay in lockstep with
     // `kPocFogNoiseTilePxMeters` in `lib/config/constants.dart`
@@ -157,7 +174,7 @@ void main() {
     // `kPocDebugSpiralCellSizeMeters` (200.0).
     const float kNoiseTilePxMeters = 1024.0;
     const float kDebugSpiralCellSizeMeters = 200.0;
-    vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    vec2 worldMeters = (fragUv * uResolution) * uMetersPerPixel + uWorldMetersOrigin;
     vec2 spiralCoord = worldMeters / kNoiseTilePxMeters;
 
     // Cell index in meter space — cells are physical squares of ground.

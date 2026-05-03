@@ -19,7 +19,7 @@ import 'dart:ui' show Size;
 /// |-------|--------------------------|--------|
 /// | 0..1  | uResolution              | vec2   |
 /// | 2     | uTime                    | float  |
-/// | 3..4  | uPixelOrigin             | vec2   |
+/// | 3..4  | uWorldMetersOrigin       | vec2   |
 /// | 5..8  | uBase                    | vec4   |
 /// | 9..12 | uHighlight               | vec4   |
 /// | 13..16| uShadow                  | vec4   |
@@ -57,6 +57,18 @@ import 'dart:ui' show Size;
 /// value to get worldMeters, then samples noise at world-meter
 /// coordinates (zoom-invariant in geographic terms). Slot count
 /// advances 41 → 42; under Flutter Impeller's per-shader uniform limit.
+///
+/// Plan 03.1-14 (Fix B′ — FOG-19) — slots 3..4 SEMANTIC RENAME from
+/// `uPixelOrigin` (FOG-17a pixel-space bounded composite) to
+/// `uWorldMetersOrigin` (Fix B′ meter-space bounded composite). Slot
+/// indices unchanged; totalFloatSlots STAYS at 42. The Walk #5
+/// (Plan 03.1-13) period-commensurability gap closure: the integer/
+/// fractional decomposition now operates in the noise-anchor's
+/// coordinate space (METER space) so wrap events inject integer-cell
+/// shifts in noiseUv (4096 m / 1024 m = 4 cells exactly). See
+/// `kPocFogIntegerWrapPeriodMeters` docstring + `_FogPainter.paint()`
+/// decomposition block + `03.1-FALSIFICATION-5.md` for the full
+/// architectural rationale.
 class FogShaderUniforms {
   const FogShaderUniforms._();
 
@@ -70,7 +82,7 @@ class FogShaderUniforms {
     ui.FragmentShader shader, {
     required Size resolution,
     required double time,
-    required (double, double) pixelOrigin,
+    required (double, double) worldMetersOrigin,
     required int baseArgb,
     required double baseAlpha,
     required int highlightArgb,
@@ -104,9 +116,9 @@ class FogShaderUniforms {
     shader.setFloat(1, resolution.height);
     // uTime — slot 2
     shader.setFloat(2, time);
-    // uPixelOrigin — slots 3, 4
-    shader.setFloat(3, pixelOrigin.$1);
-    shader.setFloat(4, pixelOrigin.$2);
+    // uWorldMetersOrigin — slots 3, 4 (Plan 03.1-14 Fix B′ — FOG-19; was uPixelOrigin pre-Plan-03.1-14)
+    shader.setFloat(3, worldMetersOrigin.$1);
+    shader.setFloat(4, worldMetersOrigin.$2);
     // uBase — slots 5..8 (RGB from ARGB int + supplied alpha)
     final baseR = ((baseArgb >> 16) & 0xFF) / 255.0;
     final baseG = ((baseArgb >> 8) & 0xFF) / 255.0;
@@ -166,13 +178,15 @@ class FogShaderUniforms {
     shader.setFloat(39, sdfRect.$3);
     shader.setFloat(40, sdfRect.$4);
     // uMetersPerPixel — slot 41 (Plan 03.1-12 FOG-18 — world-meter anchor).
-    // Shader uses this to convert the FOG-17 worldPx coordinate to
-    // worldMeters: `worldMeters = (fragUv * uResolution + uPixelOrigin) *
-    // uMetersPerPixel`. At a fixed geographic point, worldMeters is
-    // zoom-INVARIANT (uPixelOrigin doubles per zoom step, uMetersPerPixel
-    // halves) — the FOG-18 acceptance property. See `_FogPainter.paint()`
-    // metersPerPixel computation block + `kPocFogNoiseTilePxMeters`
-    // docstring for the full architectural rationale.
+    // Plan 03.1-14 Fix B′ flipped the worldMeters formula to
+    // `worldMeters = (fragUv * uResolution) * uMetersPerPixel +
+    // uWorldMetersOrigin` (the camera anchor is forwarded in METER space
+    // directly; the fragment-offset-in-meters term is computed inside the
+    // shader). At a fixed geographic point, worldMeters is zoom-INVARIANT
+    // — the FOG-18 acceptance property; closes Walk #4 Q5 zoom-scramble.
+    // See `_FogPainter.paint()` decomposition block +
+    // `kPocFogIntegerWrapPeriodMeters` docstring for the full
+    // architectural rationale (incl. period-commensurability invariant).
     shader.setFloat(41, metersPerPixel);
     // SDF sampler — index 0
     shader.setImageSampler(0, sdfImage);

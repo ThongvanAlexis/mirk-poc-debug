@@ -59,15 +59,20 @@ uniform vec2  uResolution;
 // Time in seconds since session start. Slot 2.
 uniform float uTime;
 
-// World pixel-origin from MapCamera.pixelOrigin (full-precision world
-// pixel units). At zoom 13 magnitudes are ~1e6; at zoom 15 ~4e6. The
-// per-fragment `fract(uPixelOrigin / uResolution)` below moves the
-// modulo wrap from CPU to GPU — pre-Plan-03.1-04 the Dart call site
-// applied `% 1.0` and produced visible single-frame discontinuities at
-// the wrap boundary (03.1-FALSIFICATION.md Finding 3 — the modulo wrap
-// produced the "seed changing" shimmer 5-10× per second during gesture).
-// Slot 3..4 (unchanged).
-uniform vec2  uPixelOrigin;
+// World camera anchor in METER SPACE — bounded composite forwarded by
+// the Dart-side `_FogPainter.paint()` after the meter-space integer/
+// fractional decomposition (Plan 03.1-14 Fix B′ — FOG-19). Magnitude
+// stays under `kPocFogIntegerWrapPeriodMeters + 1` = 4097 m regardless
+// of camera zoom × lat. Wrap events inject exactly +4 integer cells
+// in noiseUv (= 4096 m / kNoiseTilePxMeters = 4096 / 1024) → Octave 1
+// bit-identical via hash3 period-1; Octaves 2 + 3 receive a CONSTANT
+// deterministic phase shift bounded analytically at ≈ 11% of fbm3
+// dynamic range, INVARIANT across all wrap events. Pre-Plan-03.1-14
+// this uniform was named `uPixelOrigin` and carried the FOG-17a pixel-
+// space bounded composite — flipped semantically by Plan 03.1-14 to
+// close the period-commensurability gap that Walk #5 surfaced.
+// Slot 3..4 (unchanged from the Dart side).
+uniform vec2  uWorldMetersOrigin;
 
 // Fog colour palette: base / highlight / shadow as RGBA. Alpha
 // component of uBase carries the overall fog opacity. Slot 5..16.
@@ -332,8 +337,23 @@ void main() {
     // a uniform (slot 41) because it changes per-paint with camera
     // lat/zoom. If the Dart constant changes, this shader must be hand-
     // edited to match.
+    //
+    // Plan 03.1-14 Fix B′ — FOG-19 meter-space anchor (slot 3..4 rename
+    // uPixelOrigin → uWorldMetersOrigin; semantic flip). Pre-Plan-03.1-14
+    // (FOG-18 era):
+    //   vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    // Post-Plan-03.1-14 (FOG-19): the camera anchor is forwarded in METER
+    // space directly (Dart-side decomposition); the fragment-offset-in-
+    // meters term is computed inside the shader. At every wrap event the
+    // camera anchor jumps by exactly 4096 m = 4 × kNoiseTilePxMeters
+    // (4 integer cells in noiseUv) → Octave 1 bit-identical via hash3
+    // period-1; Octaves 2 + 3 receive a CONSTANT deterministic sub-voxel
+    // shift (M_1·V mod 1 = 0.12, M_1·M_2·V mod 1 = 0.646; bounded fbm3
+    // amplitude discontinuity ≈ 0.188 ≈ 11% of dynamic range), INVARIANT
+    // across all wrap events — eliminates the pre-fix Walk #5 stepping
+    // signal that arose from variable-magnitude wraps.
     const float kNoiseTilePxMeters = 1024.0;
-    vec2 worldMeters = (fragUv * uResolution + uPixelOrigin) * uMetersPerPixel;
+    vec2 worldMeters = (fragUv * uResolution) * uMetersPerPixel + uWorldMetersOrigin;
     vec2 noiseUv = worldMeters / kNoiseTilePxMeters;
 
     // ---------- 7. Curl-rotated edge field ----------

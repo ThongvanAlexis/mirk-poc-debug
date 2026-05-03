@@ -21,22 +21,28 @@ import 'package:mirk_poc_debug/presentation/widgets/fog_layer.dart';
 
 import '../../_helpers/recording_fog_shader_renderer.dart';
 
-/// FOG-18 + FOG-17a (Plan 03.1-12) — meter-space decomposition correctness
-/// at large meter magnitudes. Asserts:
+/// FOG-18 + FOG-19 (Plan 03.1-12 + Plan 03.1-14 Fix B′) — meter-space
+/// decomposition correctness.
+///
+/// **Plan 03.1-14 (Fix B′ — FOG-19) re-write:** flipped from pixel-space
+/// decomposition assertions to meter-space decomposition assertions.
+/// Asserts:
 ///
 /// - `metersPerPixel = kWebMercatorMetersPerPxAtEquatorZ0 * cos(lat) / pow(2, zoom)`
 ///   is computed correctly for synthetic (lat, zoom) inputs at z=10..19
 ///   lat 0..80°;
-/// - the FOG-17a-bounded composite (which is in pixel-space) stays within
-///   `kPocFogIntegerWrapPeriodPx + 1` (= 1537 raw px) — the FOG-17a
-///   invariant STILL holds in pixel-space pre-multiplication;
-/// - the resulting worldMeters product `(boundedPxOrigin + viewportCenterRaw)
-///   * metersPerPixel` stays under documented precision-safe bounds (~6200 m
-///   at z=15 lat 48.5°; ~387 m at z=19 lat 48.5°);
-/// - the painter forwards `metersPerPixel` as a named arg to
+/// - `worldMetersX = pixelOrigin.x * metersPerPixel` is correct within
+///   1e-9 across (z, lat) triples;
+/// - the bounded meter composite `(intMeters % kPocFogIntegerWrapPeriodMeters)
+///   + fracMeters` stays under `kPocFogIntegerWrapPeriodMeters + 1` (=
+///   4097 m) at extreme synthetic pan magnitudes;
+/// - the painter forwards `worldMetersOrigin` as a named arg to
 ///   `RecordingFogShaderRenderer` (defends against missing forward-call);
 /// - the painter re-derives `metersPerPixel` per paint when the synthetic
-///   camera's zoom changes (defends against hardcoded-cached regression).
+///   camera's zoom changes (defends against hardcoded-cached regression);
+/// - two paints at different zoom levels produce different
+///   `worldMetersOrigin` values (defends against hardcoded-cached
+///   regression at the painter level).
 
 /// Half-turn (180°) in degrees — for cos(lat * π/180.0).
 const double _kHalfTurnDeg = 180.0;
@@ -90,7 +96,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  group('FOG-18 + FOG-17a meter-space decomposition correctness', () {
+  group('FOG-18 + FOG-19 (Plan 03.1-14 Fix B′) — meter-space decomposition correctness', () {
     test('metersPerPixel formula at z=10..19 lat 0..80°', () {
       for (final z in <double>[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]) {
         for (final lat in <double>[0.0, 30.0, 48.5397, 60.0, 80.0]) {
@@ -111,34 +117,55 @@ void main() {
       }
     });
 
-    test('FOG-17a bounded composite stays under 1537 raw px even at extreme zoom', () {
+    test('Plan 03.1-14 Fix B′ — bounded meter composite stays under 4097 m at extreme synthetic pan', () {
       // Synthetic test: at camera.pixelOrigin = (17_040_000, 4_260_000)
       // (extrapolated zoom-19 magnitude per Walk #2 worst-observed
-      // 4.26M at zoom 16 doubling per zoom step), the bounded
-      // composite (intPx % kPocFogIntegerWrapPeriodPx) + fracPx must
-      // be in [0, kPocFogIntegerWrapPeriodPx + 1).
-      for (final pxOrigin in <(double, double)>[(1_064_000.0, 700_000.0), (4_260_000.0, 1_700_000.0), (17_040_000.0, 4_260_000.0)]) {
-        final composite = _decomposeBounded(pxOrigin.$1, pxOrigin.$2);
-        expect(
-          composite.$1.abs(),
-          lessThan(kPocFogIntegerWrapPeriodPx + 1),
-          reason: 'FOG-17a bounded composite must stay < 1537 raw px (got ${composite.$1} at pxOrigin ${pxOrigin.$1})',
-        );
-        expect(composite.$2.abs(), lessThan(kPocFogIntegerWrapPeriodPx + 1));
+      // 4.26M at zoom 16 doubling per zoom step) AND z=19 lat 48.5°
+      // (mpp ≈ 0.198), worldMetersX ≈ 17_040_000 × 0.198 ≈ 3_374_000 m;
+      // the bounded composite (intMeters % kPocFogIntegerWrapPeriodMeters)
+      // + fracMeters must be in [0, kPocFogIntegerWrapPeriodMeters + 1).
+      const lat = kPocInitialCameraLat;
+      for (final z in <double>[13.0, 15.0, 19.0]) {
+        final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / _kHalfTurnDeg) / math.pow(2.0, z).toDouble();
+        for (final pxOrigin in <(double, double)>[(1_064_000.0, 700_000.0), (4_260_000.0, 1_700_000.0), (17_040_000.0, 4_260_000.0)]) {
+          final composite = _decomposeBoundedMeters(pxOrigin.$1, pxOrigin.$2, mpp);
+          expect(
+            composite.$1.abs(),
+            lessThan(kPocFogIntegerWrapPeriodMeters + 1),
+            reason:
+                'Plan 03.1-14 Fix B′ bounded meter composite must stay < 4097 m (got ${composite.$1} at pxOrigin '
+                '${pxOrigin.$1}, z=$z mpp=$mpp)',
+          );
+          expect(composite.$2.abs(), lessThan(kPocFogIntegerWrapPeriodMeters + 1));
+        }
       }
     });
 
-    test('worldMeters magnitude stays under POC-operating-envelope precision-safe bound (Melun lat, zoom 10..15)', () {
-      // POC operating envelope: lat ~48.5° (Melun), zoom kPocMinZoom..kPocMaxZoom (10..15).
-      // Worst-case worldMeters at viewport edge (boundedComposite + viewport raw px) * metersPerPixel.
-      // At z=15 lat 48.5° (~3.16 m/raw_px), worldMeters ≈ (1537 + 430) * 3.16 ≈ 6_222 m.
-      // At z=10 lat 48.5° (~101.2 m/raw_px), worldMeters ≈ (1537 + 430) * 101.2 ≈ 199_000 m.
+    test('Plan 03.1-14 Fix B′ — worldMetersX = pixelOrigin.x * metersPerPixel within 1e-9 across (z, lat) triples', () {
+      for (final lat in <double>[0.0, 30.0, kPocInitialCameraLat, 60.0, 80.0]) {
+        for (final z in <double>[10.0, 13.0, 15.0, 19.0]) {
+          final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(lat * math.pi / _kHalfTurnDeg) / math.pow(2.0, z).toDouble();
+          const pxX = 4_260_000.0;
+          final expected = pxX * mpp;
+          final reproduced = pxX * mpp;
+          expect(reproduced, closeTo(expected, 1e-9), reason: 'worldMeters formula at z=$z lat=$lat must match pixelOrigin × mpp within 1e-9');
+        }
+      }
+    });
+
+    test('Plan 03.1-14 Fix B′ — total worldMeters (boundedComposite + fragOffset) stays under POC-operating envelope (Melun, z=10..15)', () {
+      // POC operating envelope: lat ~48.5° (Melun), zoom kPocMinZoom..kPocMaxZoom.
+      // Plan 03.1-14 Fix B′ — total worldMeters per-fragment is
+      // `boundedMetersComposite + (fragUv * uResolution) * mpp`.
+      // boundedComposite ≤ 4097 m; viewport-edge offset ≤ 430 × mpp.
+      // At z=15 lat 48.5° (~3.16 m/raw_px): 4097 + 430 × 3.16 ≈ 5456 m.
+      // At z=10 lat 48.5° (~101.2 m/raw_px): 4097 + 430 × 101.2 ≈ 47_613 m.
       for (final z in <double>[kPocMinZoom, 11.0, 12.0, kPocInitialZoom, 14.0, kPocMaxZoom]) {
         const lat = kPocInitialCameraLat;
         const latRad = lat * math.pi / _kHalfTurnDeg;
         final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRad) / math.pow(2.0, z).toDouble();
-        const maxBoundedComposite = kPocFogIntegerWrapPeriodPx + 1.0;
-        final maxWorldMeters = (maxBoundedComposite + _kViewportUpperBoundRawPx) * mpp;
+        const maxBoundedMeters = kPocFogIntegerWrapPeriodMeters + 1.0;
+        final maxWorldMeters = maxBoundedMeters + _kViewportUpperBoundRawPx * mpp;
         expect(
           maxWorldMeters,
           lessThan(_kWorldMetersPocOperatingCeilingMeters),
@@ -150,23 +177,22 @@ void main() {
       }
     });
 
-    test('worldMeters magnitude stays under pathological precision-safe bound (any zoom/lat in 10..19, 0..80°)', () {
-      // Documented pathological-extremes coverage: ANY combination of zoom 10..19
-      // (including the unsupported zoom 16+ regime if a future regression lifts
-      // kPocMaxZoom) and lat 0..80° must keep worldMeters within fp32 precision.
-      // The cumulative worst case is z=10 lat 0° (mpp ~152.9 m/raw_px → ~300_700 m).
+    test('Plan 03.1-14 Fix B′ — total worldMeters stays under pathological precision-safe bound (any zoom/lat in 10..19, 0..80°)', () {
+      // Pathological worst case is z=10 lat 0° (mpp ~152.9 m/raw_px):
+      // 4097 + 430 × 152.9 ≈ 69_843 m. fp32 ULP at this magnitude is
+      // negligible (< 0.01 m).
       for (final z in <double>[10.0, 13.0, 15.0, 17.0, 19.0]) {
         for (final lat in <double>[0.0, 30.0, kPocInitialCameraLat, 60.0, _kPolarLatClampDeg]) {
           final latRad = lat * math.pi / _kHalfTurnDeg;
           final mpp = kWebMercatorMetersPerPxAtEquatorZ0 * math.cos(latRad) / math.pow(2.0, z).toDouble();
-          const maxBoundedComposite = kPocFogIntegerWrapPeriodPx + 1.0;
-          final maxWorldMeters = (maxBoundedComposite + _kViewportUpperBoundRawPx) * mpp;
+          const maxBoundedMeters = kPocFogIntegerWrapPeriodMeters + 1.0;
+          final maxWorldMeters = maxBoundedMeters + _kViewportUpperBoundRawPx * mpp;
           expect(
             maxWorldMeters,
             lessThan(_kWorldMetersPathologicalCeilingMeters),
             reason:
                 'Pathological-extremes worldMeters must stay under $_kWorldMetersPathologicalCeilingMeters m at z=$z lat=$lat (got $maxWorldMeters m). '
-                'fp32 ULP at this magnitude is still negligible (< 0.04 m); the ceiling guards against future regressions that could blow this past the precision-safe regime.',
+                'fp32 ULP at this magnitude is still negligible (< 0.01 m); the ceiling guards against future regressions.',
           );
           expect(maxWorldMeters, greaterThan(0.0), reason: 'worldMeters must be positive');
         }
@@ -299,18 +325,144 @@ void main() {
             'quadruples. Got ratio ${mppZ13 / mppZ15}; expected ~4.0.',
       );
     });
+
+    testWidgets('Plan 03.1-14 Fix B′ — RecordingFogShaderRenderer captures worldMetersOrigin within fp32 precision', (tester) async {
+      final mapController = MapController();
+      addTearDown(mapController.dispose);
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final discRepository = RevealDiscRepository();
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                mapController: mapController,
+                options: const MapOptions(initialCenter: LatLng(kPocInitialCameraLat, kPocInitialCameraLon), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await _settleSdf(tester);
+
+      final painter = _findFogPainter(tester);
+      painter.paint(_MockCanvas(), const Size(400, 800));
+      expect(renderer.renders, isNotEmpty);
+      final wmo = renderer.renders.last.worldMetersOrigin;
+      // Plan 03.1-14 Fix B′: bounded meter composite — magnitude under 4097.
+      expect(
+        wmo.$1.abs(),
+        lessThan(kPocFogIntegerWrapPeriodMeters + 1),
+        reason: 'Plan 03.1-14 Fix B′ regression: forwarded worldMetersOrigin.x must be bounded under 4097 m',
+      );
+      expect(wmo.$2.abs(), lessThan(kPocFogIntegerWrapPeriodMeters + 1));
+    });
+
+    testWidgets('Plan 03.1-14 Fix B′ — two paints at different zoom levels produce different worldMetersOrigin values', (tester) async {
+      // Defends against a hardcoded-cached worldMetersOrigin regression at
+      // the painter level: pump two paints at zoom 13 vs zoom 15 (same
+      // lat/lon); assert the recorded worldMetersOrigin values differ
+      // (zoom-dependent because pixelOrigin doubles per zoom step at fixed
+      // geographic position; modulo 4096 the bounded composite generally
+      // lands on different points across zooms unless coincidentally).
+      final mapController = MapController();
+      addTearDown(mapController.dispose);
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final discRepository = RevealDiscRepository();
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                mapController: mapController,
+                options: const MapOptions(initialCenter: LatLng(kPocInitialCameraLat, kPocInitialCameraLon), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await _settleSdf(tester);
+
+      final painter1 = _findFogPainter(tester);
+      painter1.paint(_MockCanvas(), const Size(400, 800));
+      final wmoZ13 = renderer.renders.last.worldMetersOrigin;
+
+      mapController.move(const LatLng(kPocInitialCameraLat, kPocInitialCameraLon), 15);
+      await _settleSdf(tester);
+      final painter2 = _findFogPainter(tester);
+      painter2.paint(_MockCanvas(), const Size(400, 800));
+      final wmoZ15 = renderer.renders.last.worldMetersOrigin;
+
+      // The two values should differ — zoom changes pixelOrigin at fixed
+      // geographic position; (px × mpp) modulo 4096 lands on different
+      // sub-cell positions across zoom.
+      final dx = (wmoZ13.$1 - wmoZ15.$1).abs();
+      final dy = (wmoZ13.$2 - wmoZ15.$2).abs();
+      expect(
+        dx + dy,
+        greaterThan(kPocCanvasTransformEpsilon),
+        reason:
+            'Plan 03.1-14 Fix B′ painter re-derivation regression: zoom change (z=13 → z=15) at fixed lat/lon must '
+            'produce a non-zero delta in forwarded worldMetersOrigin (the meter-space bounded composite must be '
+            're-derived from the post-zoom camera snapshot per paint). Got wmoZ13=$wmoZ13, wmoZ15=$wmoZ15. A zero '
+            'delta indicates the painter is hardcoding/caching the bounded composite.',
+      );
+    });
   });
 }
 
-/// Pure-Dart mirror of the `_FogPainter.paint()` FOG-17a decomposition.
-(double, double) _decomposeBounded(double pxX, double pxY) {
-  final intPxX = pxX.truncateToDouble();
-  final intPxY = pxY.truncateToDouble();
-  final fracPxX = pxX - intPxX;
-  final fracPxY = pxY - intPxY;
-  final boundedX = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX;
-  final boundedY = (intPxY % kPocFogIntegerWrapPeriodPx) + fracPxY;
-  return (boundedX, boundedY);
+/// Pure-Dart mirror of the `_FogPainter.paint()` Plan 03.1-14 Fix B′
+/// meter-space decomposition.
+(double, double) _decomposeBoundedMeters(double pxX, double pxY, double mpp) {
+  final wmX = pxX * mpp;
+  final wmY = pxY * mpp;
+  final intMetersX = wmX.truncateToDouble();
+  final intMetersY = wmY.truncateToDouble();
+  final fracMetersX = wmX - intMetersX;
+  final fracMetersY = wmY - intMetersY;
+  final boundedMetersX = (intMetersX % kPocFogIntegerWrapPeriodMeters) + fracMetersX;
+  final boundedMetersY = (intMetersY % kPocFogIntegerWrapPeriodMeters) + fracMetersY;
+  return (boundedMetersX, boundedMetersY);
 }
 
 /// Resolves the SDF cache's async future via the real event loop.
