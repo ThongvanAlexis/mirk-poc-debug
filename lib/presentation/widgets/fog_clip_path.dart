@@ -30,27 +30,33 @@ import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
 ///
 /// Empty disc list → returns the world rect itself (full fog, no holes).
 ///
-/// ## CANVAS-FRAME-ALIGNMENT (FOG-12, Plan 03.1-05)
+/// ## CANVAS-FRAME-ALIGNMENT (FOG-12, Plan 03.1-05 → Plan 03.1-08-FIX)
 ///
 /// Optional [canvasOffset] pre-shifts BOTH the world rect AND every
-/// disc-hole center by `-canvasOffset`. This matters when the painter's
-/// local Canvas already has a non-zero translation T applied at paint
-/// time (per `03.1-FALSIFICATION.md` Finding 1, `MobileLayerTransformer`
-/// applies `(canvasTx, canvasTy) = (5.035, -44.198)` mid-session under
-/// pan/zoom — invalidating RESEARCH §Pitfall D's "Canvas at identity"
-/// claim).
+/// disc-hole center by `-canvasOffset`. This matters ONLY when the
+/// painter's local Canvas keeps the MobileLayerTransformer translation
+/// at paint time without compensating it via `canvas.translate(...)`.
 ///
-/// After the painter's Canvas applies its translation T, the holes appear
-/// at `(rawCenter - canvasOffset) + T = rawCenter` — co-located with
-/// whatever sibling layer (the blue-dot CircleLayer) renders at
-/// `rawCenter` in an UNTRANSLATED Canvas. Pre-Plan-03.1-05 the holes
-/// appeared at `rawCenter + T` in screen space while the blue dot at
-/// `rawCenter` — a divergence of T (e.g., Finding 1's `(5.035, -44.198)`),
-/// the developer's "the revealed area is being offsetted from the blue
-/// dot during pan/zoom" failure mode (observation 4).
+/// **Production [_FogPainter] (Plan 03.1-08-FIX) does NOT use this
+/// parameter.** Since Plan 03.1-08, `_FogPainter.paint()` calls
+/// `canvas.translate(-canvasOffset.dx, -canvasOffset.dy)` at the TOP of
+/// paint() so the entire painter operates in the world (identity) frame;
+/// the clip path is then computed in raw world coordinates and the
+/// default `Offset.zero` collapses the shift to a no-op. Passing a
+/// non-zero `canvasOffset` HERE on top of the canvas-translate would
+/// double-compensate the reveal-hole position (the original Plan 03.1-08
+/// landing did exactly this and re-introduced Walk #1 obs 4 on build
+/// 8a37bfd — fixed in 03.1-08-FIX by removing the call-site shift).
+///
+/// The parameter is RETAINED at the function signature so existing FOG-06
+/// unit tests (`fog_clip_path_test.dart`) keep direct coverage of the
+/// shift mechanic, and so future callers that need to compute a clip in
+/// a non-pre-translated canvas frame (alternative architectures) can
+/// opt in. New production callers should leave it at the default.
 ///
 /// When [canvasOffset] is `Offset.zero` (default) the math collapses to
-/// the original Plan 03-05 behaviour.
+/// the original Plan 03-05 behaviour: world rect at `(0, 0, w, h)` and
+/// hole centers at `rawCenter`.
 ///
 /// ## flutter_map 7.0.2 API note
 ///

@@ -377,53 +377,55 @@ class _FogPainter extends CustomPainter {
     // never advances while idle).
     final uTimeSeconds = wallClock.elapsedMicroseconds / _microsecondsPerSecond;
 
-    // CANVAS-FRAME-ALIGNMENT (Plan 03.1-05 + Plan 03.1-08) — read the local
-    // Canvas transform ONCE per paint. Per 03.1-FALSIFICATION.md Finding 1,
-    // MobileLayerTransformer applies a non-zero Canvas-level translation under
-    // conditions Plan 03-08 and Plan 03.1-02 did not anticipate (canvasTx/Ty
-    // jumps to (5.035, -44.198) mid-session and HOLDS, then up to (+757.35,
-    // +319.46) sustained for ~50 sec in Walk #2). Pre-Plan-03.1-05 the SDF
-    // reveal frame and the blue-dot CircleLayer frame ended up in different
-    // Canvas frames — the reveal hole offset from the blue dot during gesture
-    // (observation 4).
+    // CANVAS-FRAME-ALIGNMENT (Plan 03.1-05 + Plan 03.1-08 + Plan 03.1-08-FIX) —
+    // read the local Canvas transform ONCE per paint, then translate the
+    // canvas to the world (identity) frame BEFORE any clip / draw operation.
+    // Per 03.1-FALSIFICATION.md Finding 1, MobileLayerTransformer applies a
+    // non-zero Canvas-level translation under conditions Plan 03-08 and Plan
+    // 03.1-02 did not anticipate (canvasTx/Ty jumps to (5.035, -44.198)
+    // mid-session and HOLDS, then up to (+757.35, +319.46) sustained for ~50
+    // sec in Walk #2). Pre-Plan-03.1-05 the SDF reveal frame and the blue-dot
+    // CircleLayer frame ended up in different Canvas frames — the reveal hole
+    // offset from the blue dot during gesture (observation 4).
     //
-    // The single-Float64List allocation is documented in Plan 03.1-02 SUMMARY
-    // as a deferred GC-pressure risk per RESEARCH §Pitfall B; if Plan 03.1-06
-    // walk evidence shows frame_delta regression correlated with this site,
-    // a follow-up plan pre-allocates the buffer. The single-snapshot read
-    // discipline mirrors FOG-07 (camera) at the matrix level — re-reading
-    // would re-introduce a multi-snapshot anti-pattern.
+    // Single-snapshot read discipline mirrors FOG-07 (camera) at the matrix
+    // level — re-reading `canvas.getTransform()` would re-introduce a
+    // multi-snapshot anti-pattern. The same Float64List is reused for both
+    // the canvas-translate compensation AND the fogTransformLogger emission.
     //
-    // Plan 03.1-08 (FOG-13): the canvasOffset is now consumed by BOTH the
-    // computeFogClipPath shift (Plan 03.1-05 — pre-shifts the clip-path
-    // geometry) AND the canvas.translate(-canvasOffset) call below (Plan
-    // 03.1-08 — translates the canvas itself so the subsequent
-    // canvas.drawRect cover paints in the world-aligned frame). The two
-    // compensations compose correctly because clipPath geometry is
-    // established BEFORE the translate, and clipPath is not affected by
-    // subsequent canvas.translate calls (clipPath operates on the path
-    // geometry, not on the prevailing transform stack).
+    // Plan 03.1-08-FIX (post-Walk-#2-rebuild observation): the original
+    // Plan 03.1-08 placed `canvas.translate(-canvasOffset)` AFTER `clipPath`
+    // AND retained the Plan 03.1-05 `-canvasOffset` shift inside
+    // `computeFogClipPath(...)`. That double-compensated the reveal hole
+    // during pan/zoom — the user observed "the revealed area is also
+    // offsetting itself during pan/zoom" on build 8a37bfd, re-introducing
+    // Walk #1 obs 4 with a worsened severity. The correct architecture (per
+    // Plan 03.1-08's locked design) is: translate the canvas ONCE at the
+    // top of paint() so the entire painter operates in the world (identity)
+    // frame; compute the clip path in raw world coordinates (no
+    // canvasOffset shift); draw the rect at (Offset.zero & size) — which
+    // now lands at the world-frame origin because the canvas is already
+    // pre-translated. Clean single-frame discipline; no compensation
+    // composition fragility.
     final canvasTransform = canvas.getTransform();
     final canvasOffset = Offset(canvasTransform[_canvasTransformTxIndex], canvasTransform[_canvasTransformTyIndex]);
 
-    final clipPath = computeFogClipPath(camera: camera, discs: discs, canvasOffset: canvasOffset);
     canvas.save();
-    canvas.clipPath(clipPath);
-
-    // FOG-13 (Plan 03.1-08) — symmetric canvas-translation compensation. The
-    // clip path is already shifted by -canvasOffset (Plan 03.1-05); now also
-    // translate the canvas itself by -canvasOffset so the subsequent
-    // canvas.drawRect cover paints in the world-aligned frame instead of the
-    // canvas-translated frame. Without this, at large canvas translations
-    // (e.g. Walk #2's sustained (757, 319)), the fog rect paints almost
-    // entirely off-screen, leaving viewport-edge strips of un-fogged map
-    // visible at high zoom (03.1-FALSIFICATION-2.md sub-section C).
-    //
-    // The translate lives INSIDE the save/restore block so the next layer in
-    // the stack sees a clean Canvas. The clip-path shift composition is
-    // correct because clipPath geometry is established BEFORE the translate,
-    // and clipPath is not affected by subsequent canvas.translate calls.
+    // Translate to world (identity) frame BEFORE any clip / draw. After this
+    // line, the canvas is at the same frame the sibling blue-dot CircleLayer
+    // renders in (its UNTRANSLATED Canvas — flutter_map's CircleLayer is not
+    // wrapped by MobileLayerTransformer). All subsequent geometry —
+    // clip path, draw rect — uses raw world coordinates.
     canvas.translate(-canvasOffset.dx, -canvasOffset.dy);
+
+    // Clip path is computed in WORLD coordinates because the canvas is now
+    // at the world (identity) frame. The Plan 03.1-05 `-canvasOffset` shift
+    // was designed for a paint() body that NEVER translated the canvas;
+    // since Plan 03.1-08 the canvas IS translated, so the shift becomes a
+    // double-compensation that re-creates Walk #1 obs 4. Pass
+    // `canvasOffset: Offset.zero` (the default) to opt out of the shift.
+    final clipPath = computeFogClipPath(camera: camera, discs: discs);
+    canvas.clipPath(clipPath);
 
     // FOG-08 paint-side wire — populate AFTER the camera was captured (in build),
     // RIGHT BEFORE the renderer runs. Single-source-of-truth is the
