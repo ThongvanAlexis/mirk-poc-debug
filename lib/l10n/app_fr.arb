@@ -46,5 +46,8 @@
   "@frameDeltaProbeMaxLabel": { "description": "max label on the FrameDeltaProbe overlay" },
 
   "shaderSanityScreenTitle": "Vérification du shader",
-  "@shaderSanityScreenTitle": { "description": "AppBar title on the /sanity pre-walk gate screen" }
+  "@shaderSanityScreenTitle": { "description": "AppBar title on the /sanity pre-walk gate screen" },
+
+  "debugSpiralToggleTooltip": "Basculer le shader de diagnostic spirale",
+  "@debugSpiralToggleTooltip": { "description": "Tooltip on the AppBar Switch.adaptive that toggles between production atmospheric_fog.frag and the debug-only atmospheric_fog_debug_spiral.frag (Plan 03.1-07 mechanism investigation)" }
 }

@@ -366,3 +366,16 @@ const double kPocFogSmoothCoordinateMaxDelta = 1e3;
 /// rootBundle key for the volumetric fog `.frag`. Must match
 /// `pubspec.yaml` `flutter.shaders` entry exactly.
 const String kPocFogShaderAssetPath = 'assets/shaders/atmospheric_fog.frag';
+
+/// Plan 03.1-07 — DEBUG-ONLY diagnostic spiral shader. Renders human-readable
+/// cell-index digits in a row-major grid keyed off the same uPixelOrigin /
+/// uResolution coordinate system as production fog. Toggled on at /sanity
+/// for mechanism investigation; production fog rendering UNCHANGED.
+const String kPocDebugSpiralShaderAssetPath = 'assets/shaders/atmospheric_fog_debug_spiral.frag';
+
+/// Plan 03.1-07 — Cell size in raw pixels for the debug-spiral row-major
+/// grid. Picked to be readable at typical iPhone-in-hand viewing distance
+/// while small enough that a 390-px-wide viewport shows ~5 cells across.
+/// MUST stay in lockstep with `DEBUG_SPIRAL_CELL_SIZE_PX` in
+/// `assets/shaders/atmospheric_fog_debug_spiral.frag`.
+const double kPocDebugSpiralCellSizePx = 80.0;

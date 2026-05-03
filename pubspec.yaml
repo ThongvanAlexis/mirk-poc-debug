@@ -64,3 +64,4 @@ flutter:
 
   shaders:
     - assets/shaders/atmospheric_fog.frag
+    - assets/shaders/atmospheric_fog_debug_spiral.frag    # Plan 03.1-07 — debug-only diagnostic shader

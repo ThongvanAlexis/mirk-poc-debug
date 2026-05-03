@@ -83,16 +83,18 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 03.1: Fix Fog Pan-Translation (INSERTED)
 
 **Goal:** Diagnose why the same-Canvas fog renders + rotates correctly with the camera but does NOT translate during pan, apply a fix, and re-validate the falsification criteria on iPhone 17 Pro. Phase 3.1 either reverses the Plan 03-08 `DENIED` verdict to `CONFIRMED-AFTER-FIX` (unblocking Phase 4 + Phase 5) or strengthens it to `DENIED-FINAL` with deeper architectural diagnosis. Research (HIGH confidence) traced the bug to `_FogPainter.paint()` passing `offset: const (0.0, 0.0)` to the shader — a 3-line fix derives `uOffset` from `camera.pixelOrigin / size`. Phase 3.1 ships the fix, a CI-gating behavioural regression test, and permanent diagnostic instrumentation alongside.
-**Requirements**: FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, PERF-07, PERF-08, UX-01
+**Requirements**: FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, FOG-15, PERF-07, PERF-08, UX-01, DEBUG-01 (DEBUG-01 + FOG-15 added 2026-05-03 via Plan 03.1-07; FOG-14 refined)
 **Depends on**: Phase 3
-**Plans**: 6 plans landed; Plan 03.1-07+ pending (per-iteration policy no hard cap)
+**Plans**: 9 plans (6 landed; 3 pending — Plans 03.1-07/08/09; per-iteration policy no hard cap)
   - [x] 03.1-01-PLAN.md — FogTransformLogger + Phase 3.1 constants + REQUIREMENTS/ROADMAP stub finalisation
   - [x] 03.1-02-PLAN.md — Apply 3-line fix in `_FogPainter.paint()` + wire `FogTransformLogger` + FOG-09 behavioural transform-equality regression test + FOG-04 docstring augmentation + VALIDATION.md per-task map populated
   - [x] 03.1-03-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #1 + `03.1-FALSIFICATION.md` — **VERDICT ITERATING-WITH-MAJOR-PROGRESS 2026-05-02** (PERF-07 GREEN; constant-zero failure mode structurally addressed; new modulo-wrap shimmer + Canvas-frame reveal-offset modes surfaced — Plan 03.1-04 follow-up required)
   - [x] 03.1-04-PLAN.md — SHADER-MODULO-WRAP fix: rename uOffset→uPixelOrigin; per-fragment fract() inside shader; FOG-11 behavioural smooth-noise test
   - [x] 03.1-05-PLAN.md — CANVAS-FRAME-ALIGNMENT (FOG-12) + SDF-CACHE-VIEWPORT-THRASH (PERF-08) + SANITY-NO-BACK-BUTTON (UX-01)
   - [x] 03.1-06-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #2 + `03.1-FALSIFICATION-2.md` — **VERDICT ITERATING-WITH-PARTIAL-PROGRESS 2026-05-02** (PERF-07 re-validated; FOG-12 + UX-01 confirmed-by-walk; FOG-11 falsified-by-walk-2; PERF-08 falsified-by-walk-2; new fog-rect viewport-coverage regression introduced by P03.1-05 → FOG-13 + FOG-14 requirements opened)
-  - [ ] 03.1-07-PLAN.md — Pending: SHADER-MODULO-WRAP refined (B-1/B-2/B-3 hypothesis triage) + FOG-13 fog-rect symmetric compensation + PERF-08 quantisation widen + FOG-14 higher-fidelity noise-pattern stability CI gate
+  - [ ] 03.1-07-PLAN.md — Mechanism investigation via debug-spiral shader (DEBUG-01) + iPhone observation checkpoint (B-0 gating step) + post-checkpoint mechanism-specific fix (FOG-14, FOG-15 — Branch B-1 fp32 precision / B-2 DPR scaling / B-3 tile-period mismatch / Branch A no-op / Branch C unknown)
+  - [ ] 03.1-08-PLAN.md — FOG-13 fog-rect viewport-coverage symmetric compensation: canvas.translate(-canvasOffset) at top of _FogPainter.paint() (Option b from FALSIFICATION-2 sub-section D row C-1)
+  - [ ] 03.1-09-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #3 + `03.1-FALSIFICATION-3.md` (empirical re-test for the layered Plan 03.1-07 + 03.1-08 fix bundle; verdict CONFIRMED-AFTER-FIX | DENIED-FINAL | ITERATING)
 
 ### Phase 4: Wisp Particles
 **Goal**: Composite the wisp particle system after the fog in the same Canvas, with positions stored in `LatLng` (world space) and projected to screen via the same `MapCamera` snapshot the fog uses. Confirms that the same-Canvas discipline established in Phase 3 generalises to a second visual layer — the cross-pipeline parity check that completes the code-donor package for porting back to MirkFall.
@@ -126,7 +128,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 7/7 | Complete | 2026-05-01 |
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED) | 2026-05-01 |
-| 03.1. Fix Fog Pan-Translation | 6/7+ | In Progress (iterating, walk #3 pending after Plan 03.1-07) |  |
+| 03.1. Fix Fog Pan-Translation | 6/9 | In Progress (iterating, Walks #3 + 4 pending after Plans 03.1-07/08/09) |  |
 | 4. Wisp Particles | 0/TBD | Blocked on Phase 3.1 | - |
 | 5. Decision Gate | 0/TBD | Blocked on Phase 3.1 | - |
 
@@ -134,3 +136,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Roadmap created: 2026-04-30*
 *Granularity: coarse (5 phases)*
 *Coverage: 56/56 v1 requirements mapped*
+

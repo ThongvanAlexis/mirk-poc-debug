@@ -15,5 +15,6 @@
   "frameDeltaProbeMedianLabel": "med",
   "frameDeltaProbeP95Label": "p95",
   "frameDeltaProbeMaxLabel": "max",
-  "shaderSanityScreenTitle": "Shader sanity"
+  "shaderSanityScreenTitle": "Shader sanity",
+  "debugSpiralToggleTooltip": "Toggle debug spiral shader"
 }

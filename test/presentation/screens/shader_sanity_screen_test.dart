@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
 
@@ -26,6 +27,10 @@ import 'package:mirk_poc_debug/presentation/screens/shader_sanity_screen.dart';
 /// to the previous route. Catches the SANITY-NO-BACK-BUTTON failure mode
 /// from `03.1-FALSIFICATION.md` observation 5 (developer had to force-close
 /// the app to return from `/sanity` during the 03.1-03 walk).
+///
+/// Plan 03.1-07 — Adds the debug-spiral toggle test group. Asserts the
+/// toggle defaults to OFF, flipping ON re-loads the shader with the
+/// debug-spiral asset path, flipping OFF restores the production path.
 void main() {
   testWidgets('shows CircularProgressIndicator while program is loading', (tester) async {
     // Hold the loader future open with a Completer so the screen stays in
@@ -43,7 +48,7 @@ void main() {
         locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future),
+        home: ShaderSanityScreen(programLoaderOverride: (_) => pendingCompleter.future),
       ),
     );
     // First frame: loader is still pending → spinner is up.
@@ -56,7 +61,7 @@ void main() {
         locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: ShaderSanityScreen(programLoaderOverride: () async => throw StateError('shader load failed')),
+        home: ShaderSanityScreen(programLoaderOverride: (_) async => throw StateError('shader load failed')),
       ),
     );
     await tester.pumpAndSettle();
@@ -77,7 +82,7 @@ void main() {
         locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future),
+        home: ShaderSanityScreen(programLoaderOverride: (_) => pendingCompleter.future),
       ),
     );
     await tester.pump();
@@ -103,7 +108,7 @@ void main() {
           GoRoute(path: '/', builder: (_, _) => const _PlaceholderHome()),
           GoRoute(
             path: '/sanity',
-            builder: (_, _) => ShaderSanityScreen(programLoaderOverride: () => pendingCompleter.future),
+            builder: (_, _) => ShaderSanityScreen(programLoaderOverride: (_) => pendingCompleter.future),
           ),
         ],
       );
@@ -149,6 +154,94 @@ void main() {
 
       expect(find.byType(_PlaceholderHome), findsOneWidget, reason: 'UX-01: tapping the back button on /sanity must pop to the previous route.');
       expect(find.byType(ShaderSanityScreen), findsNothing);
+    });
+  });
+
+  group('Plan 03.1-07 debug-spiral toggle', () {
+    testWidgets('toggle defaults to OFF on first build', (tester) async {
+      final pendingCompleter = Completer<ui.FragmentProgram>();
+      addTearDown(() {
+        if (!pendingCompleter.isCompleted) pendingCompleter.completeError(StateError('test teardown'));
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ShaderSanityScreen(programLoaderOverride: (_) => pendingCompleter.future),
+        ),
+      );
+      await tester.pump();
+      // Find the Switch.adaptive in the AppBar actions and assert its
+      // initial value is false.
+      final switchWidget = tester.widget<Switch>(find.byType(Switch));
+      expect(switchWidget.value, isFalse, reason: 'Plan 03.1-07: debug-spiral toggle must default to OFF — production fog at /sanity unchanged.');
+    });
+
+    testWidgets('toggling ON re-loads with the debug-spiral asset path', (tester) async {
+      // Track every shader path requested via the loader override so the
+      // test can assert which path was loaded after the toggle flip.
+      // Inline-closure pattern (no separate RecordingProgramLoader helper
+      // class — single-test scope, sufficient for the assertion).
+      final loadedPaths = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ShaderSanityScreen(
+            programLoaderOverride: (path) {
+              loadedPaths.add(path);
+              // Return a never-completing future so we don't trip into
+              // the SDF-build / atlas-build async chain that needs
+              // tester.runAsync.
+              return Completer<ui.FragmentProgram>().future;
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(loadedPaths, equals(<String>[kPocFogShaderAssetPath]), reason: 'Plan 03.1-07: initial load must request the production fog shader.');
+
+      // Tap the Switch.adaptive. Its onChanged setState triggers a
+      // re-load via _load() with the debug-spiral asset path.
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(loadedPaths.last, equals(kPocDebugSpiralShaderAssetPath), reason: 'Plan 03.1-07: toggling ON must request the debug-spiral shader path.');
+
+      // Tap again — toggle OFF. Loader must be invoked with the
+      // production path again.
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(loadedPaths.last, equals(kPocFogShaderAssetPath), reason: 'Plan 03.1-07: toggling OFF must restore the production fog shader path.');
+    });
+
+    testWidgets('toggle exposes a Tooltip with the debugSpiralToggleTooltip l10n key', (tester) async {
+      final pendingCompleter = Completer<ui.FragmentProgram>();
+      addTearDown(() {
+        if (!pendingCompleter.isCompleted) pendingCompleter.completeError(StateError('test teardown'));
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ShaderSanityScreen(programLoaderOverride: (_) => pendingCompleter.future),
+        ),
+      );
+      await tester.pump();
+      // Find the Tooltip wrapping the Switch (we put it as the actions[0]
+      // child). Assert the message matches the l10n EN string.
+      final tooltipFinder = find.ancestor(of: find.byType(Switch), matching: find.byType(Tooltip));
+      final tooltip = tester.widget<Tooltip>(tooltipFinder);
+      expect(
+        tooltip.message,
+        equals('Toggle debug spiral shader'),
+        reason: 'Plan 03.1-07: Switch must be wrapped in a Tooltip with the debugSpiralToggleTooltip l10n string.',
+      );
     });
   });
 }
