@@ -42,6 +42,21 @@ precision mediump float;
 #define ATLAS_DIGIT_PX 64.0
 #define ATLAS_TOTAL_PX 640.0
 
+// Plan 03.1-07 Branch B-3 — production-shader noise-tile-period scale
+// constants, replicated here so the debug-spiral coordinate system
+// applies the SAME tile-period-aware `fract()` formulation as the
+// production shader. Production reads these as runtime uniforms
+// (slots 20..22 — `uScaleFar/Mid/Near`); the debug shader does not
+// share that uniform layout (it only declares uResolution / uTime /
+// uPixelOrigin / uDigitAtlas) so the values are constant-folded here.
+// MUST stay in lockstep with `kMirkFogAtmosphericScaleFar/Mid/Near`
+// in `lib/config/constants.dart`. If those constants change, this
+// shader must rebuild and the developer must re-walk the spiral
+// observation under production gesture conditions.
+#define DEBUG_SPIRAL_SCALE_FAR  1.5
+#define DEBUG_SPIRAL_SCALE_MID  6.0
+#define DEBUG_SPIRAL_SCALE_NEAR 24.0
+
 // ---------- Uniforms (slots 0..4 match production shader) ----------
 
 // Viewport size in screen pixels. Slot 0..1.
@@ -104,10 +119,23 @@ void main() {
         fragUv.y = 1.0 - fragUv.y;
     #endif
 
-    // THE LOAD-BEARING LINE — identical formulation to production line
-    // 267. What the user observes from this shader IS what the production
-    // shader's coordinate system is doing.
-    vec2 spiralCoord = fragUv + fract(uPixelOrigin / uResolution);
+    // THE LOAD-BEARING LINE — identical formulation to the production
+    // shader's noiseUv computation. What the user observes from this
+    // shader IS what the production shader's coordinate system is doing.
+    //
+    // Plan 03.1-07 Branch B-3 (tile-period-aware fract):
+    // Pre-fix this read `fract(uPixelOrigin / uResolution)` — a
+    // viewport-width wrap period (~390 px). Walk #2 confirmed the
+    // user-observable "stepped" translation under production gesture
+    // conditions. The fix derives `tilePeriodPixels` from the same
+    // noise-tile scale constants the production shader uses (constant-
+    // folded here as `DEBUG_SPIRAL_SCALE_*`). The cell-grid wrap now
+    // happens at the noise-tile scale (~16-65 px) rather than the
+    // viewport, so Walk #3's spiral observation reflects the post-fix
+    // coordinate system.
+    float maxScale = max(DEBUG_SPIRAL_SCALE_FAR, max(DEBUG_SPIRAL_SCALE_MID, DEBUG_SPIRAL_SCALE_NEAR));
+    vec2 tilePeriodPixels = uResolution / maxScale;
+    vec2 spiralCoord = fragUv + fract(uPixelOrigin / tilePeriodPixels);
 
     // Convert spiralCoord (in screen-normalised [0, 1] space) to
     // raw-pixel space then divide by the cell size to get an integer
