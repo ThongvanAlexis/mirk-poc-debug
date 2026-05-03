@@ -107,17 +107,23 @@ void main() {
         expect(dy, lessThan(kPocFogSmoothCoordinateMaxDelta), reason: 'FOG-11 regression at step $i: pixelOrigin.y jumped by $dy.');
       }
 
-      // Defence-in-depth: assert the captured value MAGNITUDE is in the
-      // raw-pixel regime, not the normalised-UV regime. Any future
-      // regression that re-introduces a Dart-side `% 1.0` would compress
-      // the values into [0, 1) and trip this assertion. Pre-Plan-03.1-04
-      // the Dart call site applied `% 1.0` and produced captured values < 1.
+      // Post-FOG-17a bounded-magnitude regime: the painter forwards
+      // `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`, which lives in
+      // [0, kPocFogIntegerWrapPeriodPx]. This range catches BOTH:
+      // - pre-fix-style millions (`1064000 > 1537` would FAIL upper bound)
+      // - naive `% 1.0` regressions (under 1 would FAIL lower bound — the
+      //   `inExclusiveRange(0, ...)` excludes 0 itself; in practice the
+      //   non-trivial pixelOriginX modulo is rarely exactly 0, but if it
+      //   IS, the consecutive-paint delta assertions above already cover
+      //   the smoothness regression separately).
       expect(
         captureds.last.$1,
-        greaterThan(100),
+        inExclusiveRange(0, kPocFogIntegerWrapPeriodPx + 1),
         reason:
-            'FOG-11 magnitude regression: pixelOrigin.x must be in raw-pixel units (zoom 13 magnitude ~1e6), not normalised [0, 1). '
-            'Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1.',
+            'FOG-11 magnitude regression: post-FOG-17a bounded-magnitude regime — '
+            'forwarded value is `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx ∈ [0, kPocFogIntegerWrapPeriodPx]`. '
+            'Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1 (would fail lower bound). '
+            'Pre-FOG-17a the painter forwarded raw pixelOrigin in millions (would fail upper bound).',
       );
     });
   });

@@ -44,6 +44,15 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// magnitudes are now in raw world-pixel units (zoom 13 ~1e6) instead of
 /// normalised UV [0, 1); the consecutive-pan delta is ~411 raw pixels at
 /// zoom 13 — enormously above `kPocCanvasTransformEpsilon = 1e-6`.
+///
+/// Plan 03.1-10 update: FOG-17a CPU-side integer/fractional decomposition
+/// adds a Dart-side `% kPocFogIntegerWrapPeriodPx` (1536) modulo to keep
+/// shader input bounded under ~1537 raw px at high zoom. The forwarded
+/// value is now a BOUNDED COMPOSITE `(intPx % kPocFogIntegerWrapPeriodPx)
+/// + fracPx`, NOT raw camera.pixelOrigin verbatim. The mechanical
+/// delta > epsilon assertion still passes — for typical sub-1536-raw-px
+/// walks the bounded composite changes monotonically with the camera —
+/// but the documentation tracks the active code semantics.
 void main() {
   group('FOG-09 (Plan 03.1-02 keystone)', () {
     testWidgets('FogLayer pixelOrigin uniform tracks camera pan (catches Plan 03-08 static-fog regression)', (tester) async {
@@ -142,7 +151,10 @@ void main() {
         greaterThan(kPocCanvasTransformEpsilon),
         reason:
             'Plan 03-08 regression: uPixelOrigin.x did not change after a programmatic pan. '
-            'The painter MUST forward camera.pixelOrigin verbatim to shaderRenderer.render(pixelOrigin:). '
+            'The painter MUST forward a camera.pixelOrigin-derived value to shaderRenderer.render(pixelOrigin:). '
+            'Pre-FOG-17a: raw pixelOrigin (zoom 13 magnitude ~1e6). '
+            'Post-FOG-17a: bounded composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`. '
+            'Either way, a programmatic pan MUST produce a non-zero delta in the forwarded value. '
             'Pre-fix HEAD passed const (0.0, 0.0) and tripped this assertion.',
       );
       expect(

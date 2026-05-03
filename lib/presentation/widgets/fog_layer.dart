@@ -452,8 +452,59 @@ class _FogPainter extends CustomPainter {
     // MapCamera.of(context) read).
     // Identity uSdfRect (slots 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH
     // §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
+    // FOG-17a (Plan 03.1-10) — CPU-side integer/fractional decomposition.
+    //
+    // The pure FOG-17 world-coordinate noise sampling
+    // (`noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`,
+    // applied per-fragment in the shader) exposes fp32 precision
+    // degradation at high zoom: Walk #2 captured pixelOriginX up to
+    // 4.26M; fp32 mantissa is 24 bits, so ULP at 4.26M is ≈ 0.5 raw px —
+    // catastrophic for sub-noise-cell sampling (the per-octave
+    // `noiseUv * uScale*` would have ±0.5 * uScale = ±5.25 noise-grid
+    // unit jitter at maxScale=10.5).
+    //
+    // The decomposition splits pixelOrigin into integer + fractional
+    // Dart-side and forwards a bounded composite to the shader:
+    //
+    //   (intPxX, fracPxX) = (pxOrigin.x.truncateToDouble(),
+    //                        pxOrigin.x - pxOrigin.x.truncateToDouble())
+    //   forwarded.x = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX
+    //
+    // Shader input magnitude stays under `kPocFogIntegerWrapPeriodPx + 1`
+    // (~1537 raw px) regardless of camera.pixelOrigin magnitude. fp32
+    // ULP at 1536 is ≈ 2.4e-4 raw px — three orders of magnitude better.
+    //
+    // The integer wrap fires every `kPocFogIntegerWrapPeriodPx` raw px
+    // of pan; because `kPocFogIntegerWrapPeriodPx % kPocFogNoiseTilePx
+    // == 0` (1536 = 4 * 384), the wrap event lands at an integer
+    // multiple of the noise grid period. The FBM rotation +
+    // octave-scale machinery still introduces sub-grid-period
+    // discontinuity at the wrap (`4 * 2.9 = 11.6` etc. — not exactly
+    // integer-period in the rotated octave space) BUT the wrap
+    // frequency is ~40× lower than pre-Plan-03.1-10 stepping (every
+    // ~128 sec of continuous pan vs every ~3 sec). Plan 03.1-12+
+    // contingency: if Walk #4 surfaces residual integer-wrap
+    // stepping, pivot to a periodic-noise function (Worley/explicit-
+    // period Perlin) whose lattice IS preserved under integer shifts.
+    //
+    // The fogTransformLogger continues to forward `appliedUOffset` =
+    // the bounded composite (NOT the raw camera.pixelOrigin) so
+    // post-walk JSONL grep can verify the decomposition is in effect.
     final pixOrigin = camera.pixelOrigin;
-    final appliedPixelOrigin = (pixOrigin.x, pixOrigin.y);
+    final intPxX = pixOrigin.x.truncateToDouble();
+    final intPxY = pixOrigin.y.truncateToDouble();
+    final fracPxX = pixOrigin.x - intPxX;
+    final fracPxY = pixOrigin.y - intPxY;
+    // Dart's `%` operator on doubles returns a value in [0, divisor) for
+    // positive divisor — handles negative integer parts correctly
+    // (intPx = -1536 → -1536 % 1536 = 0; intPx = -1700 → -1700 % 1536 =
+    // 1372). The fractional remainder is sign-preserved by the
+    // truncateToDouble call: pxOrigin = -100.5 → intPx = -100,
+    // fracPx = -0.5; the composite is sign-correct because both
+    // pieces sum to the original bounded magnitude.
+    final boundedX = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX;
+    final boundedY = (intPxY % kPocFogIntegerWrapPeriodPx) + fracPxY;
+    final appliedPixelOrigin = (boundedX, boundedY);
 
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
