@@ -6,69 +6,80 @@ import 'dart:io' show File;
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// FOG-14b (Plan 03.1-07 Branch B-3) — tile-period-aware fract-period
-/// engineering invariant.
+/// FOG-17 (Plan 03.1-10) — world-coordinate noise sampling engineering
+/// invariant.
 ///
-/// Companion to FOG-14a. Where FOG-14a tests the BEHAVIOURAL property
-/// (wrap frequency aligned with noise-tile period under a synthetic
-/// trajectory), FOG-14b tests the STRUCTURAL property: the production
-/// fragment shader's `noiseUv` line uses the tile-period divisor, not
-/// the viewport divisor. This is the engineering invariant the FOG-15
-/// fix delivers; it must not regress at the source level.
+/// REWRITTEN from FOG-14b (Plan 03.1-07 Branch B-3 tile-period-aware
+/// fract). The file name is preserved for git-history continuity even
+/// though the test content has flipped to assert the post-Plan-03.1-10
+/// world-coordinate formulation. The "tile period" terminology is
+/// historical; the post-fix formulation has no tile-period fract — it
+/// has a noise-tile divisor (`kNoiseTilePx`) which sets the noise
+/// grid scale in screen-pixel space.
 ///
-/// ## Why a static-source assertion?
+/// ## Background
 ///
-/// The B-3 fix is a single-line shader edit. Asserting on the shader
-/// source content is the cheapest, most direct way to guard against
-/// silent reverts (e.g., a future PR that "simplifies" the
-/// `tilePeriodPixels` computation back to `uResolution`). Mirrors the
-/// project's LOC-03 / BOOT-02 static-source CI-gate pattern: when the
-/// invariant is a single string in a single file, a substring assertion
-/// is the right tool.
+/// The Plan 03.1-07 Branch B-3 fix moved the wrap period from
+/// viewport-width (~390 px) to noise-tile period (~16-65 px) but kept
+/// the per-event wrap MAGNITUDE the same (Walk #3 confirmed). The
+/// Plan 03.1-10 FOG-17 fix replaces `fract()` entirely with
+/// world-coordinate sampling: each fragment samples noise at its OWN
+/// world-pixel position, so as the camera pans NEW world coordinates
+/// enter the viewport edges and NEW noise scrolls in — no fract(), no
+/// wraps, no stepping.
 ///
 /// ## What's asserted
 ///
-/// 1. The production shader (`atmospheric_fog.frag`) contains the
-///    `tilePeriodPixels = uResolution / maxScale` line.
-/// 2. The production shader's `noiseUv` is computed via
-///    `fract(uPixelOrigin / tilePeriodPixels)`, NOT the pre-fix
-///    `fract(uPixelOrigin / uResolution)`.
-/// 3. The debug-spiral shader applies the same B-3 formulation so
-///    Walk #3 spiral observation reflects the post-fix coordinate
-///    system.
-/// 4. `FogShaderUniforms.totalFloatSlots` is still 41 — Branch B-3
-///    derives `tilePeriodPixels` in-shader from existing slots and
-///    does NOT introduce a new uniform.
+/// 1. Production shader (`atmospheric_fog.frag`) contains the
+///    `kNoiseTilePx` const float declaration AND the
+///    `worldPx = fragUv * uResolution + uPixelOrigin` line AND the
+///    `noiseUv = worldPx / kNoiseTilePx` line.
+/// 2. Production shader's ACTIVE CODE (line-comment-stripped) does NOT
+///    contain `fract(uPixelOrigin / tilePeriodPixels)` — the
+///    pre-Plan-03.1-10 B-3 formulation must be removed from active
+///    code. Allowed in comments documenting the historical formulation.
+/// 3. Debug-spiral shader (`atmospheric_fog_debug_spiral.frag`) mirrors
+///    the post-Plan-03.1-10 formulation so /sanity spiral observation
+///    reflects the production coordinate system.
+/// 4. `FogShaderUniforms.totalFloatSlots == 41` (no new uniform — the
+///    `kNoiseTilePx` value is constant-folded as a `const float` in
+///    the shader, NOT added as a runtime uniform).
 void main() {
-  group('FOG-14b (Plan 03.1-07 Branch B-3) — tile-period-aware fract-period engineering invariant', () {
-    test('production shader noiseUv uses tilePeriodPixels (not uResolution) divisor', () {
+  group('FOG-17 (Plan 03.1-10) — world-coordinate noise sampling engineering invariant', () {
+    test('production shader contains the FOG-17 world-coordinate formulation', () {
       final source = File('assets/shaders/atmospheric_fog.frag').readAsStringSync();
 
-      // Post-fix presence: tilePeriodPixels derivation line.
       expect(
         source,
-        contains('tilePeriodPixels = uResolution / maxScale'),
+        contains('const float kNoiseTilePx = 384.0;'),
         reason:
-            'FOG-14b: production shader must derive `tilePeriodPixels = uResolution / maxScale` per Branch B-3. '
-            'If this assertion fails, the B-3 fix has been reverted to viewport-width modulo.',
+            'FOG-17: production shader must declare `const float kNoiseTilePx = 384.0;` (constant-folded, NOT a uniform). '
+            'Value MUST stay in lockstep with `kPocFogNoiseTilePx` in `lib/config/constants.dart`. '
+            'If this assertion fails, the FOG-17 fix has been reverted or the constant has drifted from the Dart source.',
       );
 
-      // Post-fix presence: noiseUv assignment uses tilePeriodPixels.
       expect(
         source,
-        contains('vec2 noiseUv = fragUv + fract(uPixelOrigin / tilePeriodPixels);'),
-        reason:
-            'FOG-14b: production shader `noiseUv` must use `fract(uPixelOrigin / tilePeriodPixels)` divisor. '
-            'If this assertion fails, the B-3 fix has been reverted.',
+        contains('vec2 worldPx = fragUv * uResolution + uPixelOrigin;'),
+        reason: 'FOG-17: production shader must compute `worldPx = fragUv * uResolution + uPixelOrigin` (per-fragment world position).',
       );
 
-      // Pre-fix absence: the viewport-width formulation must NOT
-      // appear anywhere in the active code path. This guards against
-      // dead-code reverts that leave the new line in place but
-      // re-introduce the old computation under a different name.
-      // (The pre-fix `fract(uPixelOrigin / uResolution)` is allowed to
-      // appear in COMMENTS describing the historical formulation;
-      // strip line comments before the substring check.)
+      expect(
+        source,
+        contains('vec2 noiseUv = worldPx / kNoiseTilePx;'),
+        reason:
+            'FOG-17: production shader `noiseUv` must use `worldPx / kNoiseTilePx` (world-coordinate noise sampling). '
+            'If this assertion fails, the FOG-17 fix has been reverted to the B-3 fract() formulation.',
+      );
+    });
+
+    test('production shader active code does NOT contain pre-Plan-03.1-10 fract(uPixelOrigin / tilePeriodPixels)', () {
+      final source = File('assets/shaders/atmospheric_fog.frag').readAsStringSync();
+
+      // Strip line comments before the substring check. The
+      // pre-Plan-03.1-10 formulation is allowed to appear in COMMENTS
+      // documenting the historical shape; it is NOT allowed in active
+      // code.
       final activeCode = source
           .split('\n')
           .map((line) {
@@ -76,47 +87,81 @@ void main() {
             return commentIdx >= 0 ? line.substring(0, commentIdx) : line;
           })
           .join('\n');
+
+      expect(
+        activeCode,
+        isNot(contains('fract(uPixelOrigin / tilePeriodPixels)')),
+        reason:
+            'FOG-17: pre-Plan-03.1-10 B-3 formulation `fract(uPixelOrigin / tilePeriodPixels)` MUST NOT appear in active code. '
+            'Permitted only in comments documenting the historical shape. If this fires, the FOG-17 fix coexists with a stale '
+            'call site that may shadow it.',
+      );
+
+      // Defense-in-depth: the Plan 03.1-04 viewport-width formulation
+      // (the formulation B-3 replaced) must also be absent from active
+      // code.
       expect(
         activeCode,
         isNot(contains('fract(uPixelOrigin / uResolution)')),
-        reason:
-            'FOG-14b: pre-Branch-B-3 formulation `fract(uPixelOrigin / uResolution)` MUST NOT appear in the '
-            'active code path of `atmospheric_fog.frag`. Permitted only in comments documenting the historical '
-            'shape. If this fires, the B-3 fix coexists with a stale call site that may shadow it.',
+        reason: 'FOG-17: Plan-03.1-04 viewport-width fract formulation `fract(uPixelOrigin / uResolution)` must also be absent from active code.',
       );
     });
 
-    test('debug-spiral shader applies the same B-3 formulation', () {
+    test('debug-spiral shader mirrors the post-Plan-03.1-10 formulation', () {
       final source = File('assets/shaders/atmospheric_fog_debug_spiral.frag').readAsStringSync();
-      // The debug shader uses #define DEBUG_SPIRAL_SCALE_* constants
-      // rather than runtime uniforms, so the divisor is computed from
-      // the constant-folded scales. The key invariant: `tilePeriodPixels`
-      // is derived from `uResolution / maxScale`, not directly from
-      // `uResolution`.
+
       expect(
         source,
-        contains('tilePeriodPixels = uResolution / maxScale'),
+        contains('const float kNoiseTilePx = 384.0;'),
         reason:
-            'FOG-14b: debug-spiral shader must mirror the production B-3 formulation so Walk #3 spiral '
-            'observation reflects the post-fix coordinate system.',
+            'FOG-17: debug-spiral shader must mirror the production `kNoiseTilePx` const float so /sanity observation reflects the post-fix coordinate system.',
       );
+
       expect(
         source,
-        contains('vec2 spiralCoord = fragUv + fract(uPixelOrigin / tilePeriodPixels);'),
-        reason: 'FOG-14b: debug-spiral `spiralCoord` must use the B-3 tile-period-aware `fract()` divisor.',
+        contains('vec2 worldPx = fragUv * uResolution + uPixelOrigin;'),
+        reason: 'FOG-17: debug-spiral must mirror the production `worldPx` computation.',
+      );
+
+      expect(
+        source,
+        contains('vec2 spiralCoord = worldPx / kNoiseTilePx;'),
+        reason: 'FOG-17: debug-spiral `spiralCoord` must use `worldPx / kNoiseTilePx` (mirrors production `noiseUv`).',
+      );
+
+      expect(
+        source,
+        contains('vec2 cellPx = worldPx;'),
+        reason: 'FOG-17: debug-spiral cellPx must derive from `worldPx` directly (already in raw pixels post-fix).',
       );
     });
 
-    test('FogShaderUniforms.totalFloatSlots == 41 — B-3 derives tilePeriodPixels in-shader (no new uniform)', () {
+    test('debug-spiral shader active code does NOT contain pre-Plan-03.1-10 fract(uPixelOrigin / tilePeriodPixels)', () {
+      final source = File('assets/shaders/atmospheric_fog_debug_spiral.frag').readAsStringSync();
+      final activeCode = source
+          .split('\n')
+          .map((line) {
+            final commentIdx = line.indexOf('//');
+            return commentIdx >= 0 ? line.substring(0, commentIdx) : line;
+          })
+          .join('\n');
+
+      expect(
+        activeCode,
+        isNot(contains('fract(uPixelOrigin / tilePeriodPixels)')),
+        reason: 'FOG-17: debug-spiral active code must not retain the B-3 fract formulation.',
+      );
+    });
+
+    test('FogShaderUniforms.totalFloatSlots == 41 — kNoiseTilePx is constant-folded (no new uniform)', () {
       final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
       expect(
         source,
         contains('static const int totalFloatSlots = 41;'),
         reason:
-            'FOG-14b: the 41-slot float uniform layout is locked. Branch B-3 derives `tilePeriodPixels` '
-            'in-shader from existing slots `uScaleFar/Mid/Near` (slots 20..22) — it must NOT introduce a new '
-            'uniform. If this assertion fails, the slot budget grew and the layout is no longer in lockstep '
-            'with the shader.',
+            'FOG-17: the 41-slot float uniform layout is locked. The `kNoiseTilePx` value is constant-folded as a '
+            '`const float` in the shader, NOT added as a runtime uniform. If this assertion fails, the slot budget grew '
+            'and the layout is no longer in lockstep with the shader.',
       );
     });
   });

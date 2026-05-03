@@ -120,28 +120,34 @@ void main() {
         fragUv.y = 1.0 - fragUv.y;
     #endif
 
-    // THE LOAD-BEARING LINE — identical formulation to the production
-    // shader's noiseUv computation. What the user observes from this
-    // shader IS what the production shader's coordinate system is doing.
+    // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
+    // Mirrors production atmospheric_fog.frag: the debug-spiral
+    // observation reflects the post-Plan-03.1-10 coordinate system.
+    // See production shader for the full rationale + Walk #3b
+    // empirical anchor + FOG-17a precision pairing.
     //
-    // Plan 03.1-07 Branch B-3 (tile-period-aware fract):
-    // Pre-fix this read `fract(uPixelOrigin / uResolution)` — a
-    // viewport-width wrap period (~390 px). Walk #2 confirmed the
-    // user-observable "stepped" translation under production gesture
-    // conditions. The fix derives `tilePeriodPixels` from the same
-    // noise-tile scale constants the production shader uses (constant-
-    // folded here as `DEBUG_SPIRAL_SCALE_*`). The cell-grid wrap now
-    // happens at the noise-tile scale (~16-65 px) rather than the
-    // viewport, so Walk #3's spiral observation reflects the post-fix
-    // coordinate system.
-    float maxScale = max(DEBUG_SPIRAL_SCALE_FAR, max(DEBUG_SPIRAL_SCALE_MID, DEBUG_SPIRAL_SCALE_NEAR));
-    vec2 tilePeriodPixels = uResolution / maxScale;
-    vec2 spiralCoord = fragUv + fract(uPixelOrigin / tilePeriodPixels);
+    // kNoiseTilePx MUST stay in lockstep with `kPocFogNoiseTilePx`
+    // in `lib/config/constants.dart` (currently 384.0). The debug-
+    // spiral cell size remains `DEBUG_SPIRAL_CELL_SIZE_PX` (80.0)
+    // — the cell grid is for digit-readability, not for noise
+    // sampling; the cell-index computation still uses
+    // `cellPx / DEBUG_SPIRAL_CELL_SIZE_PX` below.
+    const float kNoiseTilePx = 384.0;
+    vec2 worldPx = fragUv * uResolution + uPixelOrigin;
+    vec2 spiralCoord = worldPx / kNoiseTilePx;
 
-    // Convert spiralCoord (in screen-normalised [0, 1] space) to
-    // raw-pixel space then divide by the cell size to get an integer
-    // cell index. floor() pins each fragment to a single cell.
-    vec2 cellPx = spiralCoord * uResolution;
+    // Convert worldPx (already in raw pixels) directly to cell-grid
+    // space. Pre-Plan-03.1-10 we computed `cellPx = spiralCoord *
+    // uResolution` — that worked when `spiralCoord = fragUv +
+    // fract(...)` had magnitude ~1 across the viewport. Post-Plan-
+    // 03.1-10 `spiralCoord = worldPx / kNoiseTilePx` is in noise-
+    // grid units (~1-2 across the viewport given kNoiseTilePx ≈
+    // uResolution.x), so multiplying by uResolution would inflate
+    // cellPx by ~kNoiseTilePx and shrink the visible cells-per-
+    // viewport count to a single cell. Use worldPx directly — it
+    // is already in raw pixels regardless of the spiralCoord
+    // formulation.
+    vec2 cellPx = worldPx;
     vec2 cellFloat = floor(cellPx / DEBUG_SPIRAL_CELL_SIZE_PX);
     ivec2 cell = ivec2(cellFloat);
 

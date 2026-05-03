@@ -258,42 +258,48 @@ void main() {
         fragUv.y = 1.0 - fragUv.y;
     #endif
 
-    // Apply world pan to the noise UV space (NOT to fragUv — fragUv is
-    // screen-local for SDF sampling). The `fract()` is the per-fragment
-    // modulo that pre-Plan-03.1-04 was applied at the Dart call site
-    // (and produced the per-paint global discontinuity documented in
-    // 03.1-FALSIFICATION.md Finding 3). Each fragment now computes its
-    // own modulo in floating-point precision local to its UV.
+    // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
     //
-    // Plan 03.1-07 Branch B-3 (tile-period-aware fract):
-    // Walk #2 (03.1-FALSIFICATION-2.md sub-section D row B-3) confirmed
-    // user-observable "stepped" translation under PRODUCTION gesture
-    // conditions on iPhone 17 Pro: pan a little → smooth, then a sudden
-    // jump; zoom → translated a lot. Mechanism: `fract(uPixelOrigin /
-    // uResolution)` wraps every viewport-width (~390 px). When
-    // `uPixelOrigin` crosses one viewport-width during gesture, the
-    // offset jumps 0.999 → 0.001 producing the visible step; pinch-zoom
-    // changes uPixelOrigin by 8× across zoom 13 → zoom 16, so `fract`
-    // cycles many times per frame. The wrap period mismatched the noise-
-    // tile period (~1/maxScale viewport-widths), so each wrap shifted
-    // the screen-space noise pattern by an inter-octave-difference
-    // fraction.
+    // Walk #3 (Plan 03.1-09 Sub-section B) confirmed the Plan 03.1-07
+    // Branch B-3 partial-fix outcome: the wrap period moved from
+    // viewport-width (~390 px) to noise-tile period (~16-65 px), so
+    // panning is smooth between wrap events but stepping persists at
+    // wrap events (every ~16-65 raw px of pan triggers a discontinuity).
+    // Walk #3b marker analysis quantitatively anchored this — 8
+    // markers over ~24 sec walk window, median 39 raw px between
+    // markers, 2.4 wrap events per perceived step.
     //
-    // Fix: align the wrap period with the noise tile, not the viewport.
-    // `tilePeriodPixels = uResolution / max(uScaleFar, uScaleMid,
-    // uScaleNear)` is recomputed per-fragment per-paint from the existing
-    // runtime uniforms `uScaleFar/Mid/Near` (slots 20..22). No new
-    // uniform — `FogShaderUniforms.totalFloatSlots` (41) is locked.
+    // The fix: sample noise at the fragment's WORLD position, not at
+    // (fragUv + fract-offset). Each fragment computes its own world-
+    // pixel coordinate by adding fragUv*uResolution (its viewport
+    // position in raw pixels) to uPixelOrigin (the camera's world-
+    // pixel origin). As the camera pans, NEW world coordinates enter
+    // the viewport edges, so NEW noise scrolls in — there is no
+    // sliding offset to fract-wrap. This is the developer's
+    // correctly-intuited iteration path from Walk #3 Q1 verbatim
+    // ("if I pan right forever the shader should not be moved to be
+    // where I'm going, I should see a new area of the shader").
     //
-    // Documented partial-fix: this moves the wrap from ~390 px to
-    // ~16-65 px depending on `maxScale`. Wraps still happen but at
-    // sub-perceptible magnitudes within a single octave. If Walk #3
-    // surfaces residual stepping at very high zoom (where fp32 precision
-    // also degrades), Plan 03.1-10 may need a world-coordinate-noise
-    // rewrite. Iteration path documented in 03.1-07-SUMMARY.md.
-    float maxScale = max(uScaleFar, max(uScaleMid, uScaleNear));
-    vec2 tilePeriodPixels = uResolution / maxScale;
-    vec2 noiseUv = fragUv + fract(uPixelOrigin / tilePeriodPixels);
+    // Precision: pure world-coordinate sampling exposes fp32
+    // degradation at high zoom (pixelOriginX up to 4.26M at zoom 16
+    // per Walk #2; fp32 ULP at 4.26M is ≈0.5 raw px). The Dart-side
+    // FOG-17a decomposition (lib/presentation/widgets/fog_layer.dart
+    // `_FogPainter.paint()` truncateToDouble + modulo by
+    // kPocFogIntegerWrapPeriodPx) keeps `uPixelOrigin` bounded under
+    // ~1537 raw px regardless of zoom; fp32 ULP at 1536 is ≈2.4e-4
+    // raw px — three orders of magnitude better.
+    //
+    // kNoiseTilePx is constant-folded here as a `const float` (NOT a
+    // uniform) so `FogShaderUniforms.totalFloatSlots` stays at 41.
+    // MUST stay in lockstep with `kPocFogNoiseTilePx` in
+    // `lib/config/constants.dart` (currently 384.0). Value chosen so
+    // on-screen noise cell ≈ kNoiseTilePx / maxScale ≈ 384 / 10.5 ≈
+    // 36.6 raw px, matching pre-fix B-3 cell ≈ 37 raw px (visual
+    // character continuity preserved across the fix). If the Dart
+    // constant changes, this shader must be hand-edited to match.
+    const float kNoiseTilePx = 384.0;
+    vec2 worldPx = fragUv * uResolution + uPixelOrigin;
+    vec2 noiseUv = worldPx / kNoiseTilePx;
 
     // ---------- 7. Curl-rotated edge field ----------
     // Sample the SDF; near the boundary, locally rotate the curl-noise
