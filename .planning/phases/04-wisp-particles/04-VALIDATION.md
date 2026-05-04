@@ -2,9 +2,10 @@
 phase: 4
 slug: wisp-particles
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-04
+populated: 2026-05-05
 ---
 
 # Phase 4 — Validation Strategy
@@ -36,11 +37,19 @@ created: 2026-05-04
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| {filled by gsd-planner} | | | | | | | ⬜ pending |
+*Per-task map populated by Plan 04-01 2026-05-05. Wave 0 ships RED tests against UnimplementedError stubs; subsequent plans flip RED → GREEN without test-file edits.*
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+| Task ID  | Plan  | Wave | Requirement                                | Test Type     | Automated Command                                                                                                                                                                                                          | File Exists                                | Status     |
+|----------|-------|------|--------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|------------|
+| 04-01-T1 | 04-01 | 1    | WISP-01..05 (constants)                    | static        | `flutter analyze lib/config/constants.dart`                                                                                                                                                                              | already exists, modified                   | ✅ green    |
+| 04-01-T2 | 04-01 | 1    | WISP-01..05 (Wave 0 scaffolds)             | unit + widget | `flutter test test/infrastructure/mirk/wisp/ test/wisp/ test/presentation/widgets/fog_layer_wisp_render_test.dart test/presentation/widgets/fog_layer_single_camera_snapshot_test.dart` (RED expected — UnimplementedError) | NEW (10 files: 3 prod stubs + 7 RED tests) | ✅ green (RED-as-spec) |
+| 04-02-T1 | 04-02 | 1    | WISP-05                                    | unit          | `flutter test test/infrastructure/mirk/wisp/wisp_transform_logger_test.dart`                                                                                                                                              | exists (Wave 0); flips RED → GREEN          | ⬜ pending |
+| 04-03-T1 | 04-03 | 1    | WISP-01..03                                | unit          | `flutter test test/infrastructure/mirk/wisp/wisp_particle_test.dart test/infrastructure/mirk/wisp/wisp_particle_system_test.dart`                                                                                          | exists (Wave 0); flips RED → GREEN          | ⬜ pending |
+| 04-04-T1 | 04-04 | 2    | WISP-04 + FOG-07                           | widget        | `flutter test test/presentation/widgets/fog_layer_wisp_render_test.dart test/presentation/widgets/fog_layer_single_camera_snapshot_test.dart`                                                                            | exists (Wave 0, skipped); skip removed → GREEN | ⬜ pending |
+| 04-04-T2 | 04-04 | 2    | WISP-02/03 (integration) + SC #1, #2       | widget        | `flutter test test/wisp/`                                                                                                                                                                                                  | exists (Wave 0, partly skipped); flips RED → GREEN | ⬜ pending |
+| 04-05-T1 | 04-05 | 3    | PERF-07 + PERF-08 + DEBUG-02 + UX-02 carry | manual-only   | walk + JSONL grep                                                                                                                                                                                                          | walk evidence (no test file)                | ⬜ pending |
+
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky · ✅ green (RED-as-spec) for Wave 0 RED scaffolds where the UnimplementedError throw IS the expected RED signal.*
 
 ---
 
