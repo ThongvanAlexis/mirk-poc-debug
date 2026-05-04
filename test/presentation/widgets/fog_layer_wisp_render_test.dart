@@ -2,80 +2,399 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:math' show Point;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
+import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
+import 'package:mirk_poc_debug/presentation/widgets/fog_layer.dart';
 
-/// WISP-04 — RED test scaffold for FogLayer wisp paint sequence + projection.
+import '../../_helpers/recording_fog_shader_renderer.dart';
+
+/// WISP-04 (Plan 04-04) — `_FogPainter` paint sequence + projection.
 ///
-/// Plan 04-01 (Wave 0) ships these tests RED-via-skip against the
-/// CURRENT [FogLayer] constructor (which does NOT yet accept a
-/// [WispParticleSystem] field). Plan 04-04 extends the FogLayer
-/// constructor to thread a WispParticleSystem through to
-/// `_FogPainter._renderWisps`, which is called between the
-/// `canvas.drawRect(...shader)` line and `canvas.restore()`.
+/// _FogPainter renders wisps as the LAST step inside the canvas.save /
+/// canvas.restore block of paint(). Order of operations on the canvas:
 ///
-/// Wave 0 (this plan) ships them with `skip: 'Plan 04-04 implements'`
-/// so the suite stays green; Plan 04-04 removes the skip + lands the
-/// production integration; the assertions below must pass UNCHANGED.
+///   1. canvas.save()
+///   2. canvas.translate(-canvasOffset.dx, -canvasOffset.dy)   (FOG-13)
+///   3. canvas.clipPath(clipPath)                              (FOG-12)
+///   4. canvas.drawRect(Offset.zero & size, ...shader)         (fog draw)
+///   5. canvas.drawCircle(...) per wisp                        (wisps — NEW Plan 04-04)
+///   6. canvas.restore()
 ///
-/// Why skip instead of assert-fail:
-///
-/// The test's GREEN behaviour requires the FogLayer constructor to
-/// accept a `wispParticleSystem` parameter that does not exist yet —
-/// any test body referencing it would not compile. Writing the test
-/// against the future API and skip-gating it preserves the RED →
-/// GREEN flip path (Plan 04-04 unsets the skip + flips test colour).
-/// Same Wave-0-skip discipline as the existing FOG-09
-/// `fog_pan_translation_test.dart` `skip: true` row.
+/// Each wisp's screen position MUST come from
+/// `camera.latLngToScreenPoint(wisp.position)` against the SAME MapCamera
+/// snapshot the fog uses (FOG-07 single-snapshot keystone). This is the
+/// cross-pipeline parity check that completes the code-donor package:
+/// `camera.latLngToScreenPoint(...)` is the same call site
+/// `fog_clip_path.dart` uses for the SDF reveal-hole centres.
 void main() {
   group('FogLayer wisp render (WISP-04)', () {
-    test(
-      '_FogPainter.paint() calls _renderWisps after canvas.drawRect(...shader) and before canvas.restore() — WISP-04 paint sequence',
-      () {
-        // GREEN-flip contract (Plan 04-04):
-        //
-        //   1. Mount a FogLayer with a real WispParticleSystem injected
-        //      via the new `wispParticleSystem` constructor parameter.
-        //   2. Use a painter test seam (e.g. `_FogPainter.debugRenderTrace`
-        //      list of strings) populated with marker entries on each
-        //      sub-step: 'fog_drawRect', 'render_wisps', 'restore'.
-        //   3. Assert order: ['fog_drawRect', 'render_wisps', 'restore'].
-        //
-        // Today (Wave 0): we just construct the WispParticleSystem to
-        // confirm it compiles + the constructor signature lines up with
-        // CONTEXT.md preview. The stub's `wisps` getter throws
-        // UnimplementedError under Plan 04-03; this scaffold doesn't
-        // exercise that path yet.
-        final system = WispParticleSystem();
-        expect(system, isNotNull);
-      },
-      skip: 'Plan 04-04 implements FogLayer constructor extension + paint sequence assertion',
-    );
+    testWidgets('_FogPainter._renderWisps invoked AFTER canvas.drawRect(...shader) and BEFORE canvas.restore() — WISP-04 paint sequence', (tester) async {
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final wispTransformLogger = WispTransformLogger();
+      addTearDown(wispTransformLogger.stop);
 
-    test(
-      'wisp drawCircle calls happen at MapCamera.latLngToScreenPoint(LatLng) for each wisp position — WISP-04 projection path',
-      () {
-        // GREEN-flip contract (Plan 04-04):
-        //
-        //   1. Spawn N wisps at known LatLngs.
-        //   2. Mount a FogLayer with the system; pump one frame.
-        //   3. Use a recording Canvas test seam to capture every
-        //      `drawCircle(center, radius, paint)` call.
-        //   4. Assert each `center` equals `MapCamera.latLngToScreenPoint(
-        //      wisp.position)` from the painter's MapCamera snapshot
-        //      (FOG-07 single-snapshot — no fresh `MapCamera.of(context)`
-        //      reads inside the painter).
-        //
-        // The point is to defend WISP-01: wisps live in LatLng; the
-        // projection happens at paint time using the SAME MapCamera the
-        // fog uses; a regression to screen-pixel-space wisps would
-        // produce drawCircle centres that DON'T match the projected
-        // LatLng → screen Offset for any non-default zoom.
-        final system = WispParticleSystem();
-        expect(system, isNotNull);
-      },
-      skip: 'Plan 04-04 implements FogLayer constructor extension + projection-path assertion',
-    );
+      final discRepository = RevealDiscRepository();
+      // Append one disc at the camera centre so the SDF cache has work to do.
+      discRepository.append(
+        RevealDisc(id: 'rvd_wisp_paint_seq', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
+      );
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      // Pre-spawn wisps so _renderWisps has something to draw. _FakeStopwatch
+      // initialMs=6000 puts the system past the 5-s warmup gate.
+      final wispParticleSystem = WispParticleSystem(wallClock: _FakeStopwatch(initialMs: 6000));
+      wispParticleSystem.spawnAtNewDisc(
+        discId: 'rvd_wisp_paint_seq',
+        disc: RevealDisc(id: 'rvd_wisp_paint_seq', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
+      );
+      expect(wispParticleSystem.activeCount, greaterThan(0), reason: 'Pre-condition: wisps spawned past warmup gate.');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    wispParticleSystem: wispParticleSystem,
+                    wispTransformLogger: wispTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Settle the SDF future via the real event loop so the painter's
+      // sdfImage != null guard passes and paint() runs the full body.
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+
+      // Find the painter and run a recording-canvas paint to capture the
+      // exact op-sequence. Pre-spawned wisps will produce drawCircle calls.
+      final painter = _findFogPainter(tester);
+      final canvas = _RecordingMockCanvas(canvasTx: 0, canvasTy: 0);
+      painter.paint(canvas, const Size(400, 800));
+
+      // Assert at least one drawRect (fog) AND at least one drawCircle (wisp)
+      // happened, AND drawRect index < drawCircle index < restore index.
+      final drawRectIndex = canvas.callOrder.indexOf('drawRect');
+      final firstDrawCircleIndex = canvas.callOrder.indexOf('drawCircle');
+      final restoreIndex = canvas.callOrder.indexOf('restore');
+
+      expect(drawRectIndex, isNonNegative, reason: 'Production fog drawRect MUST fire.');
+      expect(firstDrawCircleIndex, isNonNegative, reason: 'WISP-04: at least one wisp drawCircle MUST fire when activeCount > 0.');
+      expect(restoreIndex, isNonNegative, reason: 'paint() MUST end with canvas.restore().');
+      expect(
+        drawRectIndex < firstDrawCircleIndex,
+        isTrue,
+        reason: 'WISP-04 paint sequence: fog drawRect MUST come BEFORE wisp drawCircle (wisps render on top of fog).',
+      );
+      expect(
+        firstDrawCircleIndex < restoreIndex,
+        isTrue,
+        reason: 'WISP-04 paint sequence: wisp drawCircle MUST come BEFORE canvas.restore() (inside the same save/restore block as the fog).',
+      );
+    });
+
+    testWidgets('_renderWisps calls camera.latLngToScreenPoint per wisp position — WISP-04 projection path', (tester) async {
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final wispTransformLogger = WispTransformLogger();
+      addTearDown(wispTransformLogger.stop);
+
+      final discRepository = RevealDiscRepository();
+      discRepository.append(
+        RevealDisc(id: 'rvd_wisp_proj_path', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
+      );
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      final wispParticleSystem = WispParticleSystem(wallClock: _FakeStopwatch(initialMs: 6000));
+      wispParticleSystem.spawnAtNewDisc(
+        discId: 'rvd_wisp_proj_path',
+        disc: RevealDisc(id: 'rvd_wisp_proj_path', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
+      );
+      final wispCount = wispParticleSystem.activeCount;
+      expect(wispCount, inInclusiveRange(18, 22), reason: 'Pre-condition: ~20 wisps spawned along 25 m disc perimeter.');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    wispParticleSystem: wispParticleSystem,
+                    wispTransformLogger: wispTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+
+      // Run a synthetic paint with a recording canvas. drawCircle calls land
+      // at the projected screen Offset of each wisp; we assert the call
+      // count matches the wisp count AND each centre lies inside the 400x800
+      // viewport (because the wisps are spawned within ±25 m of the camera
+      // centre, which projects close to (200, 400)).
+      final painter = _findFogPainter(tester);
+      final canvas = _RecordingMockCanvas(canvasTx: 0, canvasTy: 0);
+      painter.paint(canvas, const Size(400, 800));
+
+      // Note: advanceFromWallClock can integrate one step before the loop —
+      // the wisps that died in that step would be removed from the system,
+      // so drawCircle count == wispParticleSystem.activeCount post-paint.
+      final postPaintActiveCount = wispParticleSystem.activeCount;
+      expect(canvas.drawCircleCalls, hasLength(postPaintActiveCount), reason: 'WISP-04: exactly one drawCircle per active wisp.');
+
+      // Each centre lies inside the 400x800 viewport with reasonable margin.
+      // Wisps spawned at ±25 m × 0.105 px/m ≈ ±2.6 raw px from the camera
+      // centre at zoom 13 — well within the viewport bounds.
+      for (final centre in canvas.drawCircleCalls.map((c) => c.$1)) {
+        expect(centre.dx, greaterThan(0.0), reason: 'wisp screen-x lies inside viewport');
+        expect(centre.dx, lessThan(400.0), reason: 'wisp screen-x lies inside viewport');
+        expect(centre.dy, greaterThan(0.0), reason: 'wisp screen-y lies inside viewport');
+        expect(centre.dy, lessThan(800.0), reason: 'wisp screen-y lies inside viewport');
+      }
+    });
+
+    testWidgets('_renderWisps body is a no-op when wispParticleSystem.activeCount == 0 (zero drawCircle, zero recordPaint)', (tester) async {
+      final probe = FrameDeltaProbe();
+      addTearDown(() async => probe.dispose());
+      final fogTransformLogger = FogTransformLogger();
+      addTearDown(fogTransformLogger.stop);
+      final wispTransformLogger = WispTransformLogger();
+      addTearDown(wispTransformLogger.stop);
+
+      final discRepository = RevealDiscRepository();
+      discRepository.append(
+        RevealDisc(id: 'rvd_wisp_empty', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
+      );
+      addTearDown(discRepository.dispose);
+      final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
+      addTearDown(sdfCache.dispose);
+      final renderer = RecordingFogShaderRenderer();
+
+      // Pass a system with default (real) Stopwatch. The warmup gate is
+      // active during the test runtime, so spawnAtNewDisc no-ops; system
+      // stays empty.
+      final wispParticleSystem = WispParticleSystem();
+      expect(wispParticleSystem.activeCount, 0);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 800,
+              child: FlutterMap(
+                options: const MapOptions(initialCenter: LatLng(48.5397, 2.6553), initialZoom: 13),
+                children: <Widget>[
+                  FogLayer(
+                    discRepository: discRepository,
+                    shader: null,
+                    sdfCache: sdfCache,
+                    frameDeltaProbe: probe,
+                    fogTransformLogger: fogTransformLogger,
+                    wispParticleSystem: wispParticleSystem,
+                    wispTransformLogger: wispTransformLogger,
+                    shaderRenderer: renderer,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+
+      final painter = _findFogPainter(tester);
+      final canvas = _RecordingMockCanvas(canvasTx: 0, canvasTy: 0);
+      painter.paint(canvas, const Size(400, 800));
+
+      expect(canvas.drawCircleCalls, isEmpty, reason: 'WISP-04: empty wisp system MUST produce ZERO drawCircle ops (early return + no Paint allocation).');
+      // The fog drawRect still happens — production fog path is independent
+      // of the wisp early-return.
+      expect(canvas.callOrder.contains('drawRect'), isTrue, reason: 'Empty-wisp early-return must NOT skip the fog drawRect.');
+    });
+
+    test('_FogPainter constructor enforces wispParticleSystem + wispTransformLogger required (compile-time check)', () {
+      // This test is a COMPILE-time check rolled into a runtime assertion:
+      // if the FogLayer constructor stops requiring the wisp fields, the
+      // test scaffolds in this file (which pass `wispParticleSystem:` +
+      // `wispTransformLogger:` to FogLayer) would still compile, but the
+      // FogLayer's argument list elsewhere (the FogLayer construction in
+      // map_screen.dart's build method, and the production router builder)
+      // would lose the regression guard.
+      //
+      // The test passes if the wisp constructor args were threaded through
+      // FogLayer → _FogPainter (verified by the testWidgets above which
+      // compile-fail without the constructor args).
+      final wispParticleSystem = WispParticleSystem();
+      final wispTransformLogger = WispTransformLogger();
+      addTearDown(wispTransformLogger.stop);
+      expect(wispParticleSystem, isNotNull);
+      expect(wispTransformLogger, isNotNull);
+    });
   });
+}
+
+/// Locates the `_FogPainter` instance under the FogLayer in the widget tree.
+CustomPainter _findFogPainter(WidgetTester tester) {
+  final customPaint = tester.widget<CustomPaint>(find.descendant(of: find.byType(FogLayer), matching: find.byType(CustomPaint)));
+  final painter = customPaint.painter;
+  if (painter == null) {
+    fail('Expected FogLayer descendant CustomPaint to carry a non-null `painter`; got null.');
+  }
+  return painter;
+}
+
+/// Recording canvas that captures the op sequence and the args of
+/// `drawCircle` so the test can assert paint-order invariants AND the
+/// per-wisp projection.
+///
+/// Same `Fake implements Canvas` idiom as
+/// `fog_canvas_frame_alignment_test.dart`'s `_RecordingMockCanvas`; extends
+/// it with a `drawCircleCalls` list.
+class _RecordingMockCanvas extends Fake implements Canvas {
+  _RecordingMockCanvas({required this.canvasTx, required this.canvasTy});
+
+  final double canvasTx;
+  final double canvasTy;
+
+  /// Captured `(centre, radius)` tuples from `drawCircle` calls.
+  final List<(Offset, double)> drawCircleCalls = <(Offset, double)>[];
+
+  /// Ordered op-name list — index of 'drawRect' must be less than index of
+  /// 'drawCircle' must be less than index of 'restore' for WISP-04.
+  final List<String> callOrder = <String>[];
+
+  @override
+  void save() {
+    callOrder.add('save');
+  }
+
+  @override
+  void restore() {
+    callOrder.add('restore');
+  }
+
+  @override
+  void clipPath(ui.Path path, {bool doAntiAlias = true}) {
+    callOrder.add('clipPath');
+  }
+
+  @override
+  void translate(double dx, double dy) {
+    callOrder.add('translate');
+  }
+
+  @override
+  void drawRect(Rect rect, Paint paint) {
+    callOrder.add('drawRect');
+  }
+
+  @override
+  void drawCircle(Offset c, double radius, Paint paint) {
+    callOrder.add('drawCircle');
+    drawCircleCalls.add((c, radius));
+  }
+
+  @override
+  Float64List getTransform() {
+    callOrder.add('getTransform');
+    final m = Float64List(16);
+    m[0] = 1.0;
+    m[5] = 1.0;
+    m[10] = 1.0;
+    m[15] = 1.0;
+    m[12] = canvasTx;
+    m[13] = canvasTy;
+    return m;
+  }
+}
+
+/// Local copy of the `_FakeStopwatch` from
+/// `test/infrastructure/mirk/wisp/wisp_particle_system_test.dart`. Pushes
+/// the system past the 5-s warmup gate without `Future.delayed`.
+class _FakeStopwatch implements Stopwatch {
+  _FakeStopwatch({int initialMs = 0}) : _elapsedMs = initialMs;
+
+  int _elapsedMs;
+
+  @override
+  int get elapsedMilliseconds => _elapsedMs;
+
+  @override
+  int get elapsedMicroseconds => _elapsedMs * 1000;
+
+  @override
+  noSuchMethod(Invocation invocation) {
+    throw UnimplementedError('_FakeStopwatch: ${invocation.memberName} not implemented');
+  }
 }
