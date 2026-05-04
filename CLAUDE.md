@@ -289,3 +289,5 @@ Quand on travaille sur des bugs, utiliser un **subagent dédié par bug** pour p
 # MIRL solution
 
 la solution doit etre shader agnostic puisque dans l'application reelle plusieur shader different seront utilisé
+ce qui veut dire que on doit fonctionner avec des shader non periodique, n'importe quel shader.
+il y a donc naturellement un couplage camere/shader
