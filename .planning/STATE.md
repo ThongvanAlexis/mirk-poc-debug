@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Plan 03.1-13 EXECUTED 2026-05-04 — Walk #5 sideload UAT verdict CONFIRMED-AFTER-FIX-PARTIAL (6th Phase 3.1 verdict; new intermediate outcome introduced by Plan 03.1-13). Q1 SNAP CLOSED at MAX zoom (~35 sec sustained pan at pxOriginX 4.26M with ZERO dev_markers; Walk #4 baseline was 2 markers in 2.36 sec at the same regime); FOG-17a-wrap-firing-visibly mechanism interpretation EMPIRICALLY CONFIRMED. FOG-18 JSONL signature confirmed (uOffsetX reaches 4.26M, Walk #4 was bounded under 1537). Q3 + Q4 + Q2 retained (UX-02 walk-time-validated 2nd consecutive walk). PERF-07 re-measured (medianMs 1.228 / p95Ms 1.591 / maxMs 1.724; 13×/20×/28× headroom). Q1b residual still present as expected (C2' / FOG-19 deferred); developer's verbatim *'steppy displacement behavior in fog... numbers sliding'* + CLAUDE.md *'heavy hard steps while zooming / incorrect scaling'* — captured as empirical baseline for C2' follow-up plan. C3' / DEBUG-02 explicit ≥7M extreme-distance walk-time-validation deferred to Walk #6 (max regime reached 4.26M = MAX zoom at Melun; not the ~50-100 km regime). FOG-18 flips to walk-time-validated; DEBUG-02 retains Verified-by-test with deferred-walk-time note. FOG-04..07 + FOG-11 + FOG-15 stay Falsified-in-production. Phase 3.1 plans 13 of 13 complete; stays In Progress (6th iteration; awaiting C2' plan + Walk #6). Phase 4 + Phase 5 STAY BLOCKED. Walks #1-#4 + Walk #3b + Phase 3 historical records UNTOUCHED. CLAUDE.md `# current best version` section LEFT UNTOUCHED. Next: /gsd:discuss-phase 3.1 → /gsd:plan-phase 3.1 --gaps for C2' follow-up plan."
-last_updated: "2026-05-04T19:30:00.000Z"
-last_activity: "2026-05-04 — Plan 03.1-13 EXECUTED. Walk #5 verdict CONFIRMED-AFTER-FIX-PARTIAL: Q1 SNAP closed 100% at MAX zoom (zero dev_markers across ~35 sec sustained pan at pxOriginX 4.26M; Walk #4 fired 2 in 2.36 sec at same regime); FOG-18 JSONL signature confirmed (uOffsetX reaches 4.26M, Walk #4 was under 1537 under FOG-17a); Q1b residual still present (EXPECTED — C2' deferred); UX-02 + FOG-12 + FOG-13 + FOG-16 + FOG-17 walk-time-validated 2nd walk; PERF-07 retained at 13×/20×/28× headroom. FOG-18 flips to walk-time-validated. C3' / DEBUG-02 walk-time-validation deferred to Walk #6. Phase 3.1: 13 of 13 plans complete; stays In Progress (6th iteration); next is /gsd:discuss-phase 3.1 + C2' follow-up plan + Walk #6."
+status: verifying
+stopped_at: Phase 3.1 C2' context captured (post-Walk-5)
+last_updated: "2026-05-04T18:22:22.357Z"
+last_activity: "2026-05-04 — Plan 03.1-13 EXECUTED. Walk #5 verdict CONFIRMED-AFTER-FIX-PARTIAL: Q1 SNAP closed 100% at MAX zoom + FOG-18 JSONL signature confirmed + Q1b residual still present as EXPECTED (C2' deferred) + UX-02 walk-time-validated 2nd consecutive walk + PERF-07 retained at 13×/20×/28× headroom + C3' / DEBUG-02 walk-time-validation deferred to Walk #6 (≥7M not crossed). FOG-18 flips to walk-time-validated. Phase 3.1: 13 of 13 plans complete; stays In Progress (6th iteration awaiting C2' plan + Walk #6)."
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 34
-  completed_plans: 33
+  completed_plans: 34
   percent: 97
 ---
 
@@ -162,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T19:30:00.000Z
-Stopped at: Plan 03.1-13 EXECUTED 2026-05-04 — Walk #5 verdict CONFIRMED-AFTER-FIX-PARTIAL (6th Phase 3.1 verdict; new intermediate outcome). Q1 SNAP closed at MAX zoom; Q1b residual deferred to C2' follow-up plan; C3' / DEBUG-02 walk-time-validation deferred to Walk #6. FOG-18 walk-time-validated. Phase 3.1: 13/13 plans complete; stays In Progress (6th iteration awaiting C2' plan + Walk #6).
-Resume file: None
+Last session: 2026-05-04T18:22:22.352Z
+Stopped at: Phase 3.1 C2' context captured (post-Walk-5)
+Resume file: .planning/phases/03.1-fix-fog-pan-translation/03.1-CONTEXT.md
