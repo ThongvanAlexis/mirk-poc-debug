@@ -92,10 +92,11 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 
 ### Wisp Particles
 
-- [ ] **WISP-01**: `WispParticleSystem` is ported from MirkFall with particle positions refactored from `Offset` (screen pixels) to `LatLng` (world coordinates); positions are projected to screen at paint time using the same `MapCamera` snapshot as the fog
-- [ ] **WISP-02**: Wisps are spawned along disc perimeters as new discs appear; max 200 wisps active simultaneously; 8 m spacing; 2.5 s life; 18 px/s initial speed; birth radius 6 px → death radius 22 px; peak alpha 0.35
+- [ ] **WISP-01**: `WispParticleSystem` is ported from MirkFall with particle positions refactored from `Offset` (screen pixels) to `LatLng` (world coordinates); positions are projected to screen at paint time using the SAME `MapCamera.of(context)` snapshot the fog uses (FOG-07 carry-over from Phase 3.1: a single snapshot per `FogLayer.build()` lifecycle — wisps must share THE snapshot, not just A snapshot — to avoid frame-mismatched projections that the parent project's BUG-014 exhibited)
+- [ ] **WISP-02**: Wisps are spawned along disc perimeters as new discs appear; max 200 wisps active simultaneously; 8 m spacing; 2.5 s life; peak alpha 0.35. **Open questions for `/gsd:discuss-phase 4`** (do NOT pre-resolve in planning): kinematic units — speed (originally drafted as `18 px/s`), birth radius (`6 px`), death radius (`22 px`) — are these in screen-pixels (zoom-dependent visible size; verbatim-port-from-MirkFall = BUG-014 signature), world-pixels-at-`kPocFogReferenceZoom = 13.0` (zoom-invariant world-anchor), or meters (true ground-distance)? Drift direction (radial outward from spawn point? all outward from disc centre? tangential?) and acceleration profile (linear / eased / instantaneous-then-decelerate)? Phase 3.1 C2' / FOG-19 dimensional-mismatch trap is the cautionary precedent.
 - [ ] **WISP-03**: A 5 s warm-up phase suppresses wisp spawning on app open
-- [ ] **WISP-04**: Wisps render in the same Canvas as the fog and the tile layer (same paint pass, same `MapCamera` snapshot)
+- [ ] **WISP-04**: Wisps render in the same Canvas as the fog and the tile layer (same paint pass, same `MapCamera` snapshot). **Open questions for `/gsd:discuss-phase 4`** (do NOT pre-resolve in planning): paint order relative to `_FogPainter.paint()`'s post-Phase-3.1 sequence (`canvas.translate(-canvasOffset)` FOG-13 → `canvas.clipPath(clipPath)` FOG-12 → `shader.render(pixelOrigin, zoomScale)` → `canvas.drawRect(Offset.zero & size, shaderPaint)`) — wisps drawn inside or outside the translated frame? inside or outside the clip path (clipped to reveal-hole or rendered over entire fog)? Render mechanism — dedicated wisp shader (MIRL applies per CLAUDE.md `# MIRL solution` visual-identity-preservation rule; ABI extension required; consistent with FOG-19 `uZoomScale` plumbing) OR Flutter Canvas API `drawCircle`/`drawRect` (MIRL doesn't apply; simpler; potentially worse perf at 200 particles)? DEBUG-01 toggle compatibility — wisps visible in `/sanity` debug-spiral mode or only in production?
+- [ ] **WISP-05** *(NEW 2026-05-04 post-Phase-3.1 spec correction; per shader-fix-retrospective.md lesson #4 "ship the diagnostic before you need it" — Walk #4 supplementary debug-spiral asymmetric observation was the pivotal moment of Phase 3.1 closure)*: A `WispTransformLogger` (analogous to `FogTransformLogger` from Plan 03.1-01) emits per-paint diagnostic captures + 1-Hz JSONL rollups via `Logger('infrastructure.mirk.wisp')` carrying: active wisp count, mean particle age (ms), position bounds in `LatLng` (`latMin / latMax / lonMin / lonMax`), projected screen-Offset bounds (`screenXMin / screenXMax / screenYMin / screenYMax`), spawn rate per second. Cadence: 1-Hz wall-clock-aligned for grep-correlation against `infrastructure.mirk.fog_transform` + `infrastructure.mirk.sdf` + `infrastructure.mirk.frame_delta` streams. Enables Walk grep-correlation against fog/sdf streams + dev-marker timestamps if any wisp-anchoring failure mode surfaces (e.g., wisps drift relative to map during gesture; fp32 precision artefact at extreme distance; spawn-rate spike correlating with SDF rebuild; etc.). _(Phase 4 — implement before any walk attempt)_
 
 ### User Experience
 
@@ -244,8 +245,8 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | UX-02 | Phase 3.1 | Complete — Verified-by-test + walk-time validated 3rd consecutive walk (P03.1-10 — `map_screen_test.dart` UX-02 rotation-disabled assertion; flags & InteractiveFlag.rotate == 0; flags & InteractiveFlag.drag != 0; flags & InteractiveFlag.pinchZoom != 0; **P03.1-11 Walk #4 walk-time validation 2026-05-04** — canvasTx/Ty identically 0.000000 across all 40 fog_transform rollups; developer's verbatim *"rotation disable as wanted"*; **P03.1-13 Walk #5 re-validation 2026-05-04** — canvasTx/Ty identically 0.000000 across all 80 fog_transform rollups; **P03.1-15 Walk #6 re-validation 2026-05-04 CONFIRMED-AFTER-FIX FULL** — UX-02 InteractionOptions retained by inheritance through Plan 03.1-12 + Plan 03.1-14 (no rotation-related changes); no rotation-related complaint surfaced during Walk #6). Phase 3.1 closure confirms UX-02 path (a) (disable rotation) is the empirical answer for the rotation-correlated mis-coverage failure mode. |
 
 **Coverage:**
-- v1 requirements: 75 total (71 + FOG-18 + DEBUG-02 + DEBUG-03 + FOG-19)
-- Mapped to phases: 75
+- v1 requirements: 76 total (71 + FOG-18 + DEBUG-02 + DEBUG-03 + FOG-19 + WISP-05)
+- Mapped to phases: 76
 - Unmapped: 0 ✓
 
 **Per-phase counts:**
@@ -253,7 +254,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 - Phase 2 (Map, no fog): 12 requirements (MAP × 6, LOC × 5, PERF-02)
 - Phase 3 (Fog — THE HYPOTHESIS): 11 requirements (FOG × 8, PERF-03/04/05)
 - Phase 3.1 (Fix Fog Pan-Translation): 19 requirements (FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, FOG-15, FOG-16, FOG-17, FOG-18, FOG-19, PERF-07, PERF-08, UX-01, UX-02, DEBUG-01, DEBUG-02, DEBUG-03, MIRK-01 [deferred — captured insight])
-- Phase 4 (Wisps): 4 requirements (WISP × 4)
+- Phase 4 (Wisps): 5 requirements (WISP × 5 — WISP-05 added 2026-05-04 post-Phase-3.1 spec correction; per `shader-fix-retrospective.md` lesson #4 "ship the diagnostic before you need it")
 - Phase 5 (Decision Gate): 1 requirement (PERF-06)
 
 ## Revisions
