@@ -27,13 +27,16 @@ import 'package:mirk_poc_debug/config/constants.dart';
 ///    uScaleNear)`. Wraps every ~37 raw px. Produces ~969 wraps over
 ///    the same sweep — Walk #3 confirmed user-perceptible stepping
 ///    persists at the wrap events.
-/// 3. **Plan 03.1-10 (world-coordinate sampling):**
+/// 3. **Plan 03.1-10 (world-coordinate sampling) + Plan 03.1-12
+///    (FOG-18, no Dart-side modulo):**
 ///    `noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`.
 ///    No `fract()` — each fragment samples noise at its world
-///    position. Within a single `kPocFogIntegerWrapPeriodPx` window
-///    (1500-px sweep here) ZERO wraps. Integer-wrap events fire only
-///    at the kPocFogIntegerWrapPeriodPx boundary (~128 sec at Walk #3b
-///    pan velocity).
+///    position. The Plan 03.1-10 FOG-17a Dart-side `% 1536` modulo wrap
+///    has been REMOVED post-Walk-4 falsification; the painter now
+///    forwards `camera.pixelOrigin` directly. ZERO wraps over the
+///    1500-px sub-trajectory under both the pre-FOG-18 and post-FOG-18
+///    forward paths (the only fract was the Dart-side modulo, removed
+///    by FOG-18; the world-coordinate noiseUv evolves monotonically).
 ///
 /// ## Why retain the historical sub-tests
 ///
@@ -49,10 +52,10 @@ import 'package:mirk_poc_debug/config/constants.dart';
 /// - Pre-fix + B-3 sub-tests: 7200 paints @ 5 px/paint = 36000-px sweep
 ///   (matches the original Plan 03.1-07 design — the wide sweep is
 ///   needed for the wrap-frequency-multiplier test to converge).
-/// - Plan 03.1-10 sub-test: 300 paints @ 5 px/paint = 1500-px sweep
-///   (under one `kPocFogIntegerWrapPeriodPx` cycle so the integer-wrap
-///   event does NOT fire within the trajectory; ZERO wraps is the
-///   asserted post-fix invariant).
+/// - Plan 03.1-10 + Plan 03.1-12 sub-test: 300 paints @ 5 px/paint =
+///   1500-px sweep. Post-FOG-18 there is no integer-wrap event at any
+///   magnitude (the `% 1536` modulo is gone); ZERO wraps is the
+///   asserted post-fix invariant.
 void main() {
   group('FOG-14a (Plan 03.1-07 Branch B-3 / Plan 03.1-10 FOG-17) — wrap-period regression gate', () {
     test('Plan-03.1-04 PRE-FIX (viewport-width modulo) — wrap count in viewport-width regime (~92 over 36k-px sweep)', () {
@@ -99,21 +102,24 @@ void main() {
       );
     });
 
-    test('Plan-03.1-10 POST-FIX (world-coordinate) — ZERO wraps over 1500-px sub-wrap-period sweep', () {
-      // Plan 03.1-10 FOG-17: the world-coordinate formulation
-      // `noiseUv = (fragUv * uResolution + boundedPxOrigin) / kNoiseTilePx`
-      // has NO fract() applied — there is no fractional offset that
-      // could wrap. Within a single `kPocFogIntegerWrapPeriodPx` window
-      // (1500-px sweep < 1536), the FOG-17a integer-wrap event does
-      // not fire and the noiseUv evolution is monotonically smooth.
+    test('Plan-03.1-10 + Plan-03.1-12 POST-FIX (world-coordinate, no Dart-side modulo) — ZERO wraps over 1500-px sweep', () {
+      // Plan 03.1-10 FOG-17 + Plan 03.1-12 FOG-18: the world-coordinate
+      // formulation `noiseUv = (fragUv * uResolution + uPixelOrigin) /
+      // kNoiseTilePx` has NO fract() applied — there is no fractional
+      // offset that could wrap. Plan 03.1-12 also removed the Plan
+      // 03.1-10 FOG-17a Dart-side `% 1536` modulo wrap (Walk #4
+      // falsified its premise); the painter now forwards
+      // camera.pixelOrigin directly. The noiseUv evolution is
+      // monotonically smooth at any magnitude.
       final wrapCount = _countWraps(formulation: _Formulation.worldCoordinate);
       expect(
         wrapCount,
         equals(0),
         reason:
-            'FOG-14a-POST-FIX-GREEN: Plan-03.1-10 world-coordinate formulation must produce ZERO wraps over a sub-1536-px sweep. '
-            'No fract() is applied — there is no fractional offset that could wrap. If wraps are reported here, the FOG-17 fix '
-            'has been silently reverted to the B-3 fract() formulation. Wrap count: $wrapCount.',
+            'FOG-14a-POST-FIX-GREEN: post-Plan-03.1-10 world-coordinate formulation + post-Plan-03.1-12 FOG-18 (no Dart-side modulo) '
+            'must produce ZERO wraps over the 1500-px sweep. No fract() is applied — there is no fractional offset that could wrap. '
+            'If wraps are reported here, the FOG-17 + FOG-18 fixes have been silently reverted (e.g., to the B-3 fract() formulation '
+            'or to the FOG-17a integer-wrap modulo). Wrap count: $wrapCount.',
       );
     });
   });
@@ -131,9 +137,11 @@ enum _Formulation {
   /// `tilePeriodPixels = uResolution / max(uScaleFar, uScaleMid, uScaleNear)`.
   tilePeriodFract,
 
-  /// Plan-03.1-10 FOG-17: `noiseUv = (fragUv * uResolution + boundedPxOrigin) / kNoiseTilePx`.
-  /// FOG-17a Dart-side decomposition keeps `boundedPxOrigin` under
-  /// `kPocFogIntegerWrapPeriodPx + 1`.
+  /// Plan-03.1-10 FOG-17 + Plan-03.1-12 FOG-18:
+  /// `noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`.
+  /// Post-FOG-18 the painter forwards `camera.pixelOrigin` directly
+  /// (the Plan 03.1-10 FOG-17a `% 1536` Dart-side modulo wrap has been
+  /// removed; Walk #4 falsified its premise).
   worldCoordinate,
 }
 
@@ -143,13 +151,12 @@ enum _Formulation {
 /// AND fract-style detection (a fract decrease > 0.5 indicates the
 /// sliding offset crossed the wrap boundary).
 ///
-/// World-coordinate uses a shorter 300-paint × 5-px = 1500-px sweep
-/// (under one `kPocFogIntegerWrapPeriodPx` cycle so the integer-wrap
-/// event does not fire within the trajectory) AND monotonicity-style
-/// detection (a noiseUv NEGATIVE delta indicates a wrap-discontinuity).
-/// Under the post-fix formulation the noiseUv evolves monotonically
-/// forward by `5 / 384 ≈ 0.013` per paint; any negative delta would
-/// indicate a fract() regression.
+/// World-coordinate uses a shorter 300-paint × 5-px = 1500-px sweep AND
+/// monotonicity-style detection (a noiseUv NEGATIVE delta indicates a
+/// wrap-discontinuity). Under the post-fix formulation the noiseUv
+/// evolves monotonically forward by `5 / 384 ≈ 0.013` per paint; any
+/// negative delta would indicate a fract() regression OR a re-introduced
+/// Dart-side modulo wrap (FOG-17a, falsified by Walk #4 per FOG-18).
 int _countWraps({required _Formulation formulation}) {
   const viewportWidth = 390.0;
   final maxScale = math.max(_scaleFar, math.max(_scaleMid, _scaleNear));
@@ -157,13 +164,12 @@ int _countWraps({required _Formulation formulation}) {
   final paintCount = formulation == _Formulation.worldCoordinate ? 300 : 7200;
   // Pre-fix + B-3 use a generic high magnitude (the wraps fire many
   // times across the sweep; starting alignment is irrelevant). World-
-  // coordinate uses a magnitude aligned to start just above 0 in the
-  // post-FOG-17a bounded composite (intPx % 1536 ≈ 0) so the 1500-px
-  // sweep stays under the kPocFogIntegerWrapPeriodPx boundary and
-  // the integer-wrap event does not fire within the trajectory.
-  // 1536 * 651 = 999936 — chosen so 999936 % 1536 = 0 exactly, and
-  // 999936 + 1500 = 1001436 is still in the same wrap window.
-  final startMagnitude = formulation == _Formulation.worldCoordinate ? 999936.0 : 1.0e6;
+  // coordinate uses a Walk #3b zoom-13 regime magnitude (~1.064M) — the
+  // post-FOG-18 forward path forwards camera.pixelOrigin directly so
+  // any starting magnitude works (no wrap window to align with). 1.0e6
+  // is convenient and matches the historical pre-FOG-18 alignment
+  // anchor for git-blame continuity.
+  final startMagnitude = formulation == _Formulation.worldCoordinate ? 1.0e6 : 1.0e6;
   const deltaXPerPaint = 5.0;
   const fragXPx = viewportWidth * 0.5;
 
@@ -186,12 +192,14 @@ int _countWraps({required _Formulation formulation}) {
           wrapCount += 1;
         }
       case _Formulation.worldCoordinate:
-        // Apply FOG-17a decomposition (mirrors _FogPainter.paint()).
+        // Apply post-FOG-18 forward path (mirrors _FogPainter.paint()):
+        // truncateToDouble decomposition retained for documentation
+        // continuity; modulo removed; intPx + fracPx == pxOrigin.
         final intPx = pixelOriginX.truncateToDouble();
         final fracPx = pixelOriginX - intPx;
-        final boundedPxX = (intPx % kPocFogIntegerWrapPeriodPx) + fracPx;
+        final forwardedPxX = intPx + fracPx;
         // FOG-17 world-coordinate formulation: noiseUv evolves monotonically.
-        final worldPxX = fragXPx + boundedPxX;
+        final worldPxX = fragXPx + forwardedPxX;
         currentValue = worldPxX / kPocFogNoiseTilePx;
         // Negative delta = wrap discontinuity (regression). Under the
         // post-fix formulation noiseUv increases monotonically by ~0.013

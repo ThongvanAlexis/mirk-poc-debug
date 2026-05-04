@@ -32,6 +32,16 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// magnitude lives in normalised [0, 1) space. Post-fix HEAD PASSES —
 /// pixelOrigin is full-precision and monotonic.
 ///
+/// Plan 03.1-12 (FOG-18) update: the FOG-17a `% kPocFogIntegerWrapPeriodPx`
+/// modulo introduced by Plan 03.1-10 has been removed (Walk #4 falsified
+/// FOG-17a's premise — the noise function is NOT truly periodic on
+/// `kPocFogNoiseTilePx (=384)` in practice; the wrap event itself was the
+/// bug). The painter now forwards `camera.pixelOrigin` directly. The
+/// `kPocFogSmoothCoordinateMaxDelta` threshold (= 2000.0 raw px) defends
+/// against any future regression that re-introduces a modulo wrap; the
+/// gentle-pan test scenarios (10 small Melun-bounded `MapController.move()`
+/// calls with ~3 raw-px deltas each) have ~3 orders of magnitude headroom.
+///
 /// Higher-fidelity gate than FOG-09 (which is binary "moved at all?"):
 /// FOG-11 asserts CONTINUOUS evolution. Both run on every CI push.
 void main() {
@@ -90,9 +100,12 @@ void main() {
       }
 
       // Assert every consecutive-paint delta is below the threshold.
-      // Pre-Plan-03.1-04 the modulo wrap produces ~size.width-magnitude
-      // jumps (>>1e3) — would FAIL here. Post-fix the deltas are
-      // single-digit raw pixels.
+      // Pre-Plan-03.1-04 the `% 1.0` modulo wrap produced ~size.width-
+      // magnitude jumps (>>2000) — would FAIL here. Post-Plan-03.1-04
+      // the deltas were single-digit raw pixels for these gentle pans.
+      // Post-FOG-18 (Plan 03.1-12) the painter forwards camera.pixelOrigin
+      // directly (no modulo); the deltas remain single-digit raw pixels
+      // for these gentle pans (~3 raw-px each at zoom 13).
       for (var i = 1; i < captureds.length; i++) {
         final dx = (captureds[i].$1 - captureds[i - 1].$1).abs();
         final dy = (captureds[i].$2 - captureds[i - 1].$2).abs();
@@ -100,30 +113,29 @@ void main() {
           dx,
           lessThan(kPocFogSmoothCoordinateMaxDelta),
           reason:
-              'FOG-11 regression at step $i: pixelOrigin.x jumped by $dx (threshold $kPocFogSmoothCoordinateMaxDelta). '
-              'A modulo-wrap discontinuity at the Dart call site would produce ~size.width-magnitude jumps; '
-              'a smooth pan produces single-digit raw-pixel deltas.',
+              'FOG-18 regression at step $i: pixelOrigin.x jumped by $dx (threshold $kPocFogSmoothCoordinateMaxDelta). '
+              'A modulo-wrap discontinuity at the Dart call site would produce ~kPocFogNoiseTilePx-magnitude jumps '
+              '(or larger); a smooth pan produces single-digit raw-pixel deltas.',
         );
-        expect(dy, lessThan(kPocFogSmoothCoordinateMaxDelta), reason: 'FOG-11 regression at step $i: pixelOrigin.y jumped by $dy.');
+        expect(dy, lessThan(kPocFogSmoothCoordinateMaxDelta), reason: 'FOG-18 regression at step $i: pixelOrigin.y jumped by $dy.');
       }
 
-      // Post-FOG-17a bounded-magnitude regime: the painter forwards
-      // `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`, which lives in
-      // [0, kPocFogIntegerWrapPeriodPx]. This range catches BOTH:
-      // - pre-fix-style millions (`1064000 > 1537` would FAIL upper bound)
-      // - naive `% 1.0` regressions (under 1 would FAIL lower bound — the
-      //   `inExclusiveRange(0, ...)` excludes 0 itself; in practice the
-      //   non-trivial pixelOriginX modulo is rarely exactly 0, but if it
-      //   IS, the consecutive-paint delta assertions above already cover
-      //   the smoothness regression separately).
+      // Post-FOG-18 regime: the painter forwards `camera.pixelOrigin`
+      // directly (no modulo). At zoom 13 + Melun, pixelOrigin.x ~1.06M
+      // raw px. This assertion defends against TWO regression paths:
+      // - pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced
+      //   normalised-UV values < 1 (would fail `greaterThan(1e3)`)
+      // - any future regression that re-introduces a modulo wrap would
+      //   bound the value under the modulo period; the smoothness assertion
+      //   above (lines 96-108) catches the per-step discontinuity
+      //   independently.
       expect(
         captureds.last.$1,
-        inExclusiveRange(0, kPocFogIntegerWrapPeriodPx + 1),
+        greaterThan(1e3),
         reason:
-            'FOG-11 magnitude regression: post-FOG-17a bounded-magnitude regime — '
-            'forwarded value is `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx ∈ [0, kPocFogIntegerWrapPeriodPx]`. '
-            'Pre-Plan-03.1-04 the Dart call site applied `% 1.0` and produced values < 1 (would fail lower bound). '
-            'Pre-FOG-17a the painter forwarded raw pixelOrigin in millions (would fail upper bound).',
+            'FOG-18 magnitude regression: post-Plan-03.1-12 the painter forwards camera.pixelOrigin directly. '
+            'At zoom 13 + Melun, pixelOrigin.x ~1.06M raw px. Pre-Plan-03.1-04 the call site applied `% 1.0` '
+            'and produced normalised-UV values < 1 (would fail this assertion).',
       );
     });
   });

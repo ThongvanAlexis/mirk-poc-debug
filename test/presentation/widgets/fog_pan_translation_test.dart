@@ -53,6 +53,18 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// delta > epsilon assertion still passes — for typical sub-1536-raw-px
 /// walks the bounded composite changes monotonically with the camera —
 /// but the documentation tracks the active code semantics.
+///
+/// Plan 03.1-12 update (FOG-18): the FOG-17a modulo is REMOVED — Walk #4
+/// (P03.1-11) debug-spiral positive control falsified FOG-17a's premise
+/// (the noise function is NOT truly periodic on kPocFogNoiseTilePx=384
+/// in practice; the wrap event itself was the bug). The painter now
+/// forwards `camera.pixelOrigin` directly (decomposed into intPx + fracPx
+/// for documentation continuity but with the modulo removed; intPx +
+/// fracPx == pxOrigin within fp32). The mechanical delta > epsilon
+/// assertion below STILL passes — a programmatic pan still produces a
+/// non-zero delta in the forwarded value, only now the delta tracks the
+/// raw camera.pixelOrigin shift directly (zoom 13 magnitude ~411 raw px
+/// for the test trajectory).
 void main() {
   group('FOG-09 (Plan 03.1-02 keystone)', () {
     testWidgets('FogLayer pixelOrigin uniform tracks camera pan (catches Plan 03-08 static-fog regression)', (tester) async {
@@ -153,7 +165,8 @@ void main() {
             'Plan 03-08 regression: uPixelOrigin.x did not change after a programmatic pan. '
             'The painter MUST forward a camera.pixelOrigin-derived value to shaderRenderer.render(pixelOrigin:). '
             'Pre-FOG-17a: raw pixelOrigin (zoom 13 magnitude ~1e6). '
-            'Post-FOG-17a: bounded composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`. '
+            'Post-FOG-17a (Plan 03.1-10): bounded composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx`. '
+            'Post-FOG-18 (Plan 03.1-12): raw pixelOrigin again — the FOG-17a wrap was falsified by Walk #4. '
             'Either way, a programmatic pan MUST produce a non-zero delta in the forwarded value. '
             'Pre-fix HEAD passed const (0.0, 0.0) and tripped this assertion.',
       );

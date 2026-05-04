@@ -379,47 +379,12 @@ const double kPocCanvasTransformEpsilon = 1e-6;
 /// formulation, breaking visual character continuity across the
 /// fix. See revision context 2026-05-XX (plan-checker WARNING 1).
 ///
-/// Divides `kPocFogIntegerWrapPeriodPx` (1536) cleanly:
-/// 1536 / 384 = 4 (integer; ensures FOG-17a integer-wrap event
-/// is at an exact noise-grid boundary multiple).
+/// Plan 03.1-12 (FOG-18) note: the previously-paired constant
+/// `kPocFogIntegerWrapPeriodPx (=1536)` has been deleted (the FOG-17a
+/// integer-wrap-modulo was falsified by Walk #4's debug-spiral
+/// positive control); `kPocFogNoiseTilePx` continues to live on its
+/// own as the noise-tile period for FOG-17 world-coordinate sampling.
 const double kPocFogNoiseTilePx = 384.0;
-
-/// FOG-17a (Plan 03.1-10) — integer wrap period for the CPU-side
-/// integer/fractional decomposition of `camera.pixelOrigin`.
-///
-/// `_FogPainter.paint()` decomposes pixelOrigin as
-/// `(intPx, fracPx) = (pxOrigin.truncateToDouble(), pxOrigin -
-/// pxOrigin.truncateToDouble())` then forwards the bounded composite
-/// `(intPx % kPocFogIntegerWrapPeriodPx + fracPx)` to the shader.
-/// Shader input magnitude stays under
-/// `kPocFogIntegerWrapPeriodPx + 1` regardless of zoom level.
-///
-/// 1536.0 raw px chosen because:
-/// - fp32 ULP at 1536 is ≈ 2.4e-4 raw px (mantissa 24 bits, 1536 in
-///   [1024, 2048] so ULP = 2^(11-23) = 2^-12) — three orders of
-///   magnitude better than fp32 ULP at 4.26M (≈ 0.5 raw px) where
-///   Walk #2 captured pixelOrigin running.
-/// - `1536 % kPocFogNoiseTilePx == 0` (1536 = 4 * 384) — the
-///   integer-wrap event lands exactly at a noise-grid boundary.
-///   The visible noise pattern at the wrap boundary is the SAME
-///   on both sides per-octave: the FBM samples a hash3 lattice of
-///   period 1 noise-grid unit, and an integer-multiple shift is a
-///   no-op on the lattice corners — though the FBM rotation +
-///   octave-scale machinery means the per-octave warping does
-///   shift by an integer-grid-multiple amount that is NOT
-///   sub-grid-period continuous in general. See the inspection
-///   note in `_FogPainter.paint()` decomposition block for the
-///   noise-function continuity rationale + Plan 03.1-12+ contingency
-///   if Walk #4 surfaces residual integer-wrap stepping.
-/// - At Walk #3b empirical 12 raw px/s pan velocity, an integer
-///   wrap fires every ~128 seconds — far less frequent than the
-///   pre-Plan-03.1-10 ~3-second stepping cadence (~40× perceptual
-///   reduction).
-///
-/// MUST satisfy the invariant `kPocFogIntegerWrapPeriodPx %
-/// kPocFogNoiseTilePx == 0` — asserted at runtime by
-/// `fog_pixel_origin_decomposition_test.dart`.
-const double kPocFogIntegerWrapPeriodPx = 1536.0;
 
 /// FOG-11 — maximum acceptable consecutive-paint delta in pixelOrigin
 /// (raw world-pixel units) before declaring a discontinuity. Used in the
@@ -429,19 +394,22 @@ const double kPocFogIntegerWrapPeriodPx = 1536.0;
 /// wrap (or any other discontinuous transformation) on the path from
 /// `camera.pixelOrigin` to the shader's `uPixelOrigin` slot 3..4.
 ///
-/// Post-FOG-17a bounded-magnitude regime: the painter forwards a
-/// composite `(intPx % kPocFogIntegerWrapPeriodPx) + fracPx` whose
-/// magnitude is at most `kPocFogIntegerWrapPeriodPx + 1` (= 1537
-/// raw px). Setting this threshold to that ceiling defends against
-/// in-test integer-wrap event flake: an integer-wrap event during
-/// the test trajectory could produce a single consecutive-paint
-/// delta close to `kPocFogIntegerWrapPeriodPx` (the wrap boundary).
+/// Post-Plan-03.1-12 (FOG-18) regime: the painter forwards
+/// `camera.pixelOrigin` directly (no modulo). Walk #4's debug-spiral
+/// positive control falsified FOG-17a's premise — the noise function
+/// is NOT truly periodic on `kPocFogNoiseTilePx (=384)` in practice,
+/// so the wrap event at every 1536 raw-px was itself the bug, not
+/// the precision penalty it was designed to address. fp32's 24-bit
+/// mantissa supports exact-integer values up to 16.7M raw-px, well
+/// above Walk #4's max observed pixelOrigin magnitude of ~4.26M.
 ///
-/// Pre-Plan-03.1-10 the constant was `1e3`; that value was chosen
-/// before the FOG-17a decomposition existed and assumed the painter
-/// forwarded full-precision pixelOrigin (millions). Post-FOG-17a
-/// the deterministic ceiling is `kPocFogIntegerWrapPeriodPx + 1`.
-const double kPocFogSmoothCoordinateMaxDelta = kPocFogIntegerWrapPeriodPx + 1;
+/// At Walk #4 max-zoom pan velocity (~47 raw-px/s; deliberate
+/// stress-test) typical consecutive-paint delta is < 1 raw px.
+/// 2000 raw-px gives ~3 orders of magnitude headroom for normal use
+/// while still catching a regression that re-introduces a wrap
+/// (which would produce a delta of `kPocFogNoiseTilePx (=384)` or
+/// a multiple thereof on the wrap frame).
+const double kPocFogSmoothCoordinateMaxDelta = 2000.0;
 
 // Fog shader asset path (FOG-04..06).
 

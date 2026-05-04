@@ -452,58 +452,59 @@ class _FogPainter extends CustomPainter {
     // MapCamera.of(context) read).
     // Identity uSdfRect (slots 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH
     // §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
-    // FOG-17a (Plan 03.1-10) — CPU-side integer/fractional decomposition.
+    // FOG-18 (Plan 03.1-12) — direct pixelOrigin forwarding (FOG-17a
+    // wrap eliminated).
     //
-    // The pure FOG-17 world-coordinate noise sampling
-    // (`noiseUv = (fragUv * uResolution + uPixelOrigin) / kNoiseTilePx`,
-    // applied per-fragment in the shader) exposes fp32 precision
-    // degradation at high zoom: Walk #2 captured pixelOriginX up to
-    // 4.26M; fp32 mantissa is 24 bits, so ULP at 4.26M is ≈ 0.5 raw px —
-    // catastrophic for sub-noise-cell sampling (the per-octave
-    // `noiseUv * uScale*` would have ±0.5 * uScale = ±5.25 noise-grid
-    // unit jitter at maxScale=10.5).
+    // FOG-17a (Plan 03.1-10) introduced a Dart-side modulo wrap (period
+    // = 1536 raw px = 4 × kPocFogNoiseTilePx) on top of the
+    // integer/fractional decomposition to keep shader input bounded
+    // under ~1537 raw px regardless of zoom — the design assumed the
+    // noise function was truly periodic on `kPocFogNoiseTilePx (=384)`,
+    // so the wrap event would land at an exact noise-grid-period
+    // multiple and be visually invisible.
     //
-    // The decomposition splits pixelOrigin into integer + fractional
-    // Dart-side and forwards a bounded composite to the shader:
+    // **Walk #4 (P03.1-11 2026-05-04) falsified that premise.** The
+    // debug-spiral positive control (digit-atlas cells that ARE truly
+    // periodic on 384) showed ZERO steppiness during max-zoom pan,
+    // while the production fog showed a visible "SNAP" at every wrap
+    // event at max zoom. Conclusion: the FBM-rotated-octave noise
+    // function is NOT periodic on the noise-tile period in practice —
+    // the wrap event ITSELF was the bug, not the precision penalty
+    // FOG-17a was designed to address.
     //
-    //   (intPxX, fracPxX) = (pxOrigin.x.truncateToDouble(),
-    //                        pxOrigin.x - pxOrigin.x.truncateToDouble())
-    //   forwarded.x = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX
+    // FOG-18 fix: forward `camera.pixelOrigin` directly. fp32 has 24
+    // bits of exact-integer mantissa = 16.7M raw-px ceiling, well
+    // above Walk #4's max observed `pixelOriginX` of ~4.26M. Sub-pixel
+    // ULP at 4.26M is ≈ 0.5 raw px; the noise function's per-fragment
+    // sampling is robust to this magnitude of jitter (the visible SNAP
+    // at the wrap was orders of magnitude larger than the precision
+    // penalty FOG-17a hypothesized).
     //
-    // Shader input magnitude stays under `kPocFogIntegerWrapPeriodPx + 1`
-    // (~1537 raw px) regardless of camera.pixelOrigin magnitude. fp32
-    // ULP at 1536 is ≈ 2.4e-4 raw px — three orders of magnitude better.
-    //
-    // The integer wrap fires every `kPocFogIntegerWrapPeriodPx` raw px
-    // of pan; because `kPocFogIntegerWrapPeriodPx % kPocFogNoiseTilePx
-    // == 0` (1536 = 4 * 384), the wrap event lands at an integer
-    // multiple of the noise grid period. The FBM rotation +
-    // octave-scale machinery still introduces sub-grid-period
-    // discontinuity at the wrap (`4 * 2.9 = 11.6` etc. — not exactly
-    // integer-period in the rotated octave space) BUT the wrap
-    // frequency is ~40× lower than pre-Plan-03.1-10 stepping (every
-    // ~128 sec of continuous pan vs every ~3 sec). Plan 03.1-12+
-    // contingency: if Walk #4 surfaces residual integer-wrap
-    // stepping, pivot to a periodic-noise function (Worley/explicit-
-    // period Perlin) whose lattice IS preserved under integer shifts.
+    // The `truncateToDouble` integer/fractional decomposition is
+    // RETAINED for documentation continuity — the split is a no-op
+    // recomposition (intPx + fracPx == pxOrigin within fp32) but the
+    // structure is preserved in case a future C2' follow-up plan re-
+    // introduces a basis derivation that uses the decomposition. See
+    // `03.1-12-PLAN.md` `<scope_note>` for the C2' deferral rationale
+    // (refZoom-px basis vs screen-px uResolution dimensional mismatch
+    // — needs `/gsd:discuss-phase 3.1` to resolve).
     //
     // The fogTransformLogger continues to forward `appliedUOffset` =
-    // the bounded composite (NOT the raw camera.pixelOrigin) so
-    // post-walk JSONL grep can verify the decomposition is in effect.
+    // the forwarded value (post-FOG-18 = `camera.pixelOrigin` exactly)
+    // so post-walk JSONL grep verifies the wrap is gone (`uOffsetXMax`
+    // values will track raw `pixelOriginX` magnitudes — millions at
+    // zoom 13+ — instead of being bounded under 1537).
     final pixOrigin = camera.pixelOrigin;
     final intPxX = pixOrigin.x.truncateToDouble();
     final intPxY = pixOrigin.y.truncateToDouble();
     final fracPxX = pixOrigin.x - intPxX;
     final fracPxY = pixOrigin.y - intPxY;
-    // Dart's `%` operator on doubles returns a value in [0, divisor) for
-    // positive divisor — handles negative integer parts correctly
-    // (intPx = -1536 → -1536 % 1536 = 0; intPx = -1700 → -1700 % 1536 =
-    // 1372). The fractional remainder is sign-preserved by the
-    // truncateToDouble call: pxOrigin = -100.5 → intPx = -100,
-    // fracPx = -0.5; the composite is sign-correct because both
-    // pieces sum to the original bounded magnitude.
-    final boundedX = (intPxX % kPocFogIntegerWrapPeriodPx) + fracPxX;
-    final boundedY = (intPxY % kPocFogIntegerWrapPeriodPx) + fracPxY;
+    // FOG-18: no modulo. boundedX/Y semantically == pxOrigin.x/y
+    // exactly (the recomposition is bit-stable in fp32 since intPx is
+    // produced by truncateToDouble of pxOrigin and fracPx is the
+    // matching residual; intPx + fracPx == pxOrigin).
+    final boundedX = intPxX + fracPxX;
+    final boundedY = intPxY + fracPxY;
     final appliedPixelOrigin = (boundedX, boundedY);
 
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
