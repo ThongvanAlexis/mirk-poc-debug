@@ -12,7 +12,7 @@ import 'package:latlong2/latlong.dart';
 /// the user reveals new cells. Each wisp:
 ///   - lives for a few seconds
 ///   - drifts via curl-noise advection on the CPU side
-///   - grows in radius as it ages (puff dispersing)
+///   - grows in radius as it ages (puff dispersing — Plan 04-04 painter)
 ///   - fades out at the end of life
 ///
 /// Plain mutable class — performance-critical hot path. Freezed would
@@ -21,18 +21,24 @@ import 'package:latlong2/latlong.dart';
 /// idiom here, hence the explicit deviation from the project's general
 /// "prefer immutable models" rule.
 ///
-/// Phase 4 POC port (Plan 04-01 stub; Plan 04-03 implements behaviour) —
-/// TWO field-name deviations from the donor:
+/// Phase 4 POC port — TWO field-name deviations from the donor:
+///
 ///   1. `Offset position` → `LatLng position` (WISP-01 dimensional
-///      discipline — wisps live in WORLD coordinates and are projected
-///      to screen at paint time using the same MapCamera snapshot the
-///      fog uses, FOG-07 carry-over).
+///      discipline). The donor stored screen-pixel positions; that
+///      basis is zoom-fragile and was the trap behind Phase 3.1
+///      BUG-014 (translucent screen-px deltas misalign on zoom). Wisps
+///      live in WORLD coordinates and are projected to screen at paint
+///      time using the same MapCamera snapshot the fog uses
+///      (FOG-07 carry-over).
+///
 ///   2. `Offset velocity` → `Offset velocityMetersPerSecond` (semantic
-///      clarity — Offset is reused as a 2D-vector type for the (dx, dy)
-///      components in m/s; the donor's px/s semantics are GONE).
+///      clarity — Offset is reused as the project's 2D-vector type for
+///      the (dx, dy) components in m/s; the donor's px/s semantics are
+///      GONE). Naming the unit in the field eliminates a class of
+///      "wait, is this px/s or m/s?" bugs forever.
 class WispParticle {
   /// Constructs a fresh wisp at [position] with initial
-  /// [velocityMetersPerSecond].
+  /// [velocityMetersPerSecond] and [life] = [maxLife].
   WispParticle({required this.position, required this.velocityMetersPerSecond, required this.life, required this.maxLife});
 
   /// Current world-space position. WISP-01 dimensional discipline:
@@ -53,10 +59,12 @@ class WispParticle {
   final double maxLife;
 
   /// Whether the particle should be evicted from the active list.
-  /// Plan 04-03 implements.
-  bool get isDead => throw UnimplementedError('Plan 04-03 implements');
+  /// Donor verbatim: `life <= 0`.
+  bool get isDead => life <= 0;
 
   /// Normalised age in [0, 1]. 0 = just born, 1 = about to die.
-  /// Plan 04-03 implements.
-  double get age => throw UnimplementedError('Plan 04-03 implements');
+  /// Donor verbatim: `1 - clamp(life/maxLife, 0, 1)`. The clamp ensures
+  /// over-aged wisps (`life < 0` between integration and removal) report
+  /// `age == 1.0` rather than `> 1.0`.
+  double get age => 1.0 - (life / maxLife).clamp(0.0, 1.0);
 }
