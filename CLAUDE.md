@@ -291,3 +291,25 @@ Quand on travaille sur des bugs, utiliser un **subagent dédié par bug** pour p
 la solution doit etre shader agnostic puisque dans l'application reelle plusieur shader different seront utilisé
 ce qui veut dire que on doit fonctionner avec des shader non periodique, n'importe quel shader.
 il y a donc naturellement un couplage camere/shader
+
+## Règle clarifiée 2026-05-04 (C2' / Q1b discuss-phase 3.1)
+
+**L'identité visuelle du shader doit être préservée.** Concrètement : un shader pris d'une source externe (par exemple Shadertoy) doit pouvoir être rendu **exactement comme il l'est dans sa source originale** à au moins un (zoom, position) choisi. Le bug de référence — un agent précédent a tenté de rendre la fonction de bruit périodique pour cacher le hard-step — est exactement ce qui est interdit : ça change l'identité visuelle du shader (couleur, fréquence du bruit, caractère, style).
+
+**Ce qui EST autorisé** :
+- Ajouter des uniformes au contrat ABI (par exemple `uZoomScale`) si tous les shaders conformes les consomment de manière cohérente.
+- Modifier les calculs de coordonnées-monde côté shader pour changer le **comportement** (ex : ancrer le bruit au monde au lieu de l'écran) si l'identité visuelle au repos reste équivalente à la source originale.
+- Modifier librement les shaders de debug/instrumentation (ex : `atmospheric_fog_debug_spiral.frag`). Ils ne servent qu'à diagnostiquer ; toute modification utile au debug est OK.
+
+**Ce qui n'est PAS autorisé** :
+- Changer le caractère visuel du shader de production (couleur, fréquence du bruit, style, comportement de blur/transparence) pour cacher un bug. La règle anti-cheat : si quelqu'un compare le shader à sa version Shadertoy originale, l'aspect doit pouvoir être identique à au moins un (zoom, position).
+- Forcer la périodicité d'une fonction de bruit pour masquer un wrap visible.
+
+# current best version
+
+docs(03.1-12): complete C1' + C3' Dart-only fix bundle plan #31
+960f5c2
+
+heavy hard steps while zooming
+perfect panning on the numbered shader and the mirk shader
+zooming on the numbered shader show the numbers moving all around : incorrect scalling?
