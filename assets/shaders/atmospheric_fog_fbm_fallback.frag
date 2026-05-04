@@ -2,6 +2,14 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+// Plan 03.1-16 FBM fallback — frozen verbatim copy of pre-Plan-03.1-16
+// atmospheric_fog.frag for /sanity A/B preview only. NOT loaded in
+// production /map (production ALWAYS loads atmospheric_fog.frag, the
+// Worley periodic primitive). Re-used by the developer at the /sanity
+// aesthetic A/B preview gate (Plan 03.1-16 Task 2 checkpoint:human-
+// verify) to compare Worley vs FBM-gradient-noise visual character
+// side-by-side before walk-time validation in Plan 03.1-17.
+
 // Phase 09 BUG-009 (TIER 2) — volumetric fog fragment shader.
 //
 // All seven TIER 2 quality dimensions:
@@ -154,168 +162,61 @@ uniform sampler2D uSdf;
 out vec4 fragColor;
 
 // ---------- Noise primitives ----------
-//
-// Plan 03.1-16 (FOG-20) — Worley periodic noise primitive replaces the
-// pre-Plan-03.1-16 gradient-noise fbm3 chain at the density path.
-//
-// **Architectural property — ZERO discontinuity at wrap events**: at every
-// meter-space wrap event the appliedWorldMetersOrigin shifts by exactly
-// kPocFogIntegerWrapPeriodMeters = 4096 m = 4 cells in noiseUv (where
-// one cell = kNoiseTilePxMeters = 1024 m). The Worley primitive's
-// toroidal period is N = kWorleyPeriodCells = 4 cells per axis, so the
-// wrap shift is an integer multiple of N → the feature-point grid wraps
-// to the IDENTICAL configuration → the Worley output is bit-identical
-// before/after every wrap. Analytical equality at the noise primitive
-// output, NOT a magnitude bound. See `lib/config/constants.dart`
-// `kPocFogWorleyPeriodCells` docstring + Plan 03.1-16 PLAN.md
-// `<continuity_proof_for_plan_03_1_16>` Step 4.
-//
-// **3-octave FBM-of-Worley invariance**: each octave's input shift at a
-// wrap MUST also be integer-multiple of N. With per-octave matrix
-// M_k = 2·I (integer scaling, NOT 2.03 / 2.05 — gradient-FBM's 0.03
-// fractional jitter to break axial alignment is replaced by Worley's
-// feature-point jitter, which already breaks axial alignment), the
-// shift propagates as: Octave 1 receives V = 4 cells; Octave 2 receives
-// 2·V = 8 cells; Octave 3 receives 4·V = 16 cells — all integer-multiple
-// of N = 4 → all three octaves bit-identical at every wrap. Per-octave
-// additive offsets are integer (kWorleyPeriodCells multiples) for the
-// same reason; gradient-FBM's (13.7, 7.3, 5.1) / (-11.1, 17.9, 3.3)
-// fractional offsets are replaced by integer-aligned offsets.
-//
-// **`noise2` retained**: the curl potential (curl2) and the hue field
-// still consume a small 2D noise (line 405 + line 215). They are NOT
-// load-bearing on the wrap-discontinuity axis (Walk #6's 7
-// steppy_translation markers correlated with fbm3 amplitude
-// discontinuity at wrap events, not with the curl or hue noise).
-// Retaining `noise2` for those paths preserves the visual character of
-// curl-noise advection and sub-grey hue variation while the Worley
-// replacement targets only the load-bearing density path.
 
-// Plan 03.1-16 — Worley feature-point jitter amplitude. Constant-folded
-// to match `kPocFogWorleyJitterAmplitude` in `lib/config/constants.dart`.
-// Range [0, 0.5]; 0.45 default produces clean cellular character.
-const float kWorleyJitterAmplitude = 0.45;
+// Hash & value noise — cheap, no dependencies, deterministic per
+// `vec3(p, z)` input. Avoids `texelFetch` / array constants per
+// Impeller foot-gun list.
 
-// Plan 03.1-16 — Worley toroidal period in cells. Constant-folded to
-// match `kPocFogWorleyPeriodCells` in `lib/config/constants.dart`.
-// MUST satisfy `kPocFogIntegerWrapPeriodMeters % (kWorleyPeriodCells *
-// kNoiseTilePxMeters) == 0` (= 4096 % 4096 == 0).
-const float kWorleyPeriodCells = 4.0;
-
-// Plan 03.1-16 — Hash for Worley feature-point placement. Returns a
-// vec2 in [0, 1)^2 deterministic per integer-cell coordinate. Uses
-// the same hash machinery as the pre-fix hash3 (fract-based; no
-// texelFetch / array constants) but emits a 2D output for placing
-// feature points inside grid cells. Bit-identical for cell+N → cell
-// when the Worley sweep applies `mod(neighborCell, N)` toroidally
-// (the periodicity guarantee).
-vec2 hash2(vec2 cell) {
-    vec3 p3 = fract(vec3(cell.xyx) * vec3(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yxz + 33.33);
-    return fract((p3.xx + p3.yz) * p3.zy);
+float hash3(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.yxz + 19.19);
+    return fract((p.x + p.y) * p.z);
 }
 
-// Plan 03.1-16 — 2D periodic Worley primitive (F1 distance to nearest
-// feature point). Toroidal period N = kWorleyPeriodCells cells per
-// axis; 9-cell (3x3) neighbour sweep with `mod(neighborCell, N)` wrap.
-//
-// At a wrap event, p shifts by V cells where V mod N = 0 (the FOG-20
-// period-alignment invariant). floor(p + V) = floor(p) + V; fract(p +
-// V) = fract(p); the 9-cell sweep visits feature points at the SAME
-// `mod(cell + offset, N)` → primitive output bit-identical.
-//
-// `timeSlice` phase-shifts the per-octave feature-point jitter so the
-// cellular pattern boils in place over time (mirrors the pre-fix
-// gradient-FBM's 3D-sliced uTime modulation). Time advancement does
-// NOT break the periodicity guarantee — wrap events are spatial only;
-// time evolves continuously.
-//
-// Output range: [0, ~1.4] (max distance to nearest feature point in a
-// unit cell with jitter; sqrt(2) corner-to-centre upper bound).
-// Inverted to `1.0 - F1` and clamped so denser cells (closer to
-// feature points) read as higher density — matches the gradient-FBM
-// "high noise = high density" convention.
-float worleyPeriodic(vec2 p, float timeSlice) {
-    vec2 cellIndex = floor(p);
-    vec2 fractPart = fract(p);
-    float minDist = 1.0e6;
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
-            vec2 neighbourCell = cellIndex + vec2(float(dx), float(dy));
-            // Toroidal wrap — feature points repeat every N cells.
-            // `mod()` on negative inputs returns [0, N) on Impeller per
-            // GLSL spec; defensive `+ N) mod N` guards drivers that
-            // deviate from spec on negatives.
-            vec2 wrappedCell = mod(mod(neighbourCell, kWorleyPeriodCells) + kWorleyPeriodCells, kWorleyPeriodCells);
-            // Time-driven jitter offset — each cell's feature point
-            // moves smoothly within the cell over time. Bounded by
-            // kWorleyJitterAmplitude so feature points cannot leave
-            // their cell. Time appears as a phase shift on the hash
-            // input, not as a positional offset, preserving the
-            // periodicity guarantee.
-            vec2 jitterPhase = vec2(timeSlice * 0.13, timeSlice * 0.17);
-            vec2 jitter = hash2(wrappedCell + jitterPhase) * kWorleyJitterAmplitude;
-            // Feature point position relative to fractPart in the
-            // current cell.
-            vec2 featurePoint = vec2(float(dx), float(dy)) + jitter;
-            float d = length(fractPart - featurePoint);
-            minDist = min(minDist, d);
-        }
-    }
-    // Invert + clamp — closer to feature point = higher density.
-    return clamp(1.0 - minDist, 0.0, 1.0);
+// 3D value noise — trilinear interp of hash3 at the 8 unit-cube corners.
+float noise3(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * (3.0 - 2.0 * f); // smoothstep
+    float n000 = hash3(i + vec3(0.0, 0.0, 0.0));
+    float n100 = hash3(i + vec3(1.0, 0.0, 0.0));
+    float n010 = hash3(i + vec3(0.0, 1.0, 0.0));
+    float n110 = hash3(i + vec3(1.0, 1.0, 0.0));
+    float n001 = hash3(i + vec3(0.0, 0.0, 1.0));
+    float n101 = hash3(i + vec3(1.0, 0.0, 1.0));
+    float n011 = hash3(i + vec3(0.0, 1.0, 1.0));
+    float n111 = hash3(i + vec3(1.0, 1.0, 1.0));
+    float nx00 = mix(n000, n100, u.x);
+    float nx10 = mix(n010, n110, u.x);
+    float nx01 = mix(n001, n101, u.x);
+    float nx11 = mix(n011, n111, u.x);
+    float nxy0 = mix(nx00, nx10, u.y);
+    float nxy1 = mix(nx01, nx11, u.y);
+    return mix(nxy0, nxy1, u.z);
 }
 
-// Plan 03.1-16 — 3-octave FBM-of-Worley sum replacing the pre-fix
-// 3-octave gradient-FBM. Per-octave matrix M_k = 2·I (integer scaling)
-// + integer-multiple offsets so each octave's wrap shift is integer-
-// multiple of kWorleyPeriodCells → all three octaves bit-identical at
-// every wrap event. Weights 0.5 + 0.25 + 0.125 = 0.875 (matches
-// pre-fix fbm3); dynamic range preserved.
-//
-// Cost: 3 worleyPeriodic calls × 9-cell neighbour sweep × hash2 +
-// length per cell ≈ 27 hash2 + 27 length() calls per fragment, vs
-// pre-fix gradient-FBM's ~24 hash3 + 24 mix() calls. Comparable; PERF-
-// 07 envelope preserved (Walk #7 IPA re-measures empirically).
-float fbmWorley(vec2 p, float timeSlice) {
+// 2D value noise — used for the curl potential and the hue field. No
+// time slice, evaluated as `noise3(vec3(p, 0.0))` to share machinery.
+float noise2(vec2 p) {
+    return noise3(vec3(p, 0.0));
+}
+
+// 3-octave 3D FBM. Conservative rotation between octaves to avoid
+// axial alignment. Cost ~3 noise3 calls.
+float fbm3(vec3 p) {
     float a = 0.5;
     float t = 0.0;
-    // Octave 1 — base period.
-    t += a * worleyPeriodic(p, timeSlice);
-    // Octave 2 — 2x scaling + integer-cell offset (8 cells = 2 × N
-    // → integer-multiple of N, wrap-invariant).
-    p = p * 2.0 + vec2(8.0, 0.0);
+    // Octave 1
+    t += a * noise3(p);
+    p = p * 2.03 + vec3(13.7, 7.3, 5.1);
     a *= 0.5;
-    t += a * worleyPeriodic(p, timeSlice);
-    // Octave 3 — 2x further scaling + integer-cell offset (-12 cells
-    // = -3 × N → integer-multiple of N, wrap-invariant).
-    p = p * 2.0 + vec2(0.0, -12.0);
+    // Octave 2
+    t += a * noise3(p);
+    p = p * 2.05 + vec3(-11.1, 17.9, 3.3);
     a *= 0.5;
-    t += a * worleyPeriodic(p, timeSlice);
+    // Octave 3
+    t += a * noise3(p);
     return t;
-}
-
-// 2D value noise — used for the curl potential and the hue field.
-// Plan 03.1-16: RETAINED in gradient-noise form because curl + hue are
-// NOT load-bearing on the wrap-discontinuity axis (they are aesthetic
-// modulations; Walk #6's 7 steppy_translation markers correlated with
-// the fbm3 density path, NOT the curl or hue paths). hash2 used as a
-// value-noise primitive on integer-cell corners with smoothstep
-// trilinear interp (mirrors the pre-fix noise3 shape but in 2D).
-float noise2(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    // hash2 returns a vec2; collapse to scalar by averaging components
-    // for the value-noise output (matches gradient-FBM's value-noise
-    // statistical distribution at order-of-magnitude level).
-    float n00 = (hash2(i + vec2(0.0, 0.0)).x);
-    float n10 = (hash2(i + vec2(1.0, 0.0)).x);
-    float n01 = (hash2(i + vec2(0.0, 1.0)).x);
-    float n11 = (hash2(i + vec2(1.0, 1.0)).x);
-    float nx0 = mix(n00, n10, u.x);
-    float nx1 = mix(n01, n11, u.x);
-    return mix(nx0, nx1, u.y);
 }
 
 // Curl of a scalar 2D noise potential — gives a divergence-free vector
@@ -364,20 +265,13 @@ float sampleSdf(vec2 fragUv) {
 }
 
 // ---------- Density assembly ----------
-//
-// Plan 03.1-16 (FOG-20) — `octaveDensity` now calls fbmWorley (Worley
-// periodic FBM) instead of the pre-fix fbm3 (gradient-noise FBM). The
-// time slice is forwarded as a separate argument because Worley's
-// time-driven jitter is a phase shift on the hash input, NOT a third
-// spatial dimension (gradient-FBM treated time as a Z axis via
-// `vec3(uv, uTime * driftZ)` slicing).
 
 // Produces a single octave's density at uv with the given scale, drift
 // speed, and curl-warped UVs. All octaves share the same curl field so
 // the eddies are consistent across scales.
 float octaveDensity(vec2 uv, vec2 curlVec, float scale, float driftZ) {
     vec2 warped = uv * scale + curlVec * uCurlAmplitude;
-    return fbmWorley(warped, uTime * driftZ);
+    return fbm3(vec3(warped, uTime * driftZ));
 }
 
 void main() {

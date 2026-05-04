@@ -65,3 +65,4 @@ flutter:
   shaders:
     - assets/shaders/atmospheric_fog.frag
     - assets/shaders/atmospheric_fog_debug_spiral.frag    # Plan 03.1-07 — debug-only diagnostic shader
+    - assets/shaders/atmospheric_fog_fbm_fallback.frag    # Plan 03.1-16 — /sanity A/B preview only (FBM gradient-noise fallback)

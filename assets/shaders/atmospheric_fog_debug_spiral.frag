@@ -4,6 +4,19 @@
 
 // Plan 03.1-07 — DEBUG-ONLY diagnostic spiral shader.
 //
+// Plan 03.1-16 FOG-20 — NO PRIMITIVE CHANGE REQUIRED. This shader does
+// NOT consume the noise primitive (`fbm3` / `noise3` / `hash3` / now
+// `worleyPeriodic` / `fbmWorley`); it only reads the digit atlas
+// sampler to render cell-index digits. The Worley periodic noise
+// primitive replacement in production atmospheric_fog.frag is a
+// density-path-only change; the debug-spiral diagnostic shader's
+// coordinate system (slot 3..4 uWorldMetersOrigin + slot 5
+// uMetersPerPixel + const float kNoiseTilePxMeters) is UNCHANGED by
+// Plan 03.1-16. The static-source assertion in
+// `fog_debug_spiral_continuity_test.dart` Plan-03.1-16-comment-marker
+// sub-test asserts this comment block is present (executor-review
+// confirmation marker).
+//
 // Renders human-readable cell-index digits in a row-major grid keyed off
 // the SAME `uPixelOrigin / uResolution` ratio that production
 // `atmospheric_fog.frag` uses. While this shader is active in /sanity,

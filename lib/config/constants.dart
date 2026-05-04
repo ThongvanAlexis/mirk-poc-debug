@@ -695,6 +695,26 @@ const double kPocFogIntegerWrapPeriodMeters = 4096.0;
 /// accommodates the fractional-meters carry).
 const double kPocFogSmoothMetersMaxDelta = kPocFogIntegerWrapPeriodMeters + 1;
 
+/// **Plan 03.1-16 supersession (2026-05-04):** FBM gradient-noise is no
+/// longer the active production primitive. Walk #6 (Plan 03.1-15)
+/// empirically falsified the Plan 03.1-14 analytical sub-perceptibility
+/// prediction: ≈ 11 % of fbm3 dynamic range INVARIANT across wraps was
+/// captured correctly by the diagnostic stream (markers fire at uniform
+/// 2-3 sec cadence consistent with the constant-magnitude property), but
+/// the residual was perceptually discernible at the developer's
+/// worldMeters positions ("way less steppyness but still some"). Plan
+/// 03.1-16 activates contingency option D-3: replace fbm3 with a
+/// **periodic Worley primitive** whose toroidal period equals exactly
+/// [kPocFogIntegerWrapPeriodMeters] = 4 × [kPocFogNoiseTilePxMeters]. At
+/// every wrap event the periodic Worley primitive is bit-identical
+/// before/after (analytical equality at the noise primitive output, NOT
+/// a magnitude bound). RETAINED here for git-history regression-defense
+/// (`@Tags(['historical'])` sub-test in
+/// `fog_meter_wrap_invisibility_test.dart`); the active assertion now
+/// lives in `fog_periodic_noise_continuity_test.dart` and asserts ZERO
+/// discontinuity. See `kPocFogWorleyPeriodCells` docstring + Plan
+/// 03.1-16 PLAN.md `<continuity_proof_for_plan_03_1_16>` Step 3.
+///
 /// Plan 03.1-14 (Fix B′ — FOG-19) — analytical upper bound on the
 /// per-wrap fbm3 amplitude discontinuity at a meter-space wrap event.
 ///
@@ -718,22 +738,80 @@ const double kPocFogSmoothMetersMaxDelta = kPocFogIntegerWrapPeriodMeters + 1;
 /// each octave in `[-1, +1]`); per-wrap discontinuity ≈ 11% of dynamic
 /// range. Margin to 0.20 captures rounding + safety.
 ///
-/// Used by `fog_meter_wrap_invisibility_test.dart` to assert the FULL
-/// 3-octave fbm3 chain's residual discontinuity stays under bound at
-/// every wrap event (NOT just the base octave). The CRITICAL property
-/// is NOT that the discontinuity is zero — it is that the
-/// discontinuity is CONSTANT across all wrap events (deterministic
-/// from constant `M_1`, `M_2`, `V`), zoom-independent, and lat-
-/// independent. This eliminates the pre-fix Walk #5 stepping signal
-/// (which arose from variable-magnitude per-wrap shifts).
-///
-/// If Walk #6 PRIMARY GATE surfaces residual stepping despite this
-/// bound holding architecturally, the fall-back path is option D-3
-/// (pivot to periodic Worley noise primitive with lattice period
-/// preserved across all FBM octaves); see Plan 03.1-14
-/// `<continuity_proof_for_plan_03_1_14>` `if_walk_6_surfaces_residual_stepping`
-/// section.
+/// Used by `fog_meter_wrap_invisibility_test.dart` (HISTORICALISED at
+/// Plan 03.1-16) to assert the FULL 3-octave fbm3 chain's residual
+/// discontinuity stays under bound at every wrap event. The pre-Plan-
+/// 03.1-16 architectural property was constant-magnitude INVARIANCE
+/// across wraps; Plan 03.1-16 supersedes with analytical ZERO via
+/// Worley periodicity.
 const double kPocFogFbmDiscontinuityBound = 0.20;
+
+// ─── Phase 3.1 Plan 03.1-16 — FOG-20 Worley periodic noise primitive ─
+
+/// Plan 03.1-16 (FOG-20) — Worley feature-point jitter amplitude inside
+/// each unit grid cell, in noiseUv units (one cell = 1 noiseUv unit =
+/// [kPocFogNoiseTilePxMeters] meters).
+///
+/// Range `[0.0, 0.5]`:
+/// - `0.0` — perfect square grid; visually monotonous (cells uniformly
+///   sized + axis-aligned).
+/// - `0.5` — maximum jitter; feature points may visit the corners of
+///   adjacent cells, producing overlapping cells at corners + chaotic
+///   cell shapes.
+/// - `0.45` — common Worley default. Clean cellular character with
+///   visible cell variation while preserving the cell-grid structure.
+///
+/// MUST stay in lockstep with `const float kWorleyJitterAmplitude` in
+/// `assets/shaders/atmospheric_fog.frag` (constant-folded — NOT a
+/// uniform; slot count UNCHANGED at 42). If this constant changes, the
+/// shader source must be hand-edited to match (the build pipeline does
+/// not substitute Dart constants into shader source).
+///
+/// Plan 03.1-16 Task 2 aesthetic A/B preview gate at /sanity gates the
+/// final value: if cells look too uniform/grid-like, the developer
+/// requests a re-tune (e.g. 0.48); if too chaotic/overlapping, request
+/// 0.4. The shipped value is the post-aesthetic-gate accepted value.
+const double kPocFogWorleyJitterAmplitude = 0.45;
+
+/// Plan 03.1-16 (FOG-20) — Worley periodic noise primitive toroidal
+/// period in cells (one cell = [kPocFogNoiseTilePxMeters] meters).
+///
+/// MUST satisfy the period-alignment invariant:
+///   `kPocFogIntegerWrapPeriodMeters %
+///    (kPocFogWorleyPeriodCells × kPocFogNoiseTilePxMeters) == 0`
+/// (= `4096 % (4 × 1024) == 0`). At every meter-space wrap event the
+/// noiseUv shift is exactly an integer multiple of the Worley primitive's
+/// toroidal period → the primitive output is **bit-identical** before/
+/// after the wrap (analytical equality at the noise primitive output,
+/// NOT a magnitude bound). This is the FOG-20 acceptance property.
+///
+/// Choice of N = 4 cells (= 4096 m per axis = exactly
+/// [kPocFogIntegerWrapPeriodMeters]):
+/// - N = 1 (1024 m) — feature points repeat every 1024 m → visually
+///   monotonous at typical viewport scales. REJECTED.
+/// - N = 2 (2048 m) — viable; still monotonous at zoomed-out scales.
+/// - N = 4 (4096 m) — CHOSEN. Matches the wrap period exactly; aesthetic
+///   repetition is invisible because the wrap cadence equals the cell-
+///   pattern repetition cadence.
+/// - N = 8 (8192 m) — would break the period-alignment invariant
+///   (4 % 8 ≠ 0). REJECTED.
+///
+/// MUST stay in lockstep with `const int kWorleyPeriodCells` (or
+/// equivalent constant-folded integer) in
+/// `assets/shaders/atmospheric_fog.frag`. See Plan 03.1-16 PLAN.md
+/// `<continuity_proof_for_plan_03_1_16>` Step 4 for the period-
+/// alignment proof; see `fog_periodic_noise_continuity_test.dart` for
+/// the asserted ZERO discontinuity at every wrap event.
+const int kPocFogWorleyPeriodCells = 4;
+
+/// Plan 03.1-16 (FOG-20) — FBM-fallback shader asset path. Frozen
+/// pre-Plan-03.1-16 verbatim copy of `atmospheric_fog.frag` (gradient-
+/// noise FBM primitive). Loaded by `ShaderSanityScreen` ONLY when the
+/// `worleyVsFbmFallback` notifier is `false` for the aesthetic A/B
+/// preview gate at /sanity. Production `/map` ALWAYS loads
+/// [kPocFogShaderAssetPath] (the Worley shader); the FBM fallback is
+/// /sanity-only and not exposed through any production code path.
+const String kPocFogFbmFallbackShaderAssetPath = 'assets/shaders/atmospheric_fog_fbm_fallback.frag';
 
 /// FOG-18 (Plan 03.1-12) — debug-spiral cell size in meters. Used by
 /// the debug-spiral shaders to compute cell indices in meter-space
