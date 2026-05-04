@@ -246,25 +246,52 @@ void main() {
       expect(flutterMap.options.maxZoom, equals(kPocMaxZoom));
     });
 
-    testWidgets('CameraConstraint contains the padded Melun bbox', (tester) async {
+    testWidgets('DEBUG-02 (Plan 03.1-12 Task 2) — cameraConstraint REMOVED for Walk #5 stress-test diagnostic', (tester) async {
+      // DEBUG-02 — `MapOptions.cameraConstraint` is removed from
+      // `lib/presentation/screens/map_screen.dart` (defaults to
+      // `CameraConstraint.unconstrained()` per flutter_map 7.0.2's
+      // `MapOptions(...)` constructor). Walk #4 stress-test diagnostic
+      // per developer's verbatim request: *"we should disable the
+      // bounding box that block us from going further to ensure that
+      // hard step do not reappear 100 km away"*. Lets the developer
+      // pan to extreme world coordinates (~100 km from Melun) during
+      // Walk #5 to verify FOG-18 (Plan 03.1-12 Task 1 wrap elimination)
+      // doesn't introduce new precision-induced artefacts at high
+      // pixelOrigin magnitudes.
       installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);
 
       final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
       final constraint = flutterMap.options.cameraConstraint;
-      expect(constraint, isA<CameraConstraint>(), reason: 'CameraConstraint MUST be set so the camera cannot pan outside the Melun bbox + soft pad.');
-      // Type-narrowing: CameraConstraint.contain creates a ContainCamera variant
-      // whose bounds field is a LatLngBounds covering the padded Melun bbox.
-      // The plan asserts ~0.02° pad on each axis; assert the bounds extend
-      // beyond the raw bbox by at least that margin.
-      final asContain = constraint as dynamic;
-      // ignore: avoid_dynamic_calls
-      final LatLngBounds bounds = asContain.bounds as LatLngBounds;
-      expect(bounds.south, lessThanOrEqualTo(kPocBboxLatMin - kPocPanBoundsPadDegrees + 1e-9));
-      expect(bounds.north, greaterThanOrEqualTo(kPocBboxLatMax + kPocPanBoundsPadDegrees - 1e-9));
-      expect(bounds.west, lessThanOrEqualTo(kPocBboxLonMin - kPocPanBoundsPadDegrees + 1e-9));
-      expect(bounds.east, greaterThanOrEqualTo(kPocBboxLonMax + kPocPanBoundsPadDegrees - 1e-9));
+      expect(
+        constraint,
+        isA<UnconstrainedCamera>(),
+        reason:
+            'DEBUG-02: FlutterMap.options.cameraConstraint MUST be UnconstrainedCamera (the flutter_map 7.0.2 default) '
+            'so the developer can pan to extreme world coordinates during Walk #5. If this assertion fails, '
+            'someone has re-added a `cameraConstraint: CameraConstraint.contain(...)` parameter to MapOptions, '
+            'which would block the Walk #5 stress-test diagnostic. Re-enabling a sensible bbox constraint is a '
+            'Phase 5 hardening concern; not load-bearing for the POC architectural verdict.',
+      );
+    });
+
+    testWidgets('DEBUG-02: static-source — map_screen.dart does NOT contain CameraConstraint.contain', (tester) async {
+      // Mechanical regression defense layered on top of the runtime
+      // assertion above. Reads the production source file and asserts
+      // the `cameraConstraint: CameraConstraint.contain(...)` parameter
+      // is absent. Catches a regression where someone re-adds the
+      // parameter inside an `if (kDebugMode)` block or similar where the
+      // runtime assertion above might not fire.
+      final source = File('lib/presentation/screens/map_screen.dart').readAsStringSync();
+      expect(
+        source,
+        isNot(contains('CameraConstraint.contain')),
+        reason:
+            'DEBUG-02 static-source invariant: lib/presentation/screens/map_screen.dart MUST NOT contain '
+            '`CameraConstraint.contain` (the parameter was removed by Plan 03.1-12 Task 2 to enable the Walk #5 '
+            'stress-test diagnostic). If this assertion fails, the bbox constraint has been re-added.',
+      );
     });
 
     testWidgets('LOC-02: blue dot is absent when no fix has arrived', (tester) async {

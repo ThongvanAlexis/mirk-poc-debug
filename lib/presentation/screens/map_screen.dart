@@ -325,17 +325,29 @@ class _MapScreenState extends State<MapScreen> {
           else
             FlutterMap(
               mapController: _mapController,
-              options: MapOptions(
-                initialCenter: const LatLng(kPocInitialCameraLat, kPocInitialCameraLon),
+              options: const MapOptions(
+                initialCenter: LatLng(kPocInitialCameraLat, kPocInitialCameraLon),
                 initialZoom: kPocInitialZoom,
                 minZoom: kPocMinZoom,
                 maxZoom: kPocMaxZoom,
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: LatLngBounds(
-                    const LatLng(kPocBboxLatMin - kPocPanBoundsPadDegrees, kPocBboxLonMin - kPocPanBoundsPadDegrees),
-                    const LatLng(kPocBboxLatMax + kPocPanBoundsPadDegrees, kPocBboxLonMax + kPocPanBoundsPadDegrees),
-                  ),
-                ),
+                // DEBUG-02 (Plan 03.1-12 Task 2) — `cameraConstraint`
+                // REMOVED. Defaults to `CameraConstraint.unconstrained()`
+                // per flutter_map 7.0.2's `MapOptions(...)` constructor.
+                // Walk #4 stress-test diagnostic per developer's verbatim
+                // request: *"we should disable the bounding box that block
+                // us from going further to ensure that hard step do not
+                // reappear 100 km away"*. Lets the developer pan to extreme
+                // world coordinates (~100 km from Melun) during Walk #5 to
+                // verify FOG-18 (Plan 03.1-12 Task 1 wrap elimination)
+                // doesn't introduce new precision-induced artefacts at
+                // high pixelOrigin magnitudes. Pure scope-extension
+                // diagnostic; not a fix axis itself. Re-enabling a
+                // sensible bbox constraint is a Phase 5 hardening concern;
+                // not load-bearing for the POC architectural verdict.
+                // The kPocBboxLat*/Lon* + kPocPanBoundsPadDegrees
+                // constants in lib/config/constants.dart are RETAINED
+                // (annotated as stress-test-disabled — easy to re-enable
+                // by re-adding the cameraConstraint parameter here).
                 // UX-02 (Plan 03.1-10) — disable two-finger rotation gestures so MobileLayerTransformer
                 // never accumulates rotation matrix elements (matrix[0,1,4,5]) in the canvas transform.
                 // Walk #3 (Plan 03.1-09 sub-section C) surfaced rotation-correlated fog mis-coverage:
@@ -347,7 +359,7 @@ class _MapScreenState extends State<MapScreen> {
                 // hypothetical post-POC iteration. The MapCompass widget is RETAINED — it always
                 // displays 0° (north up); leaving it in place is harmless and provides a visual
                 // confirmation that rotation is locked.
-                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+                interactionOptions: InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: <Widget>[
                 VectorTileLayer(

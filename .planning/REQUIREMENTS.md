@@ -82,6 +82,7 @@ Requirements are user-centric, testable, atomic. The POC's only question is the 
 ### Diagnostics
 
 - [ ] **DEBUG-01**: A debug-spiral fragment shader (`assets/shaders/atmospheric_fog_debug_spiral.frag`) renders human-readable cell-index digits via a digit-atlas sampler in the same `uPixelOrigin / uResolution` coordinate system as production fog. Toggled on at `/sanity` via a runtime `Switch.adaptive` (default OFF; production fog rendering UNCHANGED). Pre-rasterized digit atlas built at runtime via `ui.PictureRecorder` + `TextPainter` — no font package or PNG asset dependency. Permanent diagnostic infrastructure (kept in codebase for future regression investigations — POC OR MirkFall after port-back). _(Phase 3.1 — Plan 03.1-07 Task 1)_ _Complete — Verified-by-test (P03.1-07 Task 1 — `digit_atlas_builder_test.dart` + augmented `shader_sanity_screen_test.dart` debug-spiral-toggle group)_
+- [x] **DEBUG-02**: `MapOptions.cameraConstraint` is removed from `lib/presentation/screens/map_screen.dart` to enable the developer's Walk #4 stress-test request: *"we should disable the bounding box that block us from going further to ensure that hard step do not reappear 100 km away"*. Lets the developer pan to extreme world coordinates (~100 km from Melun) during Walk #5 to verify FOG-18 (Plan 03.1-12 Task 1 wrap elimination) doesn't introduce new precision-induced artefacts at high pixelOrigin magnitudes. Pure scope-extension diagnostic; not a fix axis. The flutter_map 7.0.2 default `CameraConstraint.unconstrained()` applies. The `kPocBboxLat*` + `kPocBboxLon*` + `kPocPanBoundsPadDegrees` constants in `lib/config/constants.dart` are RETAINED but currently unreferenced (annotated with DEBUG-02 stress-test-disabled docstrings — easy to re-enable by re-adding the `cameraConstraint: CameraConstraint.contain(...)` parameter to `MapOptions`). Acceptance: `MapOptions` does NOT include `cameraConstraint: CameraConstraint.contain(...)`; behavioural widget test asserts `flutterMap.options.cameraConstraint` is `UnconstrainedCamera`; static-source assertion verifies `CameraConstraint.contain` is absent from `lib/presentation/screens/map_screen.dart`. Re-enabling a sensible bbox constraint is a Phase 5 hardening concern. _(Phase 3.1 — Plan 03.1-12 Task 2)_ _Complete — Verified-by-test (P03.1-12 Task 2 — new DEBUG-02 group in `test/presentation/screens/map_screen_test.dart` with runtime + static-source assertions) — pending Walk #5 walk-time validation_
 
 ### Architecture
 
@@ -216,6 +217,7 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | FOG-17 | Phase 3.1 | Complete — Verified-by-test + walk-time validated AT DEFAULT ZOOM (P03.1-10 unit tests + P03.1-11 Walk #4 walk-time validation 2026-05-04). World-coordinate formulation lands in BOTH production + debug-spiral shaders; FOG-17a precision pairing (Dart-side integer/fractional decomposition) lands in `_FogPainter.paint()`. **Walk #4 evidence:** uOffsetXMax/YMax bounded in [85.14, 1535.74] / [41.64, 1534.63] across ALL 40 rollups (FOG-17a signature confirmed at every paint, even at pixelOriginX 4.26M); developer's verbatim *"hard step non existent at default zoom level"* + zero markers in default-zoom rollups. **High-zoom Q1 residual + Q1b NEW zoom-gesture failure** deferred to Plan 03.1-12+. Re-classified 2026-05-04 as the production-fog-shader's implementation of the MIRK-01 ABI. **P03.1-12 (Plan 03.1-12 Task 1):** FOG-17a integer-wrap premise FALSIFIED by Walk #4 debug-spiral positive control; replaced by FOG-18 (modulo eliminated). FOG-17 world-coordinate noise sampling formulation in shaders UNCHANGED — still in effect. |
 | FOG-18 | Phase 3.1 | Complete — Verified-by-test (P03.1-12 Task 1 — rewritten `fog_pixel_origin_decomposition_test.dart` as FOG-18 acceptance gate) — pending Walk #5 walk-time validation |
 | DEBUG-01 | Phase 3.1 | Complete — Verified-by-test + walk-3 (P03.1-07 Task 1 unit test — `digit_atlas_builder_test.dart` + augmented `shader_sanity_screen_test.dart` debug-spiral-toggle group; P03.1-09 Walk #3 implicitly walk-time-validated — toggle infrastructure used during walk per Plan 03.1-08 mid-checkpoint corrective bundle commit `f707226` lifted toggle to /map AppBar globally; permanent diagnostic infrastructure retained in codebase) |
+| DEBUG-02 | Phase 3.1 | Complete — Verified-by-test (P03.1-12 Task 2 — new DEBUG-02 group in `test/presentation/screens/map_screen_test.dart` with runtime `UnconstrainedCamera` assertion + static-source `isNot(contains('CameraConstraint.contain'))` assertion) — pending Walk #5 walk-time validation |
 | MIRK-01 | Phase 3.1 (deferred) | **Deferred captured architectural insight** — formal acceptance criteria deferred per developer's 2026-05-04 clarification (*"defining an architecture seems too early; once we find how to solve our issue, it can be made better later"*). Plan 03.1-10 implementation (FOG-17 + FOG-17a) is the seed aligned with MIRK-01; revisit formalization post-Walk-4 verdict. NOT a Plan 03.1-11 deliverable. |
 | WISP-01 | Phase 4 | Pending |
 | WISP-02 | Phase 4 | Pending |
@@ -238,15 +240,15 @@ Filled by the roadmap on 2026-04-30. Five phases:
 | UX-02 | Phase 3.1 | Complete — Verified-by-test + walk-time validated (P03.1-10 — `map_screen_test.dart` UX-02 rotation-disabled assertion; flags & InteractiveFlag.rotate == 0; flags & InteractiveFlag.drag != 0; flags & InteractiveFlag.pinchZoom != 0; **P03.1-11 Walk #4 walk-time validation 2026-05-04** — canvasTx/Ty identically 0.000000 across all 40 fog_transform rollups; developer's verbatim *"rotation disable as wanted"*). |
 
 **Coverage:**
-- v1 requirements: 72 total (71 + FOG-18)
-- Mapped to phases: 72
+- v1 requirements: 73 total (71 + FOG-18 + DEBUG-02)
+- Mapped to phases: 73
 - Unmapped: 0 ✓
 
 **Per-phase counts:**
 - Phase 1 (Foundation): 28 requirements (BOOT × 8, AUDIT × 3, CI × 5, AUTH × 6, LOG × 5, PERF-01)
 - Phase 2 (Map, no fog): 12 requirements (MAP × 6, LOC × 5, PERF-02)
 - Phase 3 (Fog — THE HYPOTHESIS): 11 requirements (FOG × 8, PERF-03/04/05)
-- Phase 3.1 (Fix Fog Pan-Translation): 16 requirements (FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, FOG-15, FOG-16, FOG-17, FOG-18, PERF-07, PERF-08, UX-01, UX-02, DEBUG-01, MIRK-01 [deferred — captured insight])
+- Phase 3.1 (Fix Fog Pan-Translation): 17 requirements (FOG-09, FOG-10, FOG-11, FOG-12, FOG-13, FOG-14, FOG-15, FOG-16, FOG-17, FOG-18, PERF-07, PERF-08, UX-01, UX-02, DEBUG-01, DEBUG-02, MIRK-01 [deferred — captured insight])
 - Phase 4 (Wisps): 4 requirements (WISP × 4)
 - Phase 5 (Decision Gate): 1 requirement (PERF-06)
 
@@ -282,4 +284,4 @@ Filled by the roadmap on 2026-04-30. Five phases:
 
 ---
 *Requirements defined: 2026-04-30*
-*Last updated: 2026-05-04 — FOG-18 added (Plan 03.1-12 Task 1 — eliminate FOG-17a integer-wrap-modulo per Walk #4 falsification of FOG-17a's premise); FOG-17 status row appended with FOG-17a-falsification clause; Plan 03.1-12 Task 2 to add DEBUG-02 next. FOG-19 NOT added — deferred per scope reduction (C2' zoom-invariant basis dimensional-mismatch design question; needs `/gsd:discuss-phase 3.1`). 72 v1 total.*
+*Last updated: 2026-05-04 — DEBUG-02 added (Plan 03.1-12 Task 2 — `MapOptions.cameraConstraint` removed for Walk #5 stress-test diagnostic per developer's verbatim Walk #4 request); FOG-18 added (Plan 03.1-12 Task 1 — eliminate FOG-17a integer-wrap-modulo per Walk #4 falsification of FOG-17a's premise); FOG-17 status row appended with FOG-17a-falsification clause. FOG-19 NOT added — deferred per scope reduction (C2' zoom-invariant basis dimensional-mismatch design question; needs `/gsd:discuss-phase 3.1`). 73 v1 total.*

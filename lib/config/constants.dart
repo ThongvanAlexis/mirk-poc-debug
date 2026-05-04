@@ -207,21 +207,37 @@ const double kPocMinZoom = 10;
 const double kPocMaxZoom = 15;
 
 // Pan bounds — Melun bbox + soft pad (CONTEXT §Pan bounds).
+//
+// DEBUG-02 (Plan 03.1-12 Task 2) — STRESS-TEST DISABLED: the
+// `MapOptions.cameraConstraint` parameter has been REMOVED from
+// `lib/presentation/screens/map_screen.dart` (Walk #4 stress-test
+// diagnostic per developer's verbatim request — see DEBUG-02 in
+// `.planning/REQUIREMENTS.md`). The `kPocBboxLat*` + `kPocBboxLon*`
+// + `kPocPanBoundsPadDegrees` constants below are RETAINED but
+// currently unreferenced by any production code path. Re-enabling
+// the bbox constraint is a Phase 5 hardening concern (just re-add
+// the `cameraConstraint: CameraConstraint.contain(...)` parameter
+// on `MapOptions` and these constants light up again).
 
 /// Pan bound: minimum latitude (Melun bbox south edge).
+/// DEBUG-02: stress-test disabled — see header comment above.
 const double kPocBboxLatMin = 48.50;
 
 /// Pan bound: maximum latitude (Melun bbox north edge).
+/// DEBUG-02: stress-test disabled — see header comment above.
 const double kPocBboxLatMax = 48.57;
 
 /// Pan bound: minimum longitude (Melun bbox west edge).
+/// DEBUG-02: stress-test disabled — see header comment above.
 const double kPocBboxLonMin = 2.60;
 
 /// Pan bound: maximum longitude (Melun bbox east edge).
+/// DEBUG-02: stress-test disabled — see header comment above.
 const double kPocBboxLonMax = 2.72;
 
 /// Soft pad in degrees applied around the Melun bbox so the user sees a small
 /// rubber-band region before the camera hard-stops.
+/// DEBUG-02: stress-test disabled — see header comment above.
 const double kPocPanBoundsPadDegrees = 0.02;
 
 // Animation timing (CONTEXT §Recenter FAB UX, §Compass UI).
