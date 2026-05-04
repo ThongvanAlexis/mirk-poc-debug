@@ -5,9 +5,9 @@ date: 2026-05-04
 tester: developer (solo)
 device: iPhone 17 Pro
 sideload: SideStore
-ci_run: TBD
-sha: TBD
-ipa_artifact_url: TBD
+ci_run: 25349106544
+sha: 234d712
+ipa_artifact_url: https://github.com/ThongvanAlexis/mirk-poc-debug/actions/runs/25349106544
 ---
 
 # Phase 4 — Walk #1 UAT Log
@@ -18,9 +18,9 @@ ipa_artifact_url: TBD
 **Tester:** Developer (solo)
 **Device:** iPhone 17 Pro (ProMotion 120 Hz)
 **Sideload mechanism:** SideStore
-**CI Run:** TBD (filled after push to main; capture via `gh run list --limit 5`)
-**SHA:** TBD (filled after `git rev-parse HEAD` post-push)
-**IPA artifact URL:** TBD (filled via `gh run view <RUN-ID>` — captures the artifact link)
+**CI Run:** [25349106544](https://github.com/ThongvanAlexis/mirk-poc-debug/actions/runs/25349106544) (Build iOS GREEN in 3m34s; total run 4m5s)
+**SHA:** `234d712de79bac93187cae17a5355cc013a11825` (short: `234d712`)
+**IPA artifact URL:** https://github.com/ThongvanAlexis/mirk-poc-debug/actions/runs/25349106544 (artifact name: `mirk-poc-debug-ios-unsigned-ipa`)
 
 ## Pre-walk software gate evidence
 
@@ -45,10 +45,11 @@ All 5 pre-walk software gates GREEN. CLAUDE.md "Solo dev / Claude is authorized 
 
 ## CI run + SHA capture
 
-- `gh run list --limit 5`: TBD
-- `gh run view <RUN-ID>` build-ios job status: TBD (expected GREEN; download `build-ios.zip` artifact)
-- IPA artifact downloaded + sideloaded via SideStore on iPhone 17 Pro: TBD
-- App cold-launched + permission granted: TBD
+- `gh run list --limit 5`: run `25349106544` (push of `234d712` — pre-walk skeleton commit)
+- `gh run view 25349106544` build-ios job status: **GREEN** (3m34s); Lint/License/Headers/Deps: **GREEN** (1m52s); Build Android APK: **GREEN** (4m5s)
+- IPA artifact name: `mirk-poc-debug-ios-unsigned-ipa` (downloadable from CI run page)
+- IPA artifact downloaded + sideloaded via SideStore on iPhone 17 Pro: TBD (Walk #1)
+- App cold-launched + permission granted: TBD (Walk #1)
 
 ## Walk steps (1-8 from 04-FALSIFICATION.md walk plan)
 

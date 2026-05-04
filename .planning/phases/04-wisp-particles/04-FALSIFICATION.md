@@ -2,8 +2,8 @@
 phase: 04-wisp-particles
 walk: 1
 date: 2026-05-04
-ci_run: TBD
-sha: TBD
+ci_run: 25349106544
+sha: 234d712
 verdict: TBD
 ---
 
@@ -12,8 +12,8 @@ verdict: TBD
 **Phase:** 04-wisp-particles
 **Walk #:** 1
 **Date:** 2026-05-04 (skeleton authored; walk pending)
-**CI Run:** TBD (filled after push to main; capture via `gh run list --limit 5`)
-**SHA:** TBD (filled after `git rev-parse HEAD` post-push)
+**CI Run:** [25349106544](https://github.com/ThongvanAlexis/mirk-poc-debug/actions/runs/25349106544) (Build iOS GREEN in 3m34s; SHA `234d712`; IPA artifact `mirk-poc-debug-ios-unsigned-ipa` ready for download)
+**SHA:** `234d712de79bac93187cae17a5355cc013a11825` (short: `234d712`)
 **Verdict:** TBD (filled post-walk by Plan 04-05 Task 3)
 
 ## Hypothesis (Phase 4)
@@ -79,7 +79,7 @@ Sequence:
 - [x] `dart format --line-length 160 --set-exit-if-changed lib/ test/` clean (96 files, 0 changed)
 - [x] `dart run tool/check_headers.dart` GREEN (100 files OK)
 - [x] `dart run tool/check_dependencies_md.dart` GREEN (125 packages OK)
-- [ ] CI run pushed; run-ID + SHA captured (filled by Task 1 Step 4)
+- [x] CI run pushed; run-ID `25349106544` + SHA `234d712` captured; build-ios job GREEN; IPA artifact `mirk-poc-debug-ios-unsigned-ipa` available
 
 ## Walk Evidence (filled post-walk by Task 3)
 
