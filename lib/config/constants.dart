@@ -477,3 +477,139 @@ const String kPocDebugSpiralShaderAssetPath = 'assets/shaders/atmospheric_fog_de
 /// MUST stay in lockstep with `DEBUG_SPIRAL_CELL_SIZE_PX` in
 /// `assets/shaders/atmospheric_fog_debug_spiral.frag`.
 const double kPocDebugSpiralCellSizePx = 80.0;
+
+// ─── Phase 4: Wisp Particles (WISP-01..05) ───────────────────────────
+
+/// WISP-02 — global active-wisp ceiling. Donor verbatim
+/// (kMirkFogWispMaxCount = 200). LRU evicts oldest particles when the
+/// cap is exceeded. ~50 µs/frame at the cap on iPhone 17 Pro.
+const int kMirkPocWispMaxCount = 200;
+
+/// WISP-02 — life span of a single wisp in seconds. Donor verbatim.
+/// Total drift over life at kMirkPocWispDriftMetersPerSecond = ~3.75 m
+/// — visually consistent with "puff bursting outward from new reveal".
+const double kMirkPocWispLifeSeconds = 2.5;
+
+/// WISP-02 — outer-spawn-spacing along the 25 m disc perimeter, in metres.
+/// World-anchored — donor verbatim (the only kinematic donor accidentally
+/// got right). 8 m × 2π × 25 m radius ≈ 19.6 → ~20 wisps per puff.
+const double kMirkPocWispMetersPerWisp = 8.0;
+
+/// WISP-03 — wall-clock-since-construction window during which
+/// spawnAtNewDisc is a no-op. Donor verbatim. Suppresses the
+/// "every previously-revealed disc explodes on app open" failure
+/// mode. Disc IDs ARE recorded in `_alreadySpawnedDiscIds` during
+/// the window so they don't re-trigger post-warmup.
+const double kMirkPocWispWarmUpSeconds = 5.0;
+
+/// WISP-02 — peak alpha at age = 0. Alpha curve = `1 - age²`
+/// multiplied by this value × tint.a. Donor verbatim. Wisps additive-
+/// blend on top of fog (BlendMode.plus) so peak alpha 0.35 brightens
+/// the fog without saturating.
+const double kMirkPocWispPeakAlpha = 0.35;
+
+/// WISP-02 — initial drift speed in metres / second. RE-CALIBRATED
+/// from donor's 18 px/s screen-pixel basis (which at zoom 15 ≈
+/// 86 m/s = 310 km/h — donor was never stress-tested at the zooms
+/// Phase 3.1 surfaced). 1.5 m/s ≈ cinematic walking-pace; total
+/// drift over kMirkPocWispLifeSeconds ≈ 3.75 m. Per CONTEXT.md
+/// §Implementation Decisions kinematic-units table.
+const double kMirkPocWispDriftMetersPerSecond = 1.5;
+
+/// WISP-02 — wisp visual-radius basis selector. CONTEXT.md decision:
+/// cosmetic property — wisp center stays at correct LatLng so
+/// no position-drift risk. Default screenPx for zoom-invariant
+/// visual character; flipping to `meters` switches to true-ground
+/// distance basis for A/B comparison during walks.
+enum WispRadiusBasis { screenPx, meters }
+
+/// WISP-02 — selected radius basis. See [WispRadiusBasis].
+const WispRadiusBasis kMirkPocWispRadiusBasis = WispRadiusBasis.screenPx;
+
+/// WISP-02 — wisp visual radius at age = 0 in screen-pixels. Donor
+/// verbatim. Active when [kMirkPocWispRadiusBasis] == screenPx.
+const double kMirkPocWispBirthRadiusPx = 6.0;
+
+/// WISP-02 — wisp visual radius at age = 1 in screen-pixels. Donor
+/// verbatim. Active when [kMirkPocWispRadiusBasis] == screenPx.
+const double kMirkPocWispDeathRadiusPx = 22.0;
+
+/// WISP-02 — wisp visual radius at age = 0 in metres. Active only
+/// when [kMirkPocWispRadiusBasis] == meters. Calibrated at planning
+/// time per CONTEXT.md §Claude's Discretion: at zoom 13 default
+/// regime (Melun centre, ~9.55 m / raw-px), 6 px ≈ 57 m. Picking
+/// 60 m as a round value keeps the visible character within ±5 %
+/// of the screenPx default at the reference zoom; at zoom 15 the
+/// same metres-radius shrinks to ~2.5 raw px (the cosmetic
+/// "smaller wisps when zoomed in" effect).
+const double kMirkPocWispBirthRadiusMeters = 60.0;
+
+/// WISP-02 — wisp visual radius at age = 1 in metres. Calibrated to
+/// preserve the donor's 22 / 6 ≈ 3.67× growth ratio over wisp life:
+/// 60 m × (22/6) = 220 m.
+const double kMirkPocWispDeathRadiusMeters = 220.0;
+
+/// WISP-02 — curl-noise force magnitude in m/sec². Re-derived from
+/// donor's 8.0 px/sec² screen-pixel basis. 0.5 m/sec² target per
+/// CONTEXT.md §Claude's Discretion — initial value; calibrate by
+/// walk feedback. At low magnitudes wisps drift cinematically;
+/// higher values produce "swarming bees" character.
+const double kMirkPocWispCurlAccelMetersPerSecondSquared = 0.5;
+
+/// WISP-02 — linear drag coefficient (per second). Donor verbatim.
+/// Combined with curl-noise force, creates organic
+/// "drifting then dispersing" motion. Visually validated on MirkFall.
+const double kMirkPocWispDragPerSecond = 0.30;
+
+// ─── Phase 4: WispTransformLogger (WISP-05) ──────────────────────────
+
+/// WISP-05 — cadence of the per-second JSONL rollup for the wisp
+/// transform diagnostic logger. Aligned with
+/// [kPocFogTransformLogRollupSeconds] / [kPocFrameDeltaLogRollupSeconds]
+/// / [kPocSdfLogRollupSeconds] so post-walk grep can join all four
+/// rollup streams on the same `epochSecond` boundary
+/// (CONTEXT §log-timeline-alignment + Phase 3.1 retrospective
+/// lesson #4 "ship the diagnostic before you need it").
+const int kPocWispTransformLogRollupSeconds = 1;
+
+/// WISP-05 — ring-buffer cap on raw wisp-paint observations. Matches
+/// [kPocFogTransformBufferMaxSamples] discipline (2 s × 120 Hz = 240).
+/// FIFO drop-oldest on overflow.
+const int kPocWispTransformBufferMaxSamples = 240;
+
+/// WISP-02 — default wisp tint colour (ARGB). Donor white-blue
+/// hint; visible during walk; trivial to retune via constant flip.
+/// Uses const Color via .fromARGB to avoid material.dart import in
+/// constants.dart.
+const int kMirkPocWispTintArgb = 0xFFC8DCFF; // #C8DCFF — pale blue
+
+// ─── Phase 4: Wisp dt + curl-noise constants (Plans 04-03 / 04-04 consume) ───
+
+/// WISP-02 — maximum dt (in seconds) a single advance call integrates
+/// over. Bounds the integration step on first paint or after a paused
+/// painter resumes; prevents snap-jumping wisps on a stale Stopwatch.
+/// Consumed by [WispParticleSystem.advance] (Plan 04-03).
+const double kMirkPocWispMaxDtSeconds = 0.1;
+
+/// WISP-02 — anchor latitude for the curl-noise input projection.
+/// Choosing the Melun centre as the curl-noise anchor keeps the
+/// noise field deterministic at the same world position regardless
+/// of the wisp's individual age. The exact anchor doesn't matter
+/// (curl noise is translation-invariant in character); what matters
+/// is that ALL wisps in a session sample from the same field.
+/// Consumed by [WispParticleSystem.advance] (Plan 04-03).
+const double kMelunCenterLatForCurlNoise = kPocInitialCameraLat;
+
+/// WISP-02 — anchor longitude for the curl-noise input projection.
+/// Sibling to [kMelunCenterLatForCurlNoise]; same rationale.
+const double kMelunCenterLonForCurlNoise = kPocInitialCameraLon;
+
+/// WISP-02 — input-position scale factor for the curl-noise sampler.
+/// Donor used `position * 0.005` in screen-px basis (at zoom 13,
+/// 1 raw px ≈ 9.55 m → 0.005 px⁻¹ ≈ 5.2e-4 m⁻¹). For LatLng-degree
+/// basis we want comparable visual character: 1° ≈ 111 km, so
+/// scale ≈ 5.2e-4 × 111000 ≈ 58 → round to 50 for a slightly slower
+/// curl variation that reads as 'drifting' not 'swarming'. Per
+/// CONTEXT §Claude's Discretion — calibrate by walk feedback.
+/// Consumed by [WispParticleSystem.advance] (Plan 04-03).
+const double kMirkPocWispCurlInputScale = 50.0;
