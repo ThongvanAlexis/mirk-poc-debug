@@ -19,7 +19,7 @@ created: 2026-05-04
 |----------|-------|
 | **Framework** | flutter_test (bundled with Flutter SDK) |
 | **Config file** | `pubspec.yaml` (dev_dependencies → flutter_test) |
-| **Quick run command** | `flutter test test/wisp/` |
+| **Quick run command** | `flutter test test/infrastructure/mirk/wisp/ test/wisp/ test/presentation/widgets/fog_layer_wisp_render_test.dart test/presentation/widgets/fog_layer_single_camera_snapshot_test.dart` |
 | **Full suite command** | `flutter test` |
 | **Estimated runtime** | ~30 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-05-04
 
 ## Sampling Rate
 
-- **After every task commit:** Run `flutter test test/wisp/`
+- **After every task commit:** Run `flutter test test/infrastructure/mirk/wisp/ test/wisp/ test/presentation/widgets/fog_layer_wisp_render_test.dart test/presentation/widgets/fog_layer_single_camera_snapshot_test.dart`
 - **After every plan wave:** Run `flutter test`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** ~30 seconds
@@ -46,15 +46,18 @@ created: 2026-05-04
 
 ## Wave 0 Requirements
 
-- [ ] `test/wisp/wisp_particle_test.dart` — stubs for WISP-01 (LatLng position storage), WISP-02 (kinematic units in m/s)
-- [ ] `test/wisp/wisp_particle_system_test.dart` — stubs for WISP-03 (spawn-on-new-disc gating, no-fix warm-up gate)
-- [ ] `test/wisp/wisp_pan_invariance_test.dart` — Success Criterion #1: 100 m camera pan does NOT change wisp LatLng; projected screen Offset moves by corresponding pixel delta
-- [ ] `test/wisp/wisp_no_fix_warmup_test.dart` — Success Criterion #2: no wisps during 5 s warm-up; no wisps at synthetic (0, 0)
-- [ ] `test/wisp/wisp_transform_logger_test.dart` — stubs for WISP-05 (1-Hz JSONL rollup, FIFO drop, sync flush, dual-clock)
-- [ ] `test/wisp/fog_painter_with_wisps_test.dart` — Wave 1 widget test: paint sequence (fog → wisps), FOG-07 single-snapshot keystone preserved with wisps active
-- [ ] `lib/config/constants.dart` — add `kMirkPocWisp*` constants (max-active=200, life-seconds=2.5, etc.)
+*Paths reflect Plan 04-01's actual `files_modified` — sibling-test-folder convention (test/infrastructure/mirk/wisp/ mirrors lib/infrastructure/mirk/wisp/) for unit scaffolds; test/wisp/ for cross-cutting Success-Criteria specs; test/presentation/widgets/ for FogLayer integration scaffolds.*
 
-*Wave 0 ships the test stubs + constants BEFORE any production wisp code lands. Each test starts as a `skip:` or `markPending`-style placeholder; subsequent waves un-skip as features land.*
+- [ ] `test/infrastructure/mirk/wisp/wisp_particle_test.dart` — RED tests for WISP-01 (LatLng position) + WISP-02 (life decay + age curve)
+- [ ] `test/infrastructure/mirk/wisp/wisp_particle_system_test.dart` — RED tests for WISP-02 (spawnAtNewDisc / 200-cap / LRU) + WISP-03 (5-s warm-up gate)
+- [ ] `test/infrastructure/mirk/wisp/wisp_transform_logger_test.dart` — RED tests for WISP-05 (1-Hz JSONL rollup, FIFO drop, sync flush, dual-clock)
+- [ ] `test/presentation/widgets/fog_layer_wisp_render_test.dart` — Wave 1 widget RED scaffold: paint sequence (fog → wisps) + projection-path assertions for WISP-04
+- [ ] `test/presentation/widgets/fog_layer_single_camera_snapshot_test.dart` — Wave 1 widget RED scaffold: FOG-07 single-snapshot keystone preserved with WispParticleSystem wired
+- [ ] `test/wisp/wisp_pan_invariance_test.dart` — Success Criterion #1 RED test: 100 m camera pan does NOT change wisp LatLng; projected screen Offset moves by corresponding pixel delta
+- [ ] `test/wisp/wisp_no_fix_warmup_test.dart` — Success Criterion #2 RED test: no wisps during 5 s warm-up; no wisps at synthetic (0, 0)
+- [ ] `lib/config/constants.dart` — add `kMirkPocWisp*` constants block (consolidated authoritative source: max-count, life-seconds, dt-clamp, curl-noise anchors+scale, etc. — Plans 04-03/04-04 ONLY consume from here)
+
+*Wave 0 ships the test stubs + constants + production stubs (UnimplementedError bodies) BEFORE any production wisp behaviour lands. RED tests assert the GREEN behaviour the stubs throw against; flipping stubs to impl in Wave 1 (Plans 04-02 + 04-03) flips the tests RED → GREEN without test-file edits — the Plan 04-01 scaffold convention captured in 03.1-12 Task 1 retrospective Rule 3.*
 
 ---
 
