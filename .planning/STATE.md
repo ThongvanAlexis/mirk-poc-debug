@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 3
+current_plan: 4
 status: planning
-stopped_at: Completed 04-02-PLAN.md (WispTransformLogger impl + 5 GREEN tests)
-last_updated: "2026-05-04T22:18:46.334Z"
+stopped_at: Completed 04-03-PLAN.md (WispParticleSystem + WispParticle full impl, 9 tests GREEN — WISP-01..03)
+last_updated: "2026-05-04T22:20:31.184Z"
 last_activity: 2026-05-04
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 41
-  completed_plans: 38
+  completed_plans: 39
   percent: 90
 ---
 
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-30)
 ## Current Position
 
 Phase: 4 of 6 (Wisp Particles — Executing).
-Plan: 1 of 5 (Phase 4 Plan 04-01 EXECUTED 2026-05-05 — Wave 0 scaffolds landed: 13 wisp constants + WispRadiusBasis enum, 3 production stubs, 7 RED test scaffolds, VALIDATION map populated. Plans 04-02 + 04-03 unblocked for parallel Wave 1 execution).
-Current Plan: 3
+Plan: 3 of 5 (Phase 4 Plans 04-01 + 04-02 + 04-03 EXECUTED. Plan 04-03: 2026-05-04 — WispParticle (LatLng) + WispParticleSystem (m/s, warmup gate, LRU, advanceFromWallClock) full impl; 9 wisp tests GREEN; ZERO flutter_map / latLngToScreenPoint outside docstrings (Pitfall 1 / Pitfall 2 firewall); WISP-01..03 mechanically satisfied. Plan 04-04 unblocked for FogLayer + _FogPainter integration).
+Current Plan: 4
 Total Plans in Phase: 5
 Status: **Plan 03.1-15 EXECUTED 2026-05-04 — Walk #6 CONFIRMED-AFTER-FIX (FULL); Phase 3.1 CLOSES.** 7th and final Phase 3.1 verdict (Walk #1 ITERATING-WITH-MAJOR-PROGRESS / Walk #2 ITERATING-WITH-PARTIAL-PROGRESS / Walk #3 ITERATING-WITH-PARTIAL-PROGRESS-AND-ROTATION-REGRESSION / Walk #3b implicit marker analysis / Walk #4 ITERATING-WITH-MAJOR-PROGRESS / Walk #5 CONFIRMED-AFTER-FIX-PARTIAL / **Walk #6 CONFIRMED-AFTER-FIX (FULL)**). Walk #6 sideload UAT iPhone 17 Pro against CI run `25338670208` (SHA `d753176`); Plan 03.1-14 fix bundle (FOG-19 C-b uZoomScale uniform + DEBUG-03 unique-cell-numbers diagnostic). Developer's verbatim chat verdict: *"APPROVED / numbered shader is broken : but I don't care / 100% solved for panning and zoomin on mirk shader"*. **Findings:** Q1 SNAP retained 100% from Walk #5 (Plan 03.1-14 made no Dart-side changes); Q1b CLOSED via FOG-19 C-b uZoomScale uniform (DIVIDING form `worldPx / (kNoiseTilePx * uZoomScale)` where `uZoomScale = pow(2, currentZoom - kPocFogReferenceZoom = 13.0)` anchors noise samples to lat/lng during zoom; previous-iteration multiplicative form was wrong per Plan-checker Blocker #1; MIRL visual-identity preserved at reference zoom 13.0 → uZoomScale = 1.0 → bit-identical to pre-fix); Q2/Q3/Q4 retained (UX-02 walk-time-validated 3rd consecutive walk; reveal-hole co-located; fog translates with map); Q5 / DEBUG-02 implicitly validated via verbal verdict OR carried forward from Walk #5 baseline (does not block FULL closure since "approved" was unambiguous); PERF-07 retained at Walk #5 levels (13×/20×/28× headroom; no Mail-shared re-measurement; minimal arithmetic added by FOG-19 hot-path division). **Q6 NEW (DEBUG-03 quantitative cell-drift) IMPLICITLY ZERO via verbal verdict** — DEBUG-03 numbered-shader rendering is BROKEN (Plan 03.1-14 Task A regression at runtime on iPhone 17 Pro; CI gates GREEN); developer explicitly waived diagnostic with *"numbered shader is broken : but I don't care"*; assessed Q1b closure via subjective production-fog observation instead, which is the actual goal — the production fog's zoom-gesture behavior is what the user perceives. **Mail-share NOT performed for Walk #6** (verbal verdict decisive; Walks #4 + #5 grep-correlation tooling baseline retained as the empirical anchor for Phase 3.1's diagnostic stream behavior). **Status updates:** FOG-04 + FOG-05 + FOG-06 + FOG-07 + FOG-11 + FOG-15 flip from `Falsified-in-production` to `Complete — Verified-by-walk (P03.1-15 Walk #6 CONFIRMED-AFTER-FIX FULL)`. FOG-19 + FOG-18 + DEBUG-01 + DEBUG-02 flip to `Complete — Verified-by-test + walk-time validated`. UX-02 + FOG-16 + FOG-17 walk-time-validated 3rd consecutive walk. PERF-07 retained at Walk #5 levels. **DEBUG-03 status: Complete with known defect** (debug-spiral 4-digit rendering regression explicitly waived by developer at Walk #6; cleanup deferred indefinitely; debug-shader-only; no production impact). **Plan 03-08 DENIED verdict (2026-05-01) REVERSED** — original Phase 3 same-Canvas fog hypothesis REINSTATED. **MirkFall migration recommendation:** **PORT BACK** with the layered Plan 03.1-02 (FOG-09 + 3-line uOffset fix) + 03.1-04 (FOG-11 fract-in-shader) + 03.1-05 (FOG-12 + UX-01) + 03.1-07 Branch B-3 (FOG-14 + FOG-15 + DEBUG-01) + 03.1-08 (FOG-13 fog-rect symmetric compensation) + 03.1-10 (FOG-16 + FOG-17 + FOG-17a + UX-02) + 03.1-12 (FOG-18 + DEBUG-02) + 03.1-14 (FOG-19 + DEBUG-03 [Task A waived for production]) fix bundle. **Phase 4 + Phase 5 UNBLOCK** and transition to `Pending`. **No new requirement IDs added; v1 total stays 75. Phase 3.1: 15 of 15 plans complete.** Walks #1-#5 + Walk #3b + Phase 3 historical records UNTOUCHED. CLAUDE.md `# current best version` section LEFT UNTOUCHED (developer-managed). **Plan 03.1-16+ NOT authored** — closure scope; the DEBUG-03 known-defect waiver does NOT trigger a follow-up plan unless the developer explicitly requests it later. Evidence: `.planning/phases/03.1-fix-fog-pan-translation/03.1-FALSIFICATION-6.md` + `03.1-UAT-6.md`. Next action: `/gsd:discuss-phase 4` to begin Phase 4 (Wisp Particles).
 
@@ -89,6 +89,7 @@ Progress: [█████████░] 90% (37 of 41 plans complete: Phase 1
 | Phase 03.1-fix-fog-pan-translation P14 | 17 min | 2 tasks | 11 files |
 | Phase 04-wisp-particles P01 | 10 min | 2 tasks | 11 files |
 | Phase 04-wisp-particles P02 | 10 min | 2 tasks | 2 files |
+| Phase 04-wisp-particles P03 | 7 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,9 @@ Recent decisions affecting current work:
 - [Phase 03.1-fix-fog-pan-translation]: [Phase 03.1-fix-fog-pan-translation]: Plan 03.1-14: FOG-19 C-b uZoomScale + DEBUG-03 unique-cell-numbers landed (Tasks A + B atomic commits). Walk #5 Q1b mechanism resolved in code: noise samples now anchored to lat/lng via worldPx / (kNoiseTilePx * uZoomScale) production + cellPx = worldPx / uZoomScale debug-spiral; Dart-side _FogPainter.paint forwards math.pow(2, camera.zoom - kPocFogReferenceZoom).toDouble(). MIRL visual-identity preserved: at reference zoom 13.0, uZoomScale = 1.0, shader bit-identical to pre-fix. ABI extension: FogShaderUniforms.totalFloatSlots 41 -> 42, slot 41 = uZoomScale on BOTH production + debug shaders. Debug-spiral cells now 4-digit unique IDs ((cell.y + 50) * 100 + (cell.x + 50)) for Walk #6 quantitative drift measurement per developer Walk #5 verbatim. Plan 03.1-15 Walk #6 walk-time validation pending. 187 tests + 1 skipped GREEN; Phase 3.1 v1 count 17 -> 19 requirements (FOG-19 + DEBUG-03 added); v1 total 73 -> 75. 3 deviations (2 Rule 3 - Blocking: fog_tile_period_invariant_test.dart + shader_sanity_screen.dart not enumerated by planner §J; 1 Rule 1 - Bug: split FOG-19 sub-test across Task A + Task B commits to keep both atomic-GREEN).
 - [Phase 04-wisp-particles]: Plan 04-01: Wave 0 RED-via-skip discipline for tests requiring Plan 04-04 constructor extensions (FogLayer.wispParticleSystem, MapScreenServices.wispParticleSystem). Same Wave-0-skip pattern as existing FOG-09 fog_pan_translation_test.dart. Stubs throw UnimplementedError; pure-Dart pan-invariance test passes today against the LatLng-typed stub.
 - [Phase 04-wisp-particles]: Plan 04-02: WispTransformLogger 1-Hz JSONL rollup logger landed (236 LOC) — 4th member of {fog_transform, sdf, frame_delta, wisp} family. 9-field per-paint sample (1 int activeCount + 8 lat/lon/screen bounds + 1 spawnRatePerSecond). Stats-of-stats schema (~35 keys, ≤ 600 bytes/line) chosen over CONTEXT-prescribed bounds-of-bounds (~14 keys) for one-shot post-walk grep against worst-case extremes. Logger name 'infrastructure.mirk.wisp' joins the existing family. epochSecond derivation 'DateTime.now().millisecondsSinceEpoch ~/ 1000' identical to FogTransformLogger line 134 for grep-correlation join. 5 GREEN tests with bit-exact deterministic-fixture assertions (sampleCount/activeCountMax/Mean/meanAge stats + computeStats helper). 1 Rule 3 deviation: sibling Plan 04-03 RED test enhancement absorbed into Task 1 commit (was pre-staged in git index when executor started); semantically RED-as-spec until Plan 04-03 lands. flutter analyze 0 issues, dart format clean. Plan 04-04 unblocked for FogLayer integration.
+- [Phase 04-wisp-particles]: Plan 04-03: dt clamp lives in advanceFromWallClock not in advance(dt) — donor verbatim semantics preserved at the math primitive; clamp belongs at the production boundary (painter)
+- [Phase 04-wisp-particles]: Plan 04-03: WispParticleSystem deliberately does NOT import flutter_map or call latLngToScreenPoint — projection is Plan 04-04 painter responsibility (Pitfall 1 / Pitfall 2 firewall; pure-Dart unit-testable system)
+- [Phase 04-wisp-particles]: Plan 04-03: _FakeStopwatch test seam — implements Stopwatch with controllable elapsedMilliseconds + elapsedMicroseconds + advance() helper; throws via noSuchMethod on any other method (production-can't-cheat invariant). Avoids Future.delayed in WISP-03 warmup test; suite < 1 s total.
 
 ### Roadmap Evolution
 
@@ -175,6 +179,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T22:18:46.329Z
-Stopped at: Completed 04-02-PLAN.md (WispTransformLogger impl + 5 GREEN tests)
+Last session: 2026-05-04T22:20:19.937Z
+Stopped at: Completed 04-03-PLAN.md (WispParticleSystem + WispParticle full impl, 9 tests GREEN — WISP-01..03)
 Resume file: None

@@ -137,9 +137,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. PERF-08 SDF cache thrash baseline (Walk #2 surfaced `rebuildCount/sec` median 68, max 121) does NOT regress under wisp spawning load — measured via `infrastructure.mirk.sdf` JSONL stream.
   6. C3' extreme-distance regime: developer pans to ~50-100 km from Melun (DEBUG-02 cameraConstraint already removed); wisps render correctly at distance with no fp32 precision artefacts; fog lock preserved.
 **Plans**: 5 plans
-  - [ ] 04-01-PLAN.md — Wave 0 scaffolds: wisp constants + WispRadiusBasis enum + production stubs (WispParticle / WispParticleSystem / WispTransformLogger) + 7 RED test files + VALIDATION.md per-task map populated
-  - [ ] 04-02-PLAN.md — WispTransformLogger impl mirroring FogTransformLogger (1-Hz JSONL via `Logger('infrastructure.mirk.wisp')`; 9-field record; FIFO drop; sync stop-flush; epochSecond grep-correlation) + 4 GREEN tests
-  - [ ] 04-03-PLAN.md — WispParticle (LatLng position + Offset velocityMetersPerSecond) + WispParticleSystem (m/s velocity, 5-s warmup gate, LRU 200-cap, advanceFromWallClock with kMirkPocWispMaxDtSeconds clamp, Pitfall 1 firewall — no flutter_map import) + 8 GREEN tests
+  - [x] 04-01-PLAN.md — Wave 0 scaffolds: wisp constants + WispRadiusBasis enum + production stubs (WispParticle / WispParticleSystem / WispTransformLogger) + 7 RED test files + VALIDATION.md per-task map populated
+  - [x] 04-02-PLAN.md — WispTransformLogger impl mirroring FogTransformLogger (1-Hz JSONL via `Logger('infrastructure.mirk.wisp')`; 9-field record; FIFO drop; sync stop-flush; epochSecond grep-correlation) + 4 GREEN tests
+  - [x] 04-03-PLAN.md — WispParticle (LatLng position + Offset velocityMetersPerSecond) + WispParticleSystem (m/s velocity, 5-s warmup gate, LRU 200-cap, advanceFromWallClock with kMirkPocWispMaxDtSeconds clamp, Pitfall 1 firewall — no flutter_map import) + 9 GREEN tests
   - [ ] 04-04-PLAN.md — _FogPainter._renderWisps inserted between drawRect(...shader) and canvas.restore() consuming THE camera snapshot (FOG-07 keystone preserved); MapScreenServices DTO extension; MapScreen wires spawn (`wispParticleSystem.spawnAtNewDisc`) + logger lifecycle; router-side construction; SC #1 (pan-invariance) + SC #2 (no-warmup-no-synthetic) tests GREEN; UX-02 + DEBUG-02 carry-over guards
   - [ ] 04-05-PLAN.md — Pre-walk gates + iPhone 17 Pro UAT Walk #1 (8-step interactive sideload session at desk per Phase 3.1 D1 decision; C3' extreme-distance regime mandatory) + Mail-share JSONL grep-correlation across 4 mirk.* streams + 04-FALSIFICATION.md + verdict authoring + ROADMAP / REQUIREMENTS / STATE updates
 
@@ -165,7 +165,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED 2026-05-01; REVERSED 2026-05-04 via P03.1-15 Walk #6 to CONFIRMED-AFTER-FIX) | 2026-05-01 |
 | 03.1. Fix Fog Pan-Translation | 15/15 | Complete (HYPOTHESIS CONFIRMED-AFTER-FIX 2026-05-04) | 2026-05-04 |
-| 4. Wisp Particles | 1/5 | In Progress (Plan 04-01 Wave 0 scaffolds landed 2026-05-05; Plans 04-02 + 04-03 unblocked for parallel Wave 1) | - |
+| 4. Wisp Particles | 3/5 | In Progress (Plans 04-01 Wave 0 scaffolds + 04-02 WispTransformLogger + 04-03 WispParticleSystem landed 2026-05-04; WISP-01..03 + WISP-05 mechanically satisfied; Plan 04-04 FogLayer integration unblocked) | - |
 | 5. Decision Gate | 0/TBD | Pending | - |
 
 ---
