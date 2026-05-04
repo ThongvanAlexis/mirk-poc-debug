@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/mirk/mirk_viewport_bbox.dart';
@@ -17,6 +18,8 @@ import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/fog_shader_uniforms.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 import 'package:mirk_poc_debug/presentation/widgets/fog_clip_path.dart';
 
 /// Abstraction over the 41-uniform + 1-sampler population step.
@@ -154,6 +157,8 @@ class FogLayer extends StatefulWidget {
     required this.sdfCache,
     required this.frameDeltaProbe,
     required this.fogTransformLogger,
+    required this.wispParticleSystem,
+    required this.wispTransformLogger,
     this.shaderRenderer = const _FragmentShaderFogRenderer(),
   });
 
@@ -186,6 +191,22 @@ class FogLayer extends StatefulWidget {
   /// MapScreen lifetime; the layer just consumes the reference and forwards.
   final FogTransformLogger fogTransformLogger;
 
+  /// WISP-01..05 (Plan 04-04) — wisp particle system. Owned by the
+  /// MapScreen lifetime; threaded through to `_FogPainter` and consumed
+  /// inside `_renderWisps` (additive-blend draw, after the fog drawRect,
+  /// before canvas.restore — same canvas-translated frame, same clipPath).
+  /// The painter calls `wispParticleSystem.advanceFromWallClock(...)` per
+  /// paint to integrate physics; wisp positions stay in LatLng (WISP-01)
+  /// and are projected via `camera.latLngToScreenPoint(...)` at paint time.
+  final WispParticleSystem wispParticleSystem;
+
+  /// WISP-05 (Plan 04-02 / 04-04) — wisp transform diagnostic logger
+  /// (1-Hz JSONL via `Logger('infrastructure.mirk.wisp')`). Sibling to
+  /// [fogTransformLogger]; the painter calls `recordPaint(...)` once per
+  /// paint with the active-count + meanAge + lat/lon + screen-bounds +
+  /// spawn-rate tuple. Owned by the MapScreen lifetime.
+  final WispTransformLogger wispTransformLogger;
+
   /// Test seam — widget tests inject `RecordingFogShaderRenderer` to assert
   /// FOG-05 41-slot coverage without a real GPU. Production callers use the
   /// const default and never touch this.
@@ -208,6 +229,16 @@ class _FogLayerState extends State<FogLayer> with SingleTickerProviderStateMixin
   /// `elapsedMicroseconds` afresh per frame. NEVER capture this as a frozen
   /// double at build time (would break PERF-03 idle-fog-animation gate).
   final Stopwatch _wallClockSinceMount = Stopwatch()..start();
+
+  /// WISP-04 (Plan 04-04) — sibling LIVE Stopwatch for wisp dt derivation.
+  /// Passed BY REFERENCE to the painter; `_renderWisps` forwards it into
+  /// `WispParticleSystem.advanceFromWallClock(wispWallClock)` so each
+  /// paint integrates the system over `dt = (currentMicros - lastMicros) /
+  /// 1e6` clamped to [kMirkPocWispMaxDtSeconds] (Pitfall 6 — fresh dt
+  /// per paint; a frozen Stopwatch would freeze wisp drift between paints).
+  /// Separate from [_wallClockSinceMount] so the fog uTime stream and the
+  /// wisp dt stream are independently observable in tests.
+  final Stopwatch _wispWallClockSinceMount = Stopwatch()..start();
 
   /// Per-frame paint trigger fed by the [_ticker]. Painter takes this as its
   /// `repaint:` Listenable so paint cycles run without going through build.
@@ -300,6 +331,9 @@ class _FogLayerState extends State<FogLayer> with SingleTickerProviderStateMixin
           fogTransformLogger: widget.fogTransformLogger,
           cameraSnapshotMicros: cameraSnapshotMicros,
           sdfImage: _currentSdfImage,
+          wispParticleSystem: widget.wispParticleSystem,
+          wispTransformLogger: widget.wispTransformLogger,
+          wispWallClock: _wispWallClockSinceMount, // BY REFERENCE — painter forwards into advanceFromWallClock per paint.
           repaint: _repaint,
         ),
         size: Size.infinite,
@@ -351,6 +385,9 @@ class _FogPainter extends CustomPainter {
     required this.fogTransformLogger,
     required this.cameraSnapshotMicros,
     required this.sdfImage,
+    required this.wispParticleSystem,
+    required this.wispTransformLogger,
+    required this.wispWallClock,
     required Listenable repaint,
   }) : super(repaint: repaint);
 
@@ -373,6 +410,26 @@ class _FogPainter extends CustomPainter {
   final FogTransformLogger fogTransformLogger;
   final int cameraSnapshotMicros;
   final ui.Image? sdfImage;
+
+  /// WISP-01..05 — owned by MapScreen lifetime; passed by reference. The
+  /// painter calls `advanceFromWallClock` + iterates `.wisps` + records
+  /// per-paint diagnostics. Constructor injection mirrors FOG-07 discipline
+  /// (no global state, no `MapCamera.of` leaks).
+  final WispParticleSystem wispParticleSystem;
+
+  /// WISP-05 — wisp-side equivalent of [fogTransformLogger]. The painter
+  /// emits one `recordPaint(...)` call per paint with the active-count +
+  /// meanAge + bounds + spawn-rate tuple.
+  final WispTransformLogger wispTransformLogger;
+
+  /// LIVE Stopwatch — passed BY REFERENCE so the per-paint dt derivation
+  /// reads `elapsedMicroseconds` afresh per paint (Pitfall 6 prevention —
+  /// frozen dt would freeze wisp drift). Sibling to [wallClock] which
+  /// serves the same role for fog uTime. The painter forwards this into
+  /// `wispParticleSystem.advanceFromWallClock(wispWallClock)`; the
+  /// system internally tracks `_lastAdvanceMicros` and clamps dt to
+  /// [kMirkPocWispMaxDtSeconds].
+  final Stopwatch wispWallClock;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -571,7 +628,193 @@ class _FogPainter extends CustomPainter {
     if (liveShader != null) {
       canvas.drawRect(Offset.zero & size, Paint()..shader = liveShader);
     }
+
+    // WISP-04 (Plan 04-04) — wisp render slot. Inside the same canvas.save /
+    // canvas.restore as the fog draw; consumes THE camera snapshot (FOG-07
+    // single-snapshot invariant); inside the FOG-13 canvas-translated frame;
+    // inside the FOG-12 clipPath. The cross-pipeline parity check completes
+    // here: `camera.latLngToScreenPoint(w.position)` is the SAME call site
+    // as `fog_clip_path.dart` line 83 (used to project SDF reveal-hole
+    // centres). If wisps render correctly through this projection, the
+    // wisp pipeline inherits the FOG-07 keystone for free.
+    _renderWisps(canvas, camera);
+
     canvas.restore();
+  }
+
+  /// Renders every active wisp as an additive-blended soft circle on top of
+  /// the fog. Called LAST inside paint()'s save/restore block.
+  ///
+  /// ## Shader-agnosticism (CONTEXT §Shader-agnosticism — POC requirement)
+  ///
+  /// Wisps depend ONLY on [MapCamera.latLngToScreenPoint], `canvas.drawCircle`
+  /// + `Paint`, the fog clipPath, and the painter's identity-frame
+  /// discipline. Wisps do NOT reference `uPixelOrigin`, `uZoomScale`,
+  /// `uTime`, [FogShaderUniforms], `atmospheric_fog*`, or any other
+  /// fog-shader-specific symbol. Swapping the production fog shader for a
+  /// different shader (or none at all) leaves the wisp pipeline behaviour
+  /// unchanged. This is the keystone the POC needs because the real app
+  /// will use multiple, non-periodic shaders (CLAUDE.md `# MIRL solution`
+  /// + `# MIRK solution` — shader-agnostic wisp layer).
+  ///
+  /// ## Per-paint dt encapsulation
+  ///
+  /// The painter does NOT compute `dt` itself; it forwards [wispWallClock]
+  /// (live Stopwatch by reference) into
+  /// [WispParticleSystem.advanceFromWallClock]. The system internally
+  /// tracks `_lastAdvanceMicros`, computes the per-paint dt clamped to
+  /// [kMirkPocWispMaxDtSeconds], and integrates physics. Encapsulation
+  /// keeps the painter declarative.
+  ///
+  /// ## Early return on empty system
+  ///
+  /// If [WispParticleSystem.activeCount] is zero (warmup gate active OR
+  /// every wisp aged out OR the user just navigated to the map and no fix
+  /// has arrived), this method does NOTHING — no Paint allocation, no
+  /// pxPerMetre derivation, no logger emission. The fog draw above is the
+  /// only paint cost on an idle / pre-warmup screen.
+  ///
+  /// ## Per-wisp draw
+  ///
+  /// 1. Project `wisp.position` (LatLng) → screen Offset via
+  ///    `camera.latLngToScreenPoint` (FOG-07 single-snapshot keystone).
+  /// 2. Resolve the visual radius via [_resolveWispRadius] which branches
+  ///    on [kMirkPocWispRadiusBasis] (screenPx vs meters basis — A/B
+  ///    comparison axis per CONTEXT §Implementation Decisions Radius basis).
+  /// 3. Compute the alpha-fade curve `1 - age²` × peakAlpha × tint.a.
+  /// 4. drawCircle on the additive-blend Paint hoisted outside the loop.
+  ///
+  /// ## Diagnostic emission
+  ///
+  /// Once per paint, after the loop, calls
+  /// [WispTransformLogger.recordPaint] with the accumulated active-count +
+  /// meanAge + lat/lon + screen-bounds + spawn-rate tuple (Pitfall 3 —
+  /// single emission per paint, NOT per wisp).
+  void _renderWisps(Canvas canvas, MapCamera camera) {
+    // 1. Integrate the wisp system forward. dt encapsulation lives in
+    //    WispParticleSystem.advanceFromWallClock — first call no-op; subsequent
+    //    calls integrate dt clamped to kMirkPocWispMaxDtSeconds.
+    wispParticleSystem.advanceFromWallClock(wispWallClock);
+
+    // 2. Early return on empty system — Pitfall 3 (zero allocations on
+    //    idle / pre-warmup paints).
+    if (wispParticleSystem.activeCount == 0) return;
+
+    // 3. Hoist Paint outside the per-wisp loop (Pitfall 3). Additive blend so
+    //    wisps brighten the fog without saturating; the tint ARGB is decoded
+    //    once into individual r/g/b/a slots so the per-wisp Paint mutation
+    //    only updates `color` (cheaper than re-decoding).
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..blendMode = BlendMode.plus;
+    const tintRed = (kMirkPocWispTintArgb >> _wispTintRedShift) & _wispTintByteMask;
+    const tintGreen = (kMirkPocWispTintArgb >> _wispTintGreenShift) & _wispTintByteMask;
+    const tintBlue = kMirkPocWispTintArgb & _wispTintByteMask;
+    const tintAlpha = (kMirkPocWispTintArgb >> _wispTintAlphaShift) & _wispTintByteMask;
+    const tintAlphaUnit = tintAlpha / _wispTintByteMaxValue;
+
+    // 4. pxPerMetre derivation — used by _resolveWispRadius's meters branch
+    //    (the A/B comparison axis per CONTEXT §Implementation Decisions).
+    //    Derived ONCE per paint via a 1e-4° lat probe (~11 m at any latitude;
+    //    safely within fp32 precision); cosmetic-only.
+    final pxPerMetre = _derivePxPerMetre(camera);
+
+    // 5. Per-wisp loop with bounds accumulation for WispTransformLogger.
+    var latMin = double.infinity;
+    var latMax = double.negativeInfinity;
+    var lonMin = double.infinity;
+    var lonMax = double.negativeInfinity;
+    var screenXMin = double.infinity;
+    var screenXMax = double.negativeInfinity;
+    var screenYMin = double.infinity;
+    var screenYMax = double.negativeInfinity;
+    var meanAgeAccumulator = 0.0;
+    var meanAgeCount = 0;
+
+    for (final wisp in wispParticleSystem.wisps) {
+      final age = wisp.age;
+      final radius = _resolveWispRadius(age, pxPerMetre);
+
+      // Alpha curve: `1 - age²` ramps quickly from 1.0 at birth to 0.0 at
+      // death. Multiplied by peakAlpha (cosmetic ceiling) × tint.a (so a
+      // tint with alpha < 0xFF lowers the global wisp brightness).
+      final alphaFactor = (1.0 - age * age).clamp(0.0, 1.0);
+      final wispAlpha = alphaFactor * kMirkPocWispPeakAlpha * tintAlphaUnit;
+      paint.color = Color.fromARGB((wispAlpha * _wispTintByteMaxValue).round(), tintRed, tintGreen, tintBlue);
+
+      // Project LatLng → screen via THE camera snapshot (FOG-07 keystone +
+      // cross-pipeline parity with `fog_clip_path.dart:83`).
+      final screenPt = camera.latLngToScreenPoint(wisp.position);
+      final screenOffset = Offset(screenPt.x, screenPt.y);
+      canvas.drawCircle(screenOffset, radius, paint);
+
+      // Bounds accumulation for WispTransformLogger.recordPaint.
+      final wispLat = wisp.position.latitude;
+      final wispLon = wisp.position.longitude;
+      if (wispLat < latMin) latMin = wispLat;
+      if (wispLat > latMax) latMax = wispLat;
+      if (wispLon < lonMin) lonMin = wispLon;
+      if (wispLon > lonMax) lonMax = wispLon;
+      if (screenPt.x < screenXMin) screenXMin = screenPt.x;
+      if (screenPt.x > screenXMax) screenXMax = screenPt.x;
+      if (screenPt.y < screenYMin) screenYMin = screenPt.y;
+      if (screenPt.y > screenYMax) screenYMax = screenPt.y;
+      meanAgeAccumulator += age;
+      meanAgeCount += 1;
+    }
+
+    final meanAge = meanAgeCount > 0 ? meanAgeAccumulator / meanAgeCount : 0.0;
+    wispTransformLogger.recordPaint(
+      activeCount: wispParticleSystem.activeCount,
+      meanAge: meanAge,
+      latBounds: (latMin, latMax),
+      lonBounds: (lonMin, lonMax),
+      screenXBounds: (screenXMin, screenXMax),
+      screenYBounds: (screenYMin, screenYMax),
+      spawnRatePerSecond: wispParticleSystem.spawnRatePerSecondAndReset(),
+    );
+  }
+
+  /// Resolves the visual radius for a wisp at normalised [age] (0 = just
+  /// born, 1 = about to die). Branches on [kMirkPocWispRadiusBasis]:
+  ///
+  ///   * [WispRadiusBasis.screenPx] (production default) — interpolation
+  ///     between [kMirkPocWispBirthRadiusPx] and [kMirkPocWispDeathRadiusPx]
+  ///     in raw screen pixels. Visual character is zoom-invariant.
+  ///   * [WispRadiusBasis.meters] (A/B comparison branch) — interpolation
+  ///     in metres, converted to pixels via [pxPerMetre]. Wisps shrink at
+  ///     high zoom and grow at low zoom (true ground-distance basis).
+  ///
+  /// CONTEXT §Implementation Decisions Radius basis: enum + paired
+  /// constants — Plan 04-04 ships both branches functional so A/B
+  /// comparison during walks is a single-constant flip.
+  double _resolveWispRadius(double age, double pxPerMetre) {
+    switch (kMirkPocWispRadiusBasis) {
+      case WispRadiusBasis.screenPx:
+        return kMirkPocWispBirthRadiusPx + (kMirkPocWispDeathRadiusPx - kMirkPocWispBirthRadiusPx) * age;
+      case WispRadiusBasis.meters:
+        final radiusInMetres = kMirkPocWispBirthRadiusMeters + (kMirkPocWispDeathRadiusMeters - kMirkPocWispBirthRadiusMeters) * age;
+        return radiusInMetres * pxPerMetre;
+    }
+  }
+
+  /// Derives pixels-per-metre at the camera's current zoom by sampling
+  /// `camera.latLngToScreenPoint` over a 1e-4° lat probe (~11 m at any
+  /// latitude; safely within fp32 precision). Used by [_resolveWispRadius]'s
+  /// meters branch.
+  ///
+  /// Cosmetic-only — a small drift in the derivation does NOT affect wisp
+  /// world-position correctness (positions stay in LatLng, projection is
+  /// accurate). The derivation is identical in shape to the
+  /// `pixelsPerMetre` helper inside `fog_clip_path.dart` lines 105-106; we
+  /// inline a small probe here rather than depend on the helper to keep
+  /// the cross-file coupling minimal.
+  double _derivePxPerMetre(MapCamera camera) {
+    final cameraCenter = camera.center;
+    final pt0 = camera.latLngToScreenPoint(cameraCenter);
+    final pt1 = camera.latLngToScreenPoint(LatLng(cameraCenter.latitude + _wispLatProbeDegrees, cameraCenter.longitude));
+    final probeMetres = _wispLatProbeDegrees * kMetersPerDegreeLat;
+    return (pt0.y - pt1.y).abs() / probeMetres;
   }
 
   @override
@@ -579,6 +822,16 @@ class _FogPainter extends CustomPainter {
     // The Listenable `repaint:` argument drives per-frame redraws. shouldRepaint
     // gates whether a NEW painter instance triggers a paint. Compare on
     // identity of the camera + discs + sdfImage — anything else is a no-op repaint.
+    //
+    // Wisps are DELIBERATELY NOT in shouldRepaint (Pitfall 4). The
+    // SingleTickerProviderStateMixin Ticker fires per frame and the
+    // `_repaint` ChangeNotifier drives per-frame paints; wisp state
+    // changes (new spawns, age decay, death) are picked up automatically
+    // on the next paint without needing a `shouldRepaint` re-trigger.
+    // Adding `!identical(oldDelegate.wispParticleSystem, wispParticleSystem)`
+    // would be a cargo-cult addition: the system reference is stable for
+    // the MapScreen lifetime; only its INTERNALS mutate, which the
+    // shouldRepaint identity check would never catch anyway.
     return !identical(oldDelegate.camera, camera) || !identical(oldDelegate.discs, discs) || !identical(oldDelegate.sdfImage, sdfImage);
   }
 }
@@ -594,3 +847,30 @@ const double _microsecondsPerSecond = 1e6;
 /// `m[14]` = tz.
 const int _canvasTransformTxIndex = 12;
 const int _canvasTransformTyIndex = 13;
+
+// ─── Plan 04-04 wisp render — file-private constants ─────────────────────
+// Hoisted out of `_renderWisps` so the magic numbers don't appear inline
+// (CLAUDE.md "Aucun number magique"). All cosmetic; documented per piece.
+
+/// Bit-shifts to decode the 32-bit ARGB `kMirkPocWispTintArgb` constant
+/// into individual r/g/b/a byte slots. Standard 8-bit-per-channel layout:
+/// `0xAARRGGBB` — alpha occupies bits 24..31, red 16..23, green 8..15,
+/// blue 0..7.
+const int _wispTintAlphaShift = 24;
+const int _wispTintRedShift = 16;
+const int _wispTintGreenShift = 8;
+
+/// Mask for one byte (8 bits) when decoding ARGB channels.
+const int _wispTintByteMask = 0xFF;
+
+/// Maximum value of one ARGB byte channel (used to convert byte → unit
+/// fraction and unit fraction → byte).
+const double _wispTintByteMaxValue = 255.0;
+
+/// Latitude-degree probe size for the pxPerMetre derivation in
+/// [_FogPainter._derivePxPerMetre]. 1e-4° ≈ 11.132 m at any latitude;
+/// small enough to be cosmetically accurate, large enough to be safely
+/// within fp32 precision at any zoom (the screen-Y delta of two points
+/// 1e-4° apart at zoom 15 is still > 1 raw px — the floor() noise
+/// inside `latLngToScreenPoint` does not collapse to zero).
+const double _wispLatProbeDegrees = 1e-4;

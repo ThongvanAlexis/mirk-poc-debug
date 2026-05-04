@@ -16,6 +16,8 @@ import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 import 'package:mirk_poc_debug/presentation/widgets/fog_layer.dart';
 
 import '../../_helpers/recording_fog_shader_renderer.dart';
@@ -157,6 +159,9 @@ void main() {
       final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
       addTearDown(sdfCache.dispose);
       final renderer = RecordingFogShaderRenderer();
+      final wispTransformLogger = WispTransformLogger();
+      addTearDown(wispTransformLogger.stop);
+      final wispParticleSystem = WispParticleSystem();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -174,6 +179,8 @@ void main() {
                     sdfCache: sdfCache,
                     frameDeltaProbe: probe,
                     fogTransformLogger: fogTransformLogger,
+                    wispParticleSystem: wispParticleSystem,
+                    wispTransformLogger: wispTransformLogger,
                     shaderRenderer: renderer,
                   ),
                 ],

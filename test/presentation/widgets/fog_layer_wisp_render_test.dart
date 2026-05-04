@@ -2,7 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
-import 'dart:math' show Point;
+import 'dart:io' as io;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -112,24 +112,62 @@ void main() {
       final canvas = _RecordingMockCanvas(canvasTx: 0, canvasTy: 0);
       painter.paint(canvas, const Size(400, 800));
 
-      // Assert at least one drawRect (fog) AND at least one drawCircle (wisp)
-      // happened, AND drawRect index < drawCircle index < restore index.
-      final drawRectIndex = canvas.callOrder.indexOf('drawRect');
+      // The production code's `canvas.drawRect(...shader)` line only fires
+      // when `shader != null`. Widget tests pass `shader: null` because
+      // `dart:ui`'s `FragmentShader` is a base class that can't be
+      // implemented from a test file (FogShaderRenderer doc-comment in
+      // fog_layer.dart line 30). So the recording canvas does NOT see a
+      // drawRect call here — the wisp paint sequence is asserted
+      // INSIDE the canvas.save/restore block by checking:
+      //
+      //   1. translate (FOG-13) → clipPath (FOG-12) → drawCircle (wisps)
+      //   2. drawCircle index < restore index (wisps inside the block)
+      //
+      // The "drawCircle AFTER drawRect" guarantee in production lives in
+      // the source ordering: paint()'s body literally has `canvas.drawRect
+      // (... liveShader)` immediately above `_renderWisps(canvas, camera)`.
+      // The `fog_layer.dart` source line ordering is the authoritative
+      // assertion; this widget test asserts the BLOCK-level invariants.
+      final clipPathIndex = canvas.callOrder.indexOf('clipPath');
       final firstDrawCircleIndex = canvas.callOrder.indexOf('drawCircle');
       final restoreIndex = canvas.callOrder.indexOf('restore');
 
-      expect(drawRectIndex, isNonNegative, reason: 'Production fog drawRect MUST fire.');
+      expect(clipPathIndex, isNonNegative, reason: 'FOG-12: clipPath MUST fire (block discipline).');
       expect(firstDrawCircleIndex, isNonNegative, reason: 'WISP-04: at least one wisp drawCircle MUST fire when activeCount > 0.');
       expect(restoreIndex, isNonNegative, reason: 'paint() MUST end with canvas.restore().');
       expect(
-        drawRectIndex < firstDrawCircleIndex,
+        clipPathIndex < firstDrawCircleIndex,
         isTrue,
-        reason: 'WISP-04 paint sequence: fog drawRect MUST come BEFORE wisp drawCircle (wisps render on top of fog).',
+        reason: 'WISP-04 paint sequence: wisp drawCircle MUST come AFTER clipPath (inside the FOG-12 clipped region).',
       );
       expect(
         firstDrawCircleIndex < restoreIndex,
         isTrue,
         reason: 'WISP-04 paint sequence: wisp drawCircle MUST come BEFORE canvas.restore() (inside the same save/restore block as the fog).',
+      );
+
+      // Static-source invariant — `_renderWisps(canvas, camera)` MUST be
+      // called between the fog drawRect line and `canvas.restore()` in
+      // the production source. Catches a regression where someone moves
+      // _renderWisps OUTSIDE the save/restore block (would lose FOG-12
+      // clipPath + FOG-13 canvas-translate compensation for wisps).
+      const String fogLayerSourcePath = 'lib/presentation/widgets/fog_layer.dart';
+      final source = io.File(fogLayerSourcePath).readAsStringSync();
+      final drawRectMatch = RegExp(r'canvas\.drawRect\(Offset\.zero & size, Paint\(\)\.\.shader = liveShader\)').firstMatch(source);
+      final renderWispsMatch = RegExp(r'_renderWisps\(canvas, camera\)').firstMatch(source);
+      final restoreMatch = RegExp(r'canvas\.restore\(\);').firstMatch(source);
+      expect(drawRectMatch, isNotNull, reason: 'fog drawRect line must be present.');
+      expect(renderWispsMatch, isNotNull, reason: '_renderWisps call site must be present.');
+      expect(restoreMatch, isNotNull, reason: 'canvas.restore() must be present.');
+      expect(
+        drawRectMatch!.start < renderWispsMatch!.start,
+        isTrue,
+        reason: 'WISP-04 source-order: `canvas.drawRect(...liveShader)` MUST appear BEFORE `_renderWisps(canvas, camera)`.',
+      );
+      expect(
+        renderWispsMatch.start < restoreMatch!.start,
+        isTrue,
+        reason: 'WISP-04 source-order: `_renderWisps(canvas, camera)` MUST appear BEFORE `canvas.restore();`.',
       );
     });
 
@@ -226,9 +264,7 @@ void main() {
       addTearDown(wispTransformLogger.stop);
 
       final discRepository = RevealDiscRepository();
-      discRepository.append(
-        RevealDisc(id: 'rvd_wisp_empty', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()),
-      );
+      discRepository.append(RevealDisc(id: 'rvd_wisp_empty', sessionId: 't', lat: 48.5397, lon: 2.6553, radiusMeters: 25, fixedAtUtc: DateTime.now().toUtc()));
       addTearDown(discRepository.dispose);
       final sdfCache = SdfCache(rebuildLogger: SdfRebuildLogger());
       addTearDown(sdfCache.dispose);
@@ -278,9 +314,11 @@ void main() {
       painter.paint(canvas, const Size(400, 800));
 
       expect(canvas.drawCircleCalls, isEmpty, reason: 'WISP-04: empty wisp system MUST produce ZERO drawCircle ops (early return + no Paint allocation).');
-      // The fog drawRect still happens — production fog path is independent
-      // of the wisp early-return.
-      expect(canvas.callOrder.contains('drawRect'), isTrue, reason: 'Empty-wisp early-return must NOT skip the fog drawRect.');
+      // The save/restore block still runs (fog clipPath + uniform population
+      // happen regardless of wisp state); the wisp early-return only
+      // suppresses drawCircle + the per-wisp loop costs.
+      expect(canvas.callOrder.contains('clipPath'), isTrue, reason: 'Empty-wisp early-return must NOT skip the fog clipPath / save/restore block.');
+      expect(canvas.callOrder.contains('restore'), isTrue, reason: 'Empty-wisp early-return must NOT skip canvas.restore().');
     });
 
     test('_FogPainter constructor enforces wispParticleSystem + wispTransformLogger required (compile-time check)', () {
@@ -385,7 +423,7 @@ class _RecordingMockCanvas extends Fake implements Canvas {
 class _FakeStopwatch implements Stopwatch {
   _FakeStopwatch({int initialMs = 0}) : _elapsedMs = initialMs;
 
-  int _elapsedMs;
+  final int _elapsedMs;
 
   @override
   int get elapsedMilliseconds => _elapsedMs;
