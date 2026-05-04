@@ -130,6 +130,16 @@ uniform float uSdfRectOriginY;   // Slot 38
 uniform float uSdfRectSizeX;     // Slot 39
 uniform float uSdfRectSizeY;     // Slot 40
 
+// World-pixel zoom scale factor — `pow(2, camera.zoom -
+// kPocFogReferenceZoom)`. At reference zoom (13.0), uZoomScale = 1.0
+// and the noise sampling is bit-identical to the pre-FOG-19
+// formulation `noiseUv = worldPx / kNoiseTilePx`. At other zooms,
+// dividing by uZoomScale anchors noise samples to lat/lng (cells
+// stay put during zoom; visible cell size grows with zoom-in,
+// shrinks with zoom-out — natural "zooming into a fixed-resolution
+// texture" behavior). Slot 41 (FOG-19 / Plan 03.1-14 Task B).
+uniform float uZoomScale;
+
 // SDF sampler — R channel encodes signed distance via midpoint-128.
 uniform sampler2D uSdf;
 
@@ -297,9 +307,14 @@ void main() {
     // 36.6 raw px, matching pre-fix B-3 cell ≈ 37 raw px (visual
     // character continuity preserved across the fix). If the Dart
     // constant changes, this shader must be hand-edited to match.
+    // FOG-19 (Plan 03.1-14 Task B) — divide by uZoomScale to anchor noise
+    // samples to lat/lng. At uZoomScale == 1.0 (reference zoom), the
+    // formula is bit-identical to pre-fix. At other zooms, the noise
+    // pattern's spatial frequency relative to map-features stays
+    // constant across zoom transitions — Q1b residual resolved.
     const float kNoiseTilePx = 384.0;
     vec2 worldPx = fragUv * uResolution + uPixelOrigin;
-    vec2 noiseUv = worldPx / kNoiseTilePx;
+    vec2 noiseUv = worldPx / (kNoiseTilePx * uZoomScale);
 
     // ---------- 7. Curl-rotated edge field ----------
     // Sample the SDF; near the boundary, locally rotate the curl-noise

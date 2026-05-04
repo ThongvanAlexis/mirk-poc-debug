@@ -427,6 +427,38 @@ const double kPocFogNoiseTilePx = 384.0;
 /// a multiple thereof on the wrap frame).
 const double kPocFogSmoothCoordinateMaxDelta = 2000.0;
 
+/// FOG-19 (Plan 03.1-14 Task B) — reference zoom level used to compute
+/// the `uZoomScale` uniform forwarded to the fog shader.
+///
+/// Walk #5 surfaced Q1b zoom-gesture residual ("numbers sliding /
+/// incorrect scaling" during deliberate zoom in/out transitions). Root
+/// cause: the shader's `worldPx = fragUv * uResolution + uPixelOrigin`
+/// formula combines screen-px-relative (uResolution) with world-px-
+/// relative (uPixelOrigin from `camera.pixelOrigin`) basis values.
+/// `camera.pixelOrigin` jumps O(1M) raw px between zoom-snap boundaries
+/// because flutter_map maintains world-px coordinates relative to a
+/// zoom-dependent world-px-per-screen-px ratio — so the noise pattern's
+/// spatial frequency relative to map-features changes across zooms.
+///
+/// Fix: forward `uZoomScale = pow(2, camera.zoom - kPocFogReferenceZoom)`
+/// to BOTH `atmospheric_fog.frag` AND `atmospheric_fog_debug_spiral.frag`;
+/// shader divides `worldPx` by `(kNoiseTilePx * uZoomScale)` (production)
+/// or `cellPx` by `uZoomScale` (debug-spiral). Result: noise samples
+/// anchor to lat/lng, NOT screen coordinates.
+///
+/// 13.0 chosen as reference because it was the Walks #1-#5 default-zoom
+/// regime baseline (initial Melun centre at zoom 13 puts pxOriginX
+/// ~1.064M; the FOG-17 noise pattern's character was visually verified
+/// at this zoom across all walks).
+///
+/// MIRL visual-identity preservation: at `camera.zoom ==
+/// kPocFogReferenceZoom`, `uZoomScale = pow(2, 0) = 1.0` and the
+/// shader's noise sampling is bit-identical to the pre-fix formulation.
+/// Per CLAUDE.md `# MIRL solution` updated 2026-05-04: visual identity
+/// at any settled (zoom, position) post-fix matches pre-fix at SOME
+/// equivalent (zoom, position) — passes the Shadertoy-equivalence test.
+const double kPocFogReferenceZoom = 13.0;
+
 // Fog shader asset path (FOG-04..06).
 
 /// rootBundle key for the volumetric fog `.frag`. Must match

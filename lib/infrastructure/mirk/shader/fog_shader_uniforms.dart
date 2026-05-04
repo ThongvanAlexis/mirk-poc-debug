@@ -47,6 +47,7 @@ import 'dart:ui' show Size;
 /// | 38    | uSdfRectOriginY          | float  |
 /// | 39    | uSdfRectSizeX            | float  |
 /// | 40    | uSdfRectSizeY            | float  |
+/// | 41    | uZoomScale               | float  |
 ///
 /// Sampler 0: uSdf — set via `setImageSampler(0, sdfImage)`.
 class FogShaderUniforms {
@@ -54,7 +55,11 @@ class FogShaderUniforms {
 
   /// Total number of float uniform slots. Useful for tests that want
   /// to assert the layout shape.
-  static const int totalFloatSlots = 41;
+  ///
+  /// FOG-19 (Plan 03.1-14 Task B) bumped from 41 to 42 to accommodate
+  /// the new `uZoomScale` uniform at slot 41 (between `uSdfRectSizeY`
+  /// at slot 40 and the SDF sampler at sampler index 0).
+  static const int totalFloatSlots = 42;
 
   /// Sets every uniform on [shader] in one call. Caller supplies
   /// already-decoded scalars / colours / records — no re-parsing inside.
@@ -88,6 +93,7 @@ class FogShaderUniforms {
     required double boundaryEdgeBand,
     required double boundaryDensityBoost,
     required (double, double, double, double) sdfRect,
+    required double zoomScale,
     required ui.Image sdfImage,
   }) {
     // uResolution — slots 0, 1
@@ -156,6 +162,11 @@ class FogShaderUniforms {
     shader.setFloat(38, sdfRect.$2);
     shader.setFloat(39, sdfRect.$3);
     shader.setFloat(40, sdfRect.$4);
+    // FOG-19 (Plan 03.1-14 Task B) — uZoomScale slot 41. Forwarded by
+    // `_FogPainter.paint()` as `pow(2, camera.zoom - kPocFogReferenceZoom)`.
+    // At reference zoom (13.0), zoomScale = 1.0 → shader's noise sampling
+    // is bit-identical to pre-fix. MIRL visual-identity-preserving.
+    shader.setFloat(41, zoomScale);
     // SDF sampler — index 0
     shader.setImageSampler(0, sdfImage);
   }

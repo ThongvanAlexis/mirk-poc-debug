@@ -131,7 +131,12 @@ void main() {
   // to debug the amount of drift"*. The previous mod-100 cycling
   // repeated every 100 cells (~8000 raw px at 80-px cell size) — far
   // too small for the O(M) raw-px zoom-gesture sweeps Walk #5 captured.
-  group('DEBUG-03 (Plan 03.1-14 Task A) — debug-spiral unique-cell-numbers source invariant', () {
+  //
+  // FOG-19 (Plan 03.1-14 Task B) — uZoomScale uniform addition + cellPx
+  // scaling. Asserts the debug shader source declares the uniform AND
+  // consumes it consistently with the production shader so cells stay
+  // anchored to lat/lng during zoom (Walk #6 reads this directly).
+  group('DEBUG-03 + FOG-19 (Plan 03.1-14) — debug-spiral source-level invariants', () {
     test('DEBUG-03 static-source: atmospheric_fog_debug_spiral.frag uses unique 4-digit cell-id encoding', () {
       final debugShaderSource = File('assets/shaders/atmospheric_fog_debug_spiral.frag').readAsStringSync();
       expect(
@@ -157,6 +162,26 @@ void main() {
             'DEBUG-03 static-source: 4-digit horizontal layout requires thousands/hundreds/tens/ones '
             'identifiers. If this assertion fails, the digit-render block has not been updated to '
             'the 4-digit layout.',
+      );
+    });
+
+    test('FOG-19 static-source: atmospheric_fog_debug_spiral.frag declares uZoomScale and divides by it', () {
+      final debugShaderSource = File('assets/shaders/atmospheric_fog_debug_spiral.frag').readAsStringSync();
+      expect(
+        debugShaderSource,
+        contains('uniform float uZoomScale'),
+        reason:
+            'FOG-19 (Plan 03.1-14 Task B) static-source: atmospheric_fog_debug_spiral.frag MUST '
+            'declare `uniform float uZoomScale` at slot 41 (matching the production shader). '
+            'If this assertion fails, the debug shader is out of sync with the production shader.',
+      );
+      expect(
+        debugShaderSource,
+        anyOf(contains('worldPx / uZoomScale'), contains('worldPx / (kNoiseTilePx * uZoomScale)'), contains('cellPx = worldPx / uZoomScale')),
+        reason:
+            'FOG-19 static-source: debug shader MUST consume uZoomScale by dividing worldPx (or cellPx) '
+            'by uZoomScale so cells stay anchored to lat/lng during zoom. Walk #6 reads this directly '
+            "via Task A's unique 4-digit cell numbers.",
       );
     });
   });

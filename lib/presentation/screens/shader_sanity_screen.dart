@@ -341,6 +341,12 @@ class _FogSanityPainter extends CustomPainter {
       boundaryEdgeBand: kMirkFogBoundaryEdgeBand,
       boundaryDensityBoost: kMirkFogBoundaryDensityBoost,
       sdfRect: _identitySdfRect,
+      // FOG-19 (Plan 03.1-14 Task B) — at the reference zoom uZoomScale = 1.0,
+      // which makes the shader's noise sampling bit-identical to the pre-fix
+      // formulation. The sanity screen has no live MapCamera so the synthetic
+      // trajectory implicitly stays at the reference zoom; passing 1.0 here
+      // preserves the pre-FOG-19 visual character on /sanity.
+      zoomScale: 1.0,
       sdfImage: sdfImage,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);

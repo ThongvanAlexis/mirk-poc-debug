@@ -6,16 +6,17 @@ import 'dart:io' show File;
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// FOG-17 (Plan 03.1-10) — world-coordinate noise sampling engineering
-/// invariant.
+/// FOG-17 (Plan 03.1-10) + FOG-19 (Plan 03.1-14 Task B) — world-
+/// coordinate noise sampling engineering invariant, layered with
+/// the uZoomScale uniform.
 ///
 /// REWRITTEN from FOG-14b (Plan 03.1-07 Branch B-3 tile-period-aware
-/// fract). The file name is preserved for git-history continuity even
-/// though the test content has flipped to assert the post-Plan-03.1-10
-/// world-coordinate formulation. The "tile period" terminology is
-/// historical; the post-fix formulation has no tile-period fract — it
-/// has a noise-tile divisor (`kNoiseTilePx`) which sets the noise
-/// grid scale in screen-pixel space.
+/// fract). The file name is preserved for git-history continuity.
+/// Updated 2026-05-04 (Plan 03.1-14 Task B) so the assertions match
+/// the post-FOG-19 formulation: noiseUv divides by
+/// `(kNoiseTilePx * uZoomScale)` (production) and
+/// `(kNoiseTilePx * uZoomScale)` (debug-spiral); cellPx divides by
+/// `uZoomScale` (debug-spiral cell-grid layout).
 ///
 /// ## Background
 ///
@@ -24,26 +25,26 @@ import 'package:flutter_test/flutter_test.dart';
 /// the per-event wrap MAGNITUDE the same (Walk #3 confirmed). The
 /// Plan 03.1-10 FOG-17 fix replaces `fract()` entirely with
 /// world-coordinate sampling: each fragment samples noise at its OWN
-/// world-pixel position, so as the camera pans NEW world coordinates
-/// enter the viewport edges and NEW noise scrolls in — no fract(), no
-/// wraps, no stepping.
+/// world-pixel position. The Plan 03.1-14 Task B FOG-19 fix layers
+/// the `uZoomScale` divisor on top so the noise samples anchor to
+/// lat/lng (cells stay PUT during zoom transitions).
 ///
 /// ## What's asserted
 ///
 /// 1. Production shader (`atmospheric_fog.frag`) contains the
 ///    `kNoiseTilePx` const float declaration AND the
 ///    `worldPx = fragUv * uResolution + uPixelOrigin` line AND the
-///    `noiseUv = worldPx / kNoiseTilePx` line.
+///    post-FOG-19 `noiseUv = worldPx / (kNoiseTilePx * uZoomScale)`
+///    formulation.
 /// 2. Production shader's ACTIVE CODE (line-comment-stripped) does NOT
 ///    contain `fract(uPixelOrigin / tilePeriodPixels)` — the
 ///    pre-Plan-03.1-10 B-3 formulation must be removed from active
 ///    code. Allowed in comments documenting the historical formulation.
 /// 3. Debug-spiral shader (`atmospheric_fog_debug_spiral.frag`) mirrors
-///    the post-Plan-03.1-10 formulation so /sanity spiral observation
-///    reflects the production coordinate system.
-/// 4. `FogShaderUniforms.totalFloatSlots == 41` (no new uniform — the
-///    `kNoiseTilePx` value is constant-folded as a `const float` in
-///    the shader, NOT added as a runtime uniform).
+///    the post-FOG-19 formulation: `spiralCoord = worldPx /
+///    (kNoiseTilePx * uZoomScale)` AND `cellPx = worldPx / uZoomScale`.
+/// 4. `FogShaderUniforms.totalFloatSlots == 42` (FOG-19 added
+///    `uZoomScale` at slot 41; up from 41 pre-Plan-03.1-14).
 void main() {
   group('FOG-17 (Plan 03.1-10) — world-coordinate noise sampling engineering invariant', () {
     test('production shader contains the FOG-17 world-coordinate formulation', () {
@@ -66,10 +67,15 @@ void main() {
 
       expect(
         source,
-        contains('vec2 noiseUv = worldPx / kNoiseTilePx;'),
+        contains('vec2 noiseUv = worldPx / (kNoiseTilePx * uZoomScale);'),
         reason:
-            'FOG-17: production shader `noiseUv` must use `worldPx / kNoiseTilePx` (world-coordinate noise sampling). '
-            'If this assertion fails, the FOG-17 fix has been reverted to the B-3 fract() formulation.',
+            'FOG-17 + FOG-19: production shader `noiseUv` must use '
+            '`worldPx / (kNoiseTilePx * uZoomScale)` — world-coordinate noise sampling (FOG-17) '
+            'with the FOG-19 (Plan 03.1-14 Task B) zoom-invariant divisor. '
+            'At uZoomScale == 1.0 (camera.zoom == kPocFogReferenceZoom = 13), the formula '
+            'is bit-identical to the pre-FOG-19 `worldPx / kNoiseTilePx`. '
+            'If this assertion fails, either FOG-17 has been reverted to the B-3 fract() formulation, '
+            'or FOG-19 uZoomScale plumbing has been removed.',
       );
     });
 
@@ -125,14 +131,20 @@ void main() {
 
       expect(
         source,
-        contains('vec2 spiralCoord = worldPx / kNoiseTilePx;'),
-        reason: 'FOG-17: debug-spiral `spiralCoord` must use `worldPx / kNoiseTilePx` (mirrors production `noiseUv`).',
+        contains('vec2 spiralCoord = worldPx / (kNoiseTilePx * uZoomScale);'),
+        reason:
+            'FOG-17 + FOG-19: debug-spiral `spiralCoord` must use '
+            '`worldPx / (kNoiseTilePx * uZoomScale)` — mirrors the post-FOG-19 production noiseUv formulation '
+            'so /sanity observation reflects the production coordinate system at every zoom level.',
       );
 
       expect(
         source,
-        contains('vec2 cellPx = worldPx;'),
-        reason: 'FOG-17: debug-spiral cellPx must derive from `worldPx` directly (already in raw pixels post-fix).',
+        contains('vec2 cellPx = worldPx / uZoomScale;'),
+        reason:
+            'FOG-19 (Plan 03.1-14 Task B): debug-spiral cellPx must divide worldPx by uZoomScale so cells '
+            'stay anchored to lat/lng during zoom — Task A unique-cell-numbers stay PUT during zoom transitions '
+            'when FOG-19 is working as designed.',
       );
     });
 
@@ -153,15 +165,16 @@ void main() {
       );
     });
 
-    test('FogShaderUniforms.totalFloatSlots == 41 — kNoiseTilePx is constant-folded (no new uniform)', () {
+    test('FogShaderUniforms.totalFloatSlots == 42 — FOG-19 (Plan 03.1-14 Task B) added uZoomScale at slot 41', () {
       final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
       expect(
         source,
-        contains('static const int totalFloatSlots = 41;'),
+        contains('static const int totalFloatSlots = 42;'),
         reason:
-            'FOG-17: the 41-slot float uniform layout is locked. The `kNoiseTilePx` value is constant-folded as a '
-            '`const float` in the shader, NOT added as a runtime uniform. If this assertion fails, the slot budget grew '
-            'and the layout is no longer in lockstep with the shader.',
+            'FOG-19 (Plan 03.1-14 Task B): the float uniform layout grew from 41 to 42 to accommodate '
+            '`uniform float uZoomScale` at slot 41. The `kNoiseTilePx` value is still constant-folded as a '
+            '`const float` in the shader (NOT added as a runtime uniform). If this assertion fails, either '
+            'FOG-19 has been reverted (slot back to 41) or another slot was added without bookkeeping update.',
       );
     });
   });

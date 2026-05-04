@@ -2,6 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -34,6 +35,14 @@ abstract class FogShaderRenderer {
   /// [mirkFogConstants] carries every `kMirkFog*` numeric constant by named
   /// key so the test impl can record the exact float values without having
   /// to inspect the production code's hard-coded constant names.
+  ///
+  /// [zoomScale] (FOG-19 / Plan 03.1-14 Task B): `pow(2, camera.zoom -
+  /// kPocFogReferenceZoom)` forwarded to the shader's slot 41 `uZoomScale`
+  /// uniform. Anchors fog noise samples to lat/lng during zoom transitions
+  /// (Q1b residual fix per Walk #5). At camera.zoom == kPocFogReferenceZoom
+  /// (=13.0), zoomScale == 1.0 and shader noise sampling is bit-identical
+  /// to the pre-FOG-19 formulation (MIRL visual-identity-preservation
+  /// rule per CLAUDE.md `# MIRL solution` updated 2026-05-04).
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
@@ -43,6 +52,7 @@ abstract class FogShaderRenderer {
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
+    required double zoomScale,
   });
 }
 
@@ -63,6 +73,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required (double, double, double, double) sdfRect,
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
+    required double zoomScale,
   }) {
     if (shader == null) return; // production never passes null; defensive guard.
     FogShaderUniforms.setAll(
@@ -95,6 +106,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       boundaryEdgeBand: mirkFogConstants['boundaryEdgeBand']!,
       boundaryDensityBoost: mirkFogConstants['boundaryDensityBoost']!,
       sdfRect: sdfRect,
+      zoomScale: zoomScale,
       sdfImage: sdfImage,
     );
   }
@@ -507,6 +519,16 @@ class _FogPainter extends CustomPainter {
     final boundedY = intPxY + fracPxY;
     final appliedPixelOrigin = (boundedX, boundedY);
 
+    // FOG-19 (Plan 03.1-14 Task B) — compute uZoomScale = pow(2,
+    // camera.zoom - kPocFogReferenceZoom). Anchors fog noise samples
+    // to lat/lng so cells stay PUT during zoom transitions (Q1b
+    // residual fix per Walk #5 developer verbatim "numbers sliding /
+    // incorrect scaling"). At camera.zoom == kPocFogReferenceZoom,
+    // uZoomScale = 1.0 and shader sampling is bit-identical to pre-fix
+    // (MIRL visual-identity-preservation rule per CLAUDE.md
+    // `# MIRL solution` updated 2026-05-04).
+    final uZoomScale = math.pow(2.0, camera.zoom - kPocFogReferenceZoom).toDouble();
+
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
@@ -538,6 +560,7 @@ class _FogPainter extends CustomPainter {
       sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
+      zoomScale: uZoomScale, // ← FOG-19 (Plan 03.1-14 Task B) — anchors noise to lat/lng during zoom.
     );
 
     // Production-only paint step: drawing the shader onto the canvas requires

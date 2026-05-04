@@ -88,6 +88,19 @@ uniform vec2  uPixelOrigin;
 // displayed" report on /sanity).
 uniform sampler2D uDigitAtlas;
 
+// FOG-19 (Plan 03.1-14 Task B) — world-pixel zoom scale factor. Same
+// slot (41) and same semantics as the production atmospheric_fog.frag
+// declaration: `pow(2, camera.zoom - kPocFogReferenceZoom)`. At
+// reference zoom (13.0), uZoomScale = 1.0 and the cell-grid layout is
+// bit-identical to pre-FOG-19. At other zooms, dividing cellPx by
+// uZoomScale anchors the cells to lat/lng (visible cell size grows
+// with zoom-in, shrinks with zoom-out). Walk #6 reads this directly:
+// Task A's unique 4-digit cell numbers stay PUT during zoom
+// transitions when FOG-19 is working as designed; if cells slide,
+// the "numbers sliding" symptom from Walk #5 reproduces and FOG-19's
+// mechanism is incorrect.
+uniform float uZoomScale;
+
 out vec4 fragColor;
 
 // ---------- Helpers ----------
@@ -134,9 +147,11 @@ void main() {
     // — the cell grid is for digit-readability, not for noise
     // sampling; the cell-index computation still uses
     // `cellPx / DEBUG_SPIRAL_CELL_SIZE_PX` below.
+    // FOG-19 (Plan 03.1-14 Task B) — divide spiralCoord by uZoomScale
+    // to anchor noise samples to lat/lng (matches production shader).
     const float kNoiseTilePx = 384.0;
     vec2 worldPx = fragUv * uResolution + uPixelOrigin;
-    vec2 spiralCoord = worldPx / kNoiseTilePx;
+    vec2 spiralCoord = worldPx / (kNoiseTilePx * uZoomScale);
 
     // Convert worldPx (already in raw pixels) directly to cell-grid
     // space. Pre-Plan-03.1-10 we computed `cellPx = spiralCoord *
@@ -149,7 +164,13 @@ void main() {
     // viewport count to a single cell. Use worldPx directly — it
     // is already in raw pixels regardless of the spiralCoord
     // formulation.
-    vec2 cellPx = worldPx;
+    // FOG-19 (Plan 03.1-14 Task B) — divide by uZoomScale so debug-spiral
+    // cells stay anchored to lat/lng during zoom. Walk #6 sees this
+    // directly — Task A's unique 4-digit cell numbers stay PUT during
+    // zoom transitions if FOG-19 is working as designed; if cells slide,
+    // the "numbers sliding" symptom from Walk #5 is reproduced and
+    // FOG-19's mechanism is incorrect.
+    vec2 cellPx = worldPx / uZoomScale;
     vec2 cellFloat = floor(cellPx / DEBUG_SPIRAL_CELL_SIZE_PX);
     ivec2 cell = ivec2(cellFloat);
 

@@ -14,17 +14,29 @@ import '../../../_helpers/recording_fog_shader_renderer.dart';
 /// FOG-05 — FogShaderUniforms slot count gate.
 ///
 /// Wave 0 contract: this test is GREEN from day 1. It re-asserts the donor
-/// file's `totalFloatSlots == 41` invariant so that any future change which
+/// file's `totalFloatSlots` invariant so that any future change which
 /// reorders or adds/removes a slot in the `.frag` uniform declaration is
 /// caught BEFORE it reaches a sideload UAT walk (defends against a future
 /// BUG-014 Iter-2 regression).
+///
+/// FOG-19 (Plan 03.1-14 Task B) bumped totalFloatSlots from 41 to 42 to
+/// accommodate the new `uZoomScale` uniform at slot 41 (between
+/// `uSdfRectSizeY` at slot 40 and the SDF sampler at sampler index 0).
 ///
 /// If a future iteration changes the uniform count, BOTH this constant and
 /// the `.frag` declaration must be updated together (and the FogShaderUniforms.setAll
 /// implementation reviewed) — that's the whole point of pinning the count here.
 void main() {
-  test('FogShaderUniforms.totalFloatSlots == 41 — slot-count gate against BUG-014 Iter 2 regression', () {
-    expect(FogShaderUniforms.totalFloatSlots, 41);
+  test('FogShaderUniforms.totalFloatSlots == 42 — slot-count gate (FOG-19 / Plan 03.1-14 Task B added uZoomScale at slot 41)', () {
+    expect(
+      FogShaderUniforms.totalFloatSlots,
+      42,
+      reason:
+          'FOG-19 (Plan 03.1-14 Task B) added `uniform float uZoomScale` at slot 41 to BOTH '
+          '`atmospheric_fog.frag` AND `atmospheric_fog_debug_spiral.frag`. The Dart-side total '
+          'must match. If this assertion fails to match the shader-side declaration, the '
+          'painter and shader will be out of sync and Impeller will fail at uniform-binding time.',
+    );
   });
 
   group('FogShaderRenderer (Plan 03.1-04 — pixelOrigin contract)', () {
@@ -60,6 +72,7 @@ void main() {
         sdfRect: const (0, 0, 1, 1),
         sdfImage: _NullImage(),
         mirkFogConstants: const <String, double>{},
+        zoomScale: 1.0,
       );
       expect(renderer.renders, hasLength(1));
       expect(renderer.renders.last.pixelOrigin, (px, py));
@@ -68,6 +81,26 @@ void main() {
       // Dart-side `% 1.0` would compress these into [0, 1) and trip this.
       expect(renderer.renders.last.pixelOrigin.$1, greaterThan(1e6));
       expect(renderer.renders.last.pixelOrigin.$2, greaterThan(1e6));
+    });
+
+    test('RecordingFogShaderRenderer captures zoomScale verbatim across renderer interface (FOG-19)', () {
+      final renderer = RecordingFogShaderRenderer();
+      // pow(2, 15 - 13) = 4.0 — synthetic zoom-15 value; matches the
+      // expected forwarded value when camera.zoom is 15.
+      const zs = 4.0;
+      renderer.render(
+        shader: null,
+        resolution: const Size(400, 800),
+        timeSeconds: 0,
+        pixelOrigin: (1.0, 1.0),
+        baseAlpha: 1,
+        sdfRect: const (0, 0, 1, 1),
+        sdfImage: _NullImage(),
+        mirkFogConstants: const <String, double>{},
+        zoomScale: zs,
+      );
+      expect(renderer.renders, hasLength(1));
+      expect(renderer.renders.last.zoomScale, closeTo(zs, 1e-9));
     });
   });
 }
