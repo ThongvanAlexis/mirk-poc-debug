@@ -11,23 +11,26 @@ import 'package:logging/logging.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 
-/// Constructor-injected services for the Phase 2+3 `MapScreen`.
+/// Constructor-injected services for the Phase 2+3+4 `MapScreen`.
 ///
 /// Production wiring: built once in the router / `app.dart` after the PMTiles
 /// copy completes (Plan 02-02). Test wiring: each widget test constructs fakes
 /// (fake stream factory, on-disk synthetic file, captured logger, in-memory
 /// disc repository, no-op probe, Completer-backed program loader).
 ///
-/// DTO justification: this is a true value object — seven fields with distinct
+/// DTO justification: this is a true value object — nine fields with distinct
 /// origins (filesystem path produced by the copier, factory closure produced
 /// by the geolocator service, optional logger override produced by tests,
 /// reveal-disc repository owned by the screen lifetime, frame-delta probe
 /// owned by the screen lifetime, fog-transform diagnostic logger owned by the
-/// screen lifetime, optional fog-program loader override for tests). Lets
-/// `MapScreen` accept ONE positional `services` arg instead of seven, and lets
-/// tests pump `MapScreen.fromServices(fakeServices)` cleanly without hidden
-/// globals.
+/// screen lifetime, Phase-4 wisp particle system owned by the screen lifetime,
+/// Phase-4 wisp transform logger owned by the screen lifetime, optional
+/// fog-program loader override for tests). Lets `MapScreen` accept ONE
+/// positional `services` arg instead of nine, and lets tests pump
+/// `MapScreen.fromServices(fakeServices)` cleanly without hidden globals.
 @immutable
 class MapScreenServices {
   const MapScreenServices({
@@ -36,6 +39,8 @@ class MapScreenServices {
     required this.discRepository,
     required this.frameDeltaProbe,
     required this.fogTransformLogger,
+    required this.wispParticleSystem,
+    required this.wispTransformLogger,
     this.logger,
     this.fogProgramLoaderOverride,
   });
@@ -71,6 +76,20 @@ class MapScreenServices {
   /// MapScreen lifetime — `start()` in initState, `stop()` in dispose, same
   /// shape as `frameDeltaProbe` and `sdfRebuildLogger`.
   final FogTransformLogger fogTransformLogger;
+
+  /// WISP-01..05 (Plan 04-04) — Phase 4 wisp particle system. Owned by the
+  /// router lifetime; MapScreen wires spawn (on every new disc append in
+  /// `_subscribeToPositions`) and threads into `FogLayer` (which forwards
+  /// the reference to `_FogPainter`). The painter projects wisps per paint
+  /// via the SAME MapCamera snapshot the fog uses (FOG-07 single-snapshot
+  /// keystone preserved from Phase 3.1).
+  final WispParticleSystem wispParticleSystem;
+
+  /// WISP-05 (Plan 04-04) — wisp transform diagnostic logger (1-Hz JSONL
+  /// via `Logger('infrastructure.mirk.wisp')`). Sibling to
+  /// `fogTransformLogger`; MapScreen calls `start()` in `initState`,
+  /// `stop()` in `dispose` (same shape as `fogTransformLogger`).
+  final WispTransformLogger wispTransformLogger;
 
   /// Optional logger override. Defaults to `Logger('presentation.map')` in
   /// the screen when null. Tests can capture log output by injecting a

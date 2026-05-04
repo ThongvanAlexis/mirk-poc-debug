@@ -27,6 +27,8 @@ import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 import 'package:mirk_poc_debug/presentation/widgets/map_compass.dart';
@@ -85,6 +87,12 @@ MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? st
     discRepository: RevealDiscRepository(),
     frameDeltaProbe: FrameDeltaProbe(),
     fogTransformLogger: FogTransformLogger(),
+    // Plan 04-04 — wisp wiring on test fixtures. Real instances (cheap
+    // to construct; no Timer side-effects until `start()` fires inside
+    // `MapScreen.initState`). The WispTransformLogger.stop() inside
+    // `MapScreen.dispose` closes the Timer the initState start() opened.
+    wispParticleSystem: WispParticleSystem(),
+    wispTransformLogger: WispTransformLogger(),
     fogProgramLoaderOverride: _pendingFogProgram,
   );
 }
@@ -355,6 +363,52 @@ void main() {
       // appear correct here — the pin is the source-level `void dispose()`
       // override.)
       expect(find.byType(FlutterMap), findsNothing);
+    });
+  });
+
+  group('MapScreen × Phase 4 carry-overs (Plan 04-04)', () {
+    // Plan 04-04 wires WispParticleSystem + WispTransformLogger through
+    // MapScreenServices. The two carry-over invariants from Phase 3.1 —
+    // UX-02 rotation disabled + DEBUG-02 cameraConstraint absent — MUST
+    // continue to hold with wisps in the mix. These tests are mechanical
+    // regression guards: a future PR that re-enables rotation or re-adds
+    // a CameraConstraint while threading the new wisp args through fails
+    // here loudly.
+
+    testWidgets('UX-02 — rotation disabled flag still holds with WispParticleSystem wired (Phase 4 regression guard)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
+      // The default `_services` helper now includes wispParticleSystem +
+      // wispTransformLogger. The test re-asserts the UX-02 invariant
+      // unchanged from Phase 3.1.
+      await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
+      await _pumpUntilTileProviderLoaded(tester);
+
+      final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
+      expect(
+        flutterMap.options.interactionOptions.flags & InteractiveFlag.rotate,
+        equals(0),
+        reason:
+            'UX-02 (Phase 4 carry-over): FlutterMap.interactionOptions.flags MUST keep the rotate bit cleared '
+            'EVEN with WispParticleSystem wired. If this fails, someone re-enabled rotation while integrating '
+            'the wisp pipeline — FOG-16 rotation-correlated mis-coverage would resurface.',
+      );
+    });
+
+    testWidgets('DEBUG-02 — cameraConstraint stays UnconstrainedCamera with WispParticleSystem wired (Phase 4 regression guard)', (tester) async {
+      installVectorMapTilesCancellationFilterForBody();
+      await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
+      await _pumpUntilTileProviderLoaded(tester);
+
+      final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
+      expect(
+        flutterMap.options.cameraConstraint,
+        isA<UnconstrainedCamera>(),
+        reason:
+            'DEBUG-02 (Phase 4 carry-over): FlutterMap.options.cameraConstraint MUST stay UnconstrainedCamera '
+            'EVEN with WispParticleSystem wired. If this fails, someone re-added a `cameraConstraint:` parameter '
+            'while integrating the wisp pipeline — Walk #5 stress-test diagnostic at extreme world coordinates '
+            'would be blocked.',
+      );
     });
   });
 }

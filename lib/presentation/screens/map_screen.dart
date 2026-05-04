@@ -146,6 +146,9 @@ class _MapScreenState extends State<MapScreen> {
     _sdfCache = SdfCache(rebuildLogger: _sdfRebuildLogger!);
     widget.services.frameDeltaProbe.start();
     widget.services.fogTransformLogger.start();
+    // WISP-05 (Plan 04-04) — wisp transform logger lifecycle mirrors
+    // `fogTransformLogger`: `start()` here, `stop()` in `dispose`.
+    widget.services.wispTransformLogger.start();
     _subscribeToPositions();
     unawaited(_loadTileProvider());
     unawaited(_loadFogShader());
@@ -222,17 +225,23 @@ class _MapScreenState extends State<MapScreen> {
       // FogLayer (via discRepository.addListener) picks up the change on its
       // next build, the SDF cache busts on the new hash, the new disc joins
       // the analytic SDF, and the next paint reveals the new spot.
+      //
+      // WISP-02/03 (Plan 04-04): captured `discId` + `disc` BEFORE the
+      // append so the wisp spawn references the SAME disc object that
+      // landed in the repo. Idempotency + 5-s warmup gating live INSIDE
+      // `WispParticleSystem.spawnAtNewDisc`.
       _discCounter++;
-      widget.services.discRepository.append(
-        RevealDisc(
-          id: _handRolledDiscId(),
-          sessionId: kPocPlaceholderSessionId,
-          lat: fix.latitude,
-          lon: fix.longitude,
-          radiusMeters: kPocRevealDiscRadiusMeters,
-          fixedAtUtc: DateTime.now().toUtc(),
-        ),
+      final discId = _handRolledDiscId();
+      final disc = RevealDisc(
+        id: discId,
+        sessionId: kPocPlaceholderSessionId,
+        lat: fix.latitude,
+        lon: fix.longitude,
+        radiusMeters: kPocRevealDiscRadiusMeters,
+        fixedAtUtc: DateTime.now().toUtc(),
       );
+      widget.services.discRepository.append(disc);
+      widget.services.wispParticleSystem.spawnAtNewDisc(discId: discId, disc: disc);
     }, onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st));
   }
 
@@ -308,6 +317,10 @@ class _MapScreenState extends State<MapScreen> {
     _sdfRebuildLogger?.stop();
     _sdfRebuildLogger = null;
     widget.services.fogTransformLogger.stop();
+    // WISP-05 (Plan 04-04) — sibling to fogTransformLogger.stop. Unconditional
+    // (matches the FogTransformLogger pattern); `stop()` is a no-op if the
+    // logger was never started (e.g. some test paths).
+    widget.services.wispTransformLogger.stop();
     unawaited(widget.services.frameDeltaProbe.dispose());
     _mapController.dispose();
     super.dispose();
@@ -395,6 +408,12 @@ class _MapScreenState extends State<MapScreen> {
                     sdfCache: _sdfCache!,
                     frameDeltaProbe: widget.services.frameDeltaProbe,
                     fogTransformLogger: widget.services.fogTransformLogger,
+                    // WISP-04 (Plan 04-04) — Phase 4 wisp wiring. The
+                    // FogLayer forwards both refs into `_FogPainter`; the
+                    // painter projects wisps via the SAME MapCamera
+                    // snapshot the fog uses (FOG-07 keystone preserved).
+                    wispParticleSystem: widget.services.wispParticleSystem,
+                    wispTransformLogger: widget.services.wispTransformLogger,
                   ),
                 if (_lastFix != null)
                   CircleLayer<Object>(circles: <CircleMarker<Object>>[BlueDotMarker.build(LatLng(_lastFix!.latitude, _lastFix!.longitude))]),

@@ -13,6 +13,8 @@ import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/location/geolocator_service.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 
 import 'screens/error_screen.dart';
 import 'screens/map_screen.dart';
@@ -85,6 +87,13 @@ Widget _buildMapRoute(BuildContext context, GoRouterState state) {
           discRepository: RevealDiscRepository(),
           frameDeltaProbe: FrameDeltaProbe(),
           fogTransformLogger: FogTransformLogger(),
+          // WISP-01..05 (Plan 04-04) — production wisp wiring. Defaults
+          // (live `Stopwatch()` for the warm-up gate; no `wallClock:`
+          // override). MapScreen.initState/dispose owns the lifecycle of
+          // the WispTransformLogger; the WispParticleSystem itself has no
+          // start/stop — the wall-clock starts the first paint.
+          wispParticleSystem: WispParticleSystem(),
+          wispTransformLogger: WispTransformLogger(),
         ),
       );
     },

@@ -32,7 +32,9 @@ import '../../_helpers/recording_fog_shader_renderer.dart';
 /// is the failure mode FOG-07 was designed to defend against in Phase 3.
 /// This test pins the discipline forward into Phase 4.
 void main() {
-  testWidgets('FogLayer reads MapCamera.of(context) exactly once per build EVEN WITH WispParticleSystem present (FOG-07 keystone holds in Phase 4)', (tester) async {
+  testWidgets('FogLayer reads MapCamera.of(context) exactly once per build EVEN WITH WispParticleSystem present (FOG-07 keystone holds in Phase 4)', (
+    tester,
+  ) async {
     var readCount = 0;
     FogLayer.debugOnCameraRead = () => readCount++;
     addTearDown(() => FogLayer.debugOnCameraRead = null);

@@ -23,6 +23,8 @@ import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc_repository.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/fog_transform_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/frame_delta_probe.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_particle_system.dart';
+import 'package:mirk_poc_debug/infrastructure/mirk/wisp/wisp_transform_logger.dart';
 import 'package:mirk_poc_debug/l10n/app_localizations.dart';
 import 'package:mirk_poc_debug/presentation/screens/map_screen.dart';
 
@@ -79,6 +81,9 @@ MapScreenServices _services(String pmtilesPath, {Stream<Position> Function()? st
     discRepository: RevealDiscRepository(),
     frameDeltaProbe: FrameDeltaProbe(),
     fogTransformLogger: FogTransformLogger(),
+    // Plan 04-04 — wisp wiring on test fixtures (see `map_screen_test.dart`).
+    wispParticleSystem: WispParticleSystem(),
+    wispTransformLogger: WispTransformLogger(),
     fogProgramLoaderOverride: _pendingFogProgram,
   );
 }
