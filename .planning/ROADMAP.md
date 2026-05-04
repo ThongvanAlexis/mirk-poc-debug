@@ -165,7 +165,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Map (no fog) | 6/6 | Complete | 2026-05-01 |
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED 2026-05-01; REVERSED 2026-05-04 via P03.1-15 Walk #6 to CONFIRMED-AFTER-FIX) | 2026-05-01 |
 | 03.1. Fix Fog Pan-Translation | 15/15 | Complete (HYPOTHESIS CONFIRMED-AFTER-FIX 2026-05-04) | 2026-05-04 |
-| 4. Wisp Particles | 0/5 | Pending (planned 2026-05-04; ready for /gsd:execute-phase 04) | - |
+| 4. Wisp Particles | 1/5 | In Progress (Plan 04-01 Wave 0 scaffolds landed 2026-05-05; Plans 04-02 + 04-03 unblocked for parallel Wave 1) | - |
 | 5. Decision Gate | 0/TBD | Pending | - |
 
 ---
