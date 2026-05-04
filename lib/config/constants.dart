@@ -190,9 +190,8 @@ const double kPocInitialCameraLat = 48.5397;
 /// Initial camera longitude — Melun town centre.
 const double kPocInitialCameraLon = 2.6553;
 
-/// Zoom level on first map render. Mid-range so the user immediately sees both
-/// road network and labels without panning.
-const double kPocInitialZoom = 13;
+/// Zoom level on first map render.
+const double kPocInitialZoom = 19;
 
 /// Zoom level used by the recenter FAB animation target (LOC-04). Tighter than
 /// initial so a "where am I?" tap zooms in rather than just re-centring.
