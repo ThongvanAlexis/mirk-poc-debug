@@ -2,6 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:io' show File;
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -120,6 +121,42 @@ void main() {
             'must produce ZERO wraps over the 1500-px sweep. No fract() is applied — there is no fractional offset that could wrap. '
             'If wraps are reported here, the FOG-17 + FOG-18 fixes have been silently reverted (e.g., to the B-3 fract() formulation '
             'or to the FOG-17a integer-wrap modulo). Wrap count: $wrapCount.',
+      );
+    });
+  });
+
+  // DEBUG-03 (Plan 03.1-14 Task A) — unique 4-digit per-cell encoding
+  // diagnostic enhancement. Per developer's Walk #5 verbatim request:
+  // *"modifying the number to not have repetitive value would allow us
+  // to debug the amount of drift"*. The previous mod-100 cycling
+  // repeated every 100 cells (~8000 raw px at 80-px cell size) — far
+  // too small for the O(M) raw-px zoom-gesture sweeps Walk #5 captured.
+  group('DEBUG-03 (Plan 03.1-14 Task A) — debug-spiral unique-cell-numbers source invariant', () {
+    test('DEBUG-03 static-source: atmospheric_fog_debug_spiral.frag uses unique 4-digit cell-id encoding', () {
+      final debugShaderSource = File('assets/shaders/atmospheric_fog_debug_spiral.frag').readAsStringSync();
+      expect(
+        debugShaderSource,
+        contains('(cell.y + 50) * 100 + (cell.x + 50)'),
+        reason:
+            'DEBUG-03 (Plan 03.1-14 Task A) static-source: atmospheric_fog_debug_spiral.frag MUST '
+            'use the unique 4-digit cell-id encoding `(cell.y + 50) * 100 + (cell.x + 50)` for '
+            'Walk #6 quantitative drift measurement. Per developer Walk #5: "modifying the number '
+            'to not have repetitive value would allow us to debug the amount of drift".',
+      );
+      expect(
+        debugShaderSource,
+        isNot(contains('mod(float(rawCellIndex), 100.0)')),
+        reason:
+            'DEBUG-03 static-source: the pre-DEBUG-03 repetitive 0..99 cycling MUST be removed. '
+            'If this assertion fails, the unique 4-digit encoding has not landed correctly.',
+      );
+      expect(
+        debugShaderSource,
+        contains('thousands'),
+        reason:
+            'DEBUG-03 static-source: 4-digit horizontal layout requires thousands/hundreds/tens/ones '
+            'identifiers. If this assertion fails, the digit-render block has not been updated to '
+            'the 4-digit layout.',
       );
     });
   });

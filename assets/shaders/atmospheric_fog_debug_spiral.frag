@@ -33,11 +33,13 @@ precision mediump float;
 // `lib/config/constants.dart` (constant-folded; not a uniform).
 #define DEBUG_SPIRAL_CELL_SIZE_PX 80.0
 
-// 10x10 digit atlas — digits 0..99. Two-digit cell labels handle the
-// common Melun-walk regime (5x9 = 45 cells per viewport at zoom 13);
-// labels modulo 100 wrap at high zoom, which the user sees as
-// "everything is the 'X' cell" — a confirming symptom for the high-
-// pixelOrigin failure modes (B-1 in particular).
+// 10x10 digit atlas — digits 0..9 in row 0. Plan 03.1-14 Task A
+// (DEBUG-03) replaced the previous repetitive two-digit labels (mod 100
+// cycling) with unique 4-digit per-cell encoding for quantitative drift
+// measurement during Walk #6 zoom transitions. The atlas image itself
+// is unchanged (10 digits 0..9 in the top row); only the shader's
+// per-cell sampling logic now reads 4 horizontal digit slots per cell
+// instead of 2.
 #define ATLAS_DIGITS_PER_ROW 10.0
 #define ATLAS_DIGIT_PX 64.0
 #define ATLAS_TOTAL_PX 640.0
@@ -151,41 +153,57 @@ void main() {
     vec2 cellFloat = floor(cellPx / DEBUG_SPIRAL_CELL_SIZE_PX);
     ivec2 cell = ivec2(cellFloat);
 
-    // Linearise the 2D cell coordinate. mod by 100 so the result fits
-    // into the 0..99 atlas range; high-magnitude cells display the
-    // residual (a confirming symptom for B-1 at high pixelOrigin).
-    int cellsPerRow = int(uResolution.x / DEBUG_SPIRAL_CELL_SIZE_PX) + 1;
-    int rawCellIndex = cell.x + cell.y * cellsPerRow;
-    int cellIndex = int(mod(float(rawCellIndex), 100.0));
-    if (cellIndex < 0) {
-        cellIndex = cellIndex + 100;  // mod(-1, 100) can return -1 on some drivers; force [0, 100).
-    }
+    // DEBUG-03 (Plan 03.1-14 Task A) — unique 4-digit per-cell encoding
+    // for quantitative drift measurement during Walk #6 zoom transitions.
+    // Per developer's Walk #5 verbatim request: "modifying the number to
+    // not have repetitive value would allow us to debug the amount of
+    // drift". The previous mod-100 cycling repeated every 100 cells
+    // (~8000 raw px at 80-px cell size) — far too small for the O(M)
+    // raw-px zoom-gesture sweeps Walk #5 captured. Encoding:
+    // (cell.y + 50) * 100 + (cell.x + 50) gives unique IDs for cells in
+    // the +/-50 cell range from world-origin (covers ~8000 raw px in
+    // each axis at 80-px cell size, more than a single Melun-anchored
+    // Walk #6 session needs). Cells outside +/-50 are clamped to
+    // [0, 9999] — boundary cells share IDs but the diagnostic is
+    // meaningful only within the active session region.
+    int cellId = (cell.y + 50) * 100 + (cell.x + 50);
+    cellId = clamp(cellId, 0, 9999);
 
-    int tens = cellIndex / 10;
-    int ones = cellIndex - tens * 10;
+    int thousands = cellId / 1000;
+    int hundreds = (cellId / 100) - thousands * 10;
+    int tens = (cellId / 10) - thousands * 100 - hundreds * 10;
+    int ones = cellId - thousands * 1000 - hundreds * 100 - tens * 10;
 
     // Local sub-cell uv in [0, 1] for atlas sampling.
     vec2 cellLocalPx = cellPx - cellFloat * DEBUG_SPIRAL_CELL_SIZE_PX;
     vec2 cellLocalUv = cellLocalPx / DEBUG_SPIRAL_CELL_SIZE_PX;
 
-    // Two-digit horizontal layout: tens digit occupies left half
-    // [0.0, 0.5], ones digit right half [0.5, 1.0]. Each digit is
-    // sampled in its own sub-uv space mapped from [0, 0.5] -> [0, 1].
-    // Vertical band: digits centered vertically with 0.1 padding top
-    // and bottom (so the cell border is visible between rows).
+    // DEBUG-03 (Plan 03.1-14 Task A) — 4-digit horizontal layout. Each
+    // sub-x band of 0.25 width carries one digit. Order: thousands (left)
+    // -> hundreds -> tens -> ones (right). Vertical band identical to the
+    // pre-DEBUG-03 layout (uses the same vertPadding / vertSpan).
     float vertPadding = 0.1;
     float vertSpan = 1.0 - 2.0 * vertPadding;
     float vertLocal = (cellLocalUv.y - vertPadding) / vertSpan;
 
     float digitIntensity = 0.0;
     if (vertLocal >= 0.0 && vertLocal <= 1.0) {
-        if (cellLocalUv.x < 0.5) {
-            float subX = cellLocalUv.x / 0.5;
-            digitIntensity = sampleDigit(tens, vec2(subX, vertLocal));
+        int activeDigit;
+        float subX;
+        if (cellLocalUv.x < 0.25) {
+            activeDigit = thousands;
+            subX = cellLocalUv.x / 0.25;
+        } else if (cellLocalUv.x < 0.5) {
+            activeDigit = hundreds;
+            subX = (cellLocalUv.x - 0.25) / 0.25;
+        } else if (cellLocalUv.x < 0.75) {
+            activeDigit = tens;
+            subX = (cellLocalUv.x - 0.5) / 0.25;
         } else {
-            float subX = (cellLocalUv.x - 0.5) / 0.5;
-            digitIntensity = sampleDigit(ones, vec2(subX, vertLocal));
+            activeDigit = ones;
+            subX = (cellLocalUv.x - 0.75) / 0.25;
         }
+        digitIntensity = sampleDigit(activeDigit, vec2(subX, vertLocal));
     }
 
     // Background colour: dark grey so the digits read with high contrast.
