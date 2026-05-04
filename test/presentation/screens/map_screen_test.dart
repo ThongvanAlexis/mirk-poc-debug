@@ -244,7 +244,7 @@ void main() {
       expect(flutterMap.options.interactionOptions.enableMultiFingerGestureRace, isFalse);
     });
 
-    testWidgets('min/max zoom locked to kPocMinZoom..kPocMaxZoom (10..15)', (tester) async {
+    testWidgets('min/max zoom locked to kPocMinZoom..kPocMaxZoom (10..20)', (tester) async {
       installVectorMapTilesCancellationFilterForBody();
       await tester.pumpWidget(_wrap(_services(pmtilesTempPath)));
       await _pumpUntilTileProviderLoaded(tester);

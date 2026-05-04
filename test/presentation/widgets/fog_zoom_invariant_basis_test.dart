@@ -81,13 +81,13 @@ void main() {
       );
     });
 
-    testWidgets('BEHAVIOURAL: at zoom 15 (== kPocMaxZoom; two above reference), forwarded zoomScale is 4.0', (tester) async {
-      final renderer = await _captureZoomScaleAtZoom(tester, kPocMaxZoom);
+    testWidgets('BEHAVIOURAL: at zoom 15 (two above reference), forwarded zoomScale is 4.0', (tester) async {
+      final renderer = await _captureZoomScaleAtZoom(tester, 15.0);
       expect(
         renderer.renders.last.zoomScale,
         closeTo(4.0, 1e-9),
         reason:
-            'FOG-19: at camera.zoom = 15 (= kPocMaxZoom; two above kPocFogReferenceZoom = 13), '
+            'FOG-19: at camera.zoom = 15 (two above kPocFogReferenceZoom = 13), '
             'uZoomScale = pow(2, 2) = 4.0. If this assertion fails, the forwarding formula is incorrect.',
       );
     });

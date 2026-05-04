@@ -202,9 +202,11 @@ const double kPocRecenterZoom = 15;
 /// the bbox into world view (where the bundled PMTiles archive has no tiles).
 const double kPocMinZoom = 10;
 
-/// Maximum allowed zoom — clamps pinch-in so the camera cannot zoom past the
-/// archive's deepest level (PMTiles bake stops at z15).
-const double kPocMaxZoom = 15;
+/// Maximum allowed zoom. The bundled PMTiles vector archive bakes tiles up
+/// to z15; past z15 `vector_map_tiles_pmtiles` upscales the z15 geometry
+/// (vector tiles stay sharp, just with less detail than a hypothetical z16+
+/// bake would carry).
+const double kPocMaxZoom = 20;
 
 // Pan bounds — Melun bbox + soft pad (CONTEXT §Pan bounds).
 //
