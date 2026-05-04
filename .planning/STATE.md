@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: "Completed 03.1-15-PLAN.md (Walk #6 CONFIRMED-AFTER-FIX FULL — Phase 3.1 CLOSES after 6 iterations + 8 walks; Plan 03-08 DENIED REVERSED; Phase 4 + Phase 5 unblock)"
-last_updated: "2026-05-04T22:00:00.000Z"
-last_activity: "2026-05-04 — Plan 03.1-15 EXECUTED. Walk #6 CONFIRMED-AFTER-FIX FULL closes Phase 3.1 after 6 iterations + 8 walks (#1, #2, #3, #3b, #4, #5, #6). Developer's verbatim verdict: 'APPROVED / numbered shader is broken : but I don't care / 100% solved for panning and zoomin on mirk shader'. Q1 SNAP retained 100% from Walk #5; Q1b CLOSED via FOG-19 C-b uZoomScale uniform; Q2/Q3/Q4 retained (UX-02 3rd consecutive walk); PERF-07 retained at Walk #5 levels (no Mail-share; verbal verdict decisive); DEBUG-03 numbered-shader rendering regression captured as Known Defect (developer-waived). Plan 03-08 DENIED verdict (2026-05-01) REVERSED; original Phase 3 same-Canvas fog hypothesis REINSTATED; MirkFall migration recommendation: PORT BACK with layered Plan 03.1-02 + 03.1-04 + 03.1-05 + 03.1-07 + 03.1-08 + 03.1-10 + 03.1-12 + 03.1-14 fix bundle. Phase 4 (Wisp Particles) + Phase 5 (Decision Gate) UNBLOCK and transition to Pending. v1 total stays 75. Phase 3.1: 15 of 15 plans complete."
+status: planning
+stopped_at: Phase 4 context gathered
+last_updated: "2026-05-04T21:00:24.667Z"
+last_activity: "2026-05-04 — Plan 03.1-15 EXECUTED. Walk #6 CONFIRMED-AFTER-FIX (FULL) closes Phase 3.1 after 6 iterations + 8 walks (#1, #2, #3, #3b, #4, #5, #6). Developer's verbatim chat verdict: "APPROVED / numbered shader is broken : but I don't care / 100% solved for panning and zoomin on mirk shader". Q1 SNAP retained 100% from Walk #5; Q1b CLOSED via FOG-19 C-b uZoomScale uniform (DIVIDING form `worldPx / (kNoiseTilePx * uZoomScale)` anchors noise to lat/lng during zoom; previous-iteration multiplicative form was wrong per Plan-checker Blocker #1); Q2/Q3/Q4 retained (UX-02 walk-time-validated 3rd consecutive walk); Q5 / DEBUG-02 implicitly validated via verbal verdict; PERF-07 retained at Walk #5 levels (no Mail-shared re-measurement). Q6 (DEBUG-03 quantitative cell-drift) IMPLICITLY ZERO via verbal verdict — DEBUG-03 numbered-shader rendering is BROKEN at runtime (Plan 03.1-14 Task A regression; CI gates GREEN); developer explicitly waived diagnostic ("numbered shader is broken : but I don't care"); assessed Q1b closure via subjective production-fog observation instead. DEBUG-03 status: Complete with known defect (debug-shader-only; no production impact; cleanup deferred). FOG-04..07 + FOG-11 + FOG-15 flip from `Falsified-in-production` to `Complete — Verified-by-walk`. FOG-19 + FOG-18 + DEBUG-01 + DEBUG-02 walk-time-validated. UX-02 + FOG-16 + FOG-17 walk-time-validated 3rd consecutive walk. Plan 03-08 DENIED verdict (2026-05-01) REVERSED; original Phase 3 same-Canvas fog hypothesis REINSTATED. MirkFall migration recommendation: PORT BACK with the layered Plan 03.1-02 + 03.1-04 + 03.1-05 + 03.1-07 + 03.1-08 + 03.1-10 + 03.1-12 + 03.1-14 fix bundle. Phase 4 + Phase 5 UNBLOCK and transition to Pending. v1 total stays 75. Phase 3.1: 15 of 15 plans complete. Walks #1-#5 + Walk #3b + Phase 3 historical records UNTOUCHED. CLAUDE.md `# current best version` section LEFT UNTOUCHED (developer-managed). Plan 03.1-16+ NOT authored — closure scope."
 progress:
   total_phases: 6
   completed_phases: 4
@@ -168,6 +168,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T19:19:52.484Z
-Stopped at: Completed 03.1-14-PLAN.md (FOG-19 C-b + DEBUG-03 atomic Task A + Task B; Walk #6 walk-time validation pending)
-Resume file: None
+Last session: 2026-05-04T21:00:24.662Z
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-wisp-particles/04-CONTEXT.md
