@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: 5 (closed; phase complete)
 status: planning
-stopped_at: "Completed 04-05-PLAN.md (Phase 4 closure — Walk #1 CONFIRMED-AFTER-FIX FULL; cross-pipeline parity invariant validated for a SECOND visual layer; Phase 5 unblocks)"
-last_updated: "2026-05-05T09:00:32.914Z"
+stopped_at: Phase 5 context gathered
+last_updated: "2026-05-05T10:50:20.871Z"
 last_activity: 2026-05-05
 progress:
   total_phases: 6
@@ -191,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-05T08:53:28.532Z
-Stopped at: Completed 04-05-PLAN.md (Phase 4 closure — Walk #1 CONFIRMED-AFTER-FIX FULL; cross-pipeline parity invariant validated for a SECOND visual layer; Phase 5 unblocks)
-Resume file: None
+Last session: 2026-05-05T10:50:20.867Z
+Stopped at: Phase 5 context gathered
+Resume file: .planning/phases/05-decision-gate/05-CONTEXT.md
