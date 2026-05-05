@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: 5 (closed; phase complete)
 status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-05-05T10:50:20.871Z"
+stopped_at: Completed 05-01-PLAN.md (hardening sweep + audit-date refresh + closing SHA 3326f4b + CI run 25383915800 GREEN)
+last_updated: "2026-05-05T15:03:40.708Z"
 last_activity: 2026-05-05
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 41
-  completed_plans: 41
+  total_plans: 46
+  completed_plans: 42
   percent: 100
 ---
 
@@ -95,6 +95,7 @@ Progress: [██████████] 100% (41 of 41 plans complete: Phase 
 | Phase 04-wisp-particles P04 | 52 min | 2 tasks | 14 files |
 | Phase 04-wisp-particles P05 | ~30 min end-to-end (Task 1 ~10 min pre-walk gates + skeletons; Task 2 brief sideload session via WalkSimulator + verbal verdict; Task 3 ~20 min verdict authoring + cascade) | 3 tasks (1 auto pre-walk gates + 1 checkpoint:human-verify walk + 1 auto verdict authoring) | 6 files (3 created: 04-FALSIFICATION.md final + 04-UAT.md final + 04-05-SUMMARY.md; 3 modified: REQUIREMENTS.md + ROADMAP.md + STATE.md) |
 | Phase 04-wisp-particles P05 | 30 min | 3 tasks (1 auto + 1 checkpoint:human-verify + 1 auto) tasks | 6 files (3 created + 3 modified) files |
+| Phase 05-decision-gate P01 | 11 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,7 @@ Recent decisions affecting current work:
 - [Phase 04-wisp-particles]: Post-Plan-04-04 inline follow-ups landed BEFORE Walk #1 (NOT gap-closure plans; no PLAN.md, no SUMMARY.md, no requirements traceability) — `41c8acd` kPocMaxZoom 15→20 (vector tiles upscale past z15 PMTiles bake; geometry stays sharp at street scale); `2613da8` kPocInitialZoom 13→19 (open `/map` at a tighter zoom so wisps and reveal discs are immediately legible); `849a6e1` auto-recenter on first GPS fix + FAB lands at kPocInitialZoom + delete unused kPocRecenterZoom (fixed UX issue surfaced from Walk-#1 attempt #1: at the bumped initial zoom the static Melun-centre constants leave the user's position outside the viewport on cold launch); `eec9087` WalkSimulator + AppBar control + fake_async dev_dep promotion + DEPENDENCIES.md audit row (synthetic GPS emitter swappable for the live Geolocator stream via the SAME listener body; enables indoor wisp/SDF/fog walk-time validation when outdoor walking impractical). All 4 commits CI-GREEN; documented in 04-FALSIFICATION.md + 04-UAT.md under `Post-Plan-04-04 follow-ups` heading.
 - [Phase 04-wisp-particles]: WalkSimulator pattern (`lib/infrastructure/location/walk_simulator.dart`): synthetic GPS emitter (broadcast Stream<Position> + Timer ticking every kPocWalkSimulatorTickMs=1000 ms at kPocWalkSimulatorDefaultSpeedMps=1.4 m/s along configurable bearing); MapScreen._positionSubscription pivots between live and synthetic streams via the SAME listener body so wisp spawn / SDF reveal / FOG-19 behave identically under simulated fixes. First deployed for Phase 4 Walk #1; useful when outdoor walking impractical (time of day, weather, safety).
 - [Phase 04-wisp-particles]: Verbal-verdict closure precedent extended (Phase 4 Walk #1 + Phase 3.1 Walk #6) — when developer's chat language is unambiguous on the load-bearing axis, Mail-share + JSONL grep-correlation can be skipped without compromising closure rigor; prior-walk grep-correlation tooling baseline (Phase 3.1 Walks #4 + #5) retained as the empirical anchor; FALSIFICATION document explicitly flags Mail-share status to preserve grep-correlation lineage.
+- [Phase 05-decision-gate]: Plan 05-01: 19 DEPENDENCIES.md audit-date stamps refreshed to 2026-05-05 (Pitfall-2-disciplined diff: date-cell-only); 7 CI hardening gates GREEN locally; closing SHA 3326f4b pushed; CI run 25383915800 GREEN on all 3 jobs (lint + android APK + iOS unsigned IPA); both artefacts ready for Plan 02 + Plan 03 walks via gh run download.
 
 ### Roadmap Evolution
 
@@ -191,6 +193,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-05T10:50:20.867Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-decision-gate/05-CONTEXT.md
+Last session: 2026-05-05T15:03:40.703Z
+Stopped at: Completed 05-01-PLAN.md (hardening sweep + audit-date refresh + closing SHA 3326f4b + CI run 25383915800 GREEN)
+Resume file: None

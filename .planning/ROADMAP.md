@@ -154,8 +154,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Pixel 4a (Adreno 618) walk: app launches without crash, fog renders, wisps render, app does not crash during a 5-minute walk; informational FPS recorded in the verdict document for cross-platform reference (no hard pass criterion — PERF-06).
   3. Repository hardening passes: `flutter analyze` zero warnings, `dart format --line-length 160 --set-exit-if-changed` clean, every `.dart` file in `lib/` and `test/` carries the GOSL v1.0 copyright header (re-verified as a CI gate), `DEPENDENCIES.md` covers every package in `pubspec.lock` with current audit dates, and the CI license-check job is green on `main`.
   4. Formal POC verdict document is committed at the repo root: states "hypothesis confirmed" or "hypothesis denied" backed by the Phase 3 frame-delta numbers + subjective walk notes, names the iPhone model and Flutter version, and ends with an explicit MirkFall-migration recommendation (port back / do not port back / port back with caveats).
-**Plans**: 5 plans
-  - [ ] 05-01-PLAN.md — Hardening sweep + DEPENDENCIES.md audit-date refresh + closing CI run (Wave 1)
+**Plans**: 1/5 plans executed
+  - [x] 05-01-PLAN.md — Hardening sweep + DEPENDENCIES.md audit-date refresh + closing CI run (Wave 1) — **EXECUTED 2026-05-05** (closing SHA `3326f4b`; CI run `25383915800` GREEN on all 3 jobs; 19 audit-date stamps refreshed; both artefacts `mirk-poc-debug-android-debug-apk` + `mirk-poc-debug-ios-unsigned-ipa` uploaded for Plan 02 + Plan 03 walks)
   - [ ] 05-02-PLAN.md — iPhone 17 Pro Walk #1: pre-walk gates + sideload + WalkSimulator session + Mail-share + 05-FALSIFICATION-1.md verdict (Wave 2)
   - [ ] 05-03-PLAN.md — Pixel 4a (Adreno 618) Walk #1: APK install + Pitfall 1 launch sanity + WalkSimulator-driven walk + Mail-share + 05-PIXEL4A-FALSIFICATION-1.md (closes PERF-06; Wave 2)
   - [ ] 05-04-PLAN.md — VERDICT.md + PORTBACK.md authoring at repo root (POC closure artefacts; Wave 3)
@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Fog of War — THE HYPOTHESIS | 8/8 | Complete (HYPOTHESIS DENIED 2026-05-01; REVERSED 2026-05-04 via P03.1-15 Walk #6 to CONFIRMED-AFTER-FIX) | 2026-05-01 |
 | 03.1. Fix Fog Pan-Translation | 15/15 | Complete (HYPOTHESIS CONFIRMED-AFTER-FIX 2026-05-04) | 2026-05-04 |
 | 4. Wisp Particles | 5/5 | Complete (HYPOTHESIS CONFIRMED-AFTER-FIX FULL 2026-05-05 — P04-05 Walk #1; cross-pipeline parity invariant validated for a SECOND visual layer; +4 inline post-Plan-04-04 follow-up commits) | 2026-05-05 |
-| 5. Decision Gate | 0/TBD | Pending — ready for `/gsd:discuss-phase 5` | - |
+| 5. Decision Gate | 1/5 | In Progress (Plan 05-01 EXECUTED 2026-05-05; Plans 05-02/03/04/05 pending) | - |
 
 ---
 *Roadmap created: 2026-04-30*
