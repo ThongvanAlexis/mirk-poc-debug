@@ -11,6 +11,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../config/constants.dart';
+import '../../infrastructure/location/walk_simulator.dart';
 import '../../infrastructure/logging/file_logger.dart';
 import '../../infrastructure/mirk/dev_marker_logger.dart';
 import '../../l10n/app_localizations.dart';
@@ -89,6 +91,20 @@ PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
         onPressed: () => DevMarkerLogger.emit(tag: 'steppy_translation'),
       ),
       IconButton(icon: const Icon(Icons.science), tooltip: l10n.shaderSanityTooltip, onPressed: () => context.push('/sanity')),
+      // Walk simulator (no GSD plan — debug instrumentation, see
+      // WalkSimulator docstring). Opens a bottom sheet with start/stop +
+      // bearing buttons + speed slider; the icon's filled/outlined state
+      // mirrors the simulator's running flag via ValueListenableBuilder.
+      ValueListenableBuilder<bool>(
+        valueListenable: WalkSimulator.instance.running,
+        builder: (BuildContext context, bool running, Widget? _) {
+          return IconButton(
+            icon: Icon(running ? Icons.directions_walk : Icons.directions_walk_outlined),
+            tooltip: 'Walk simulator',
+            onPressed: () => _showWalkSimulatorSheet(context),
+          );
+        },
+      ),
       IconButton(
         icon: const Icon(Icons.share),
         tooltip: l10n.shareLogsTooltip,
@@ -96,6 +112,97 @@ PreferredSizeWidget buildPocAppBar(BuildContext context, {String? title}) {
       ),
     ],
   );
+}
+
+/// Opens the walk-simulator bottom sheet — start/stop, four bearing buttons,
+/// speed slider. Sheet rebuilds on simulator state changes via
+/// ValueListenableBuilder + StatefulBuilder.
+void _showWalkSimulatorSheet(BuildContext context) {
+  showModalBottomSheet<void>(context: context, showDragHandle: true, builder: (BuildContext sheetContext) => const _WalkSimulatorSheet());
+}
+
+class _WalkSimulatorSheet extends StatefulWidget {
+  const _WalkSimulatorSheet();
+
+  @override
+  State<_WalkSimulatorSheet> createState() => _WalkSimulatorSheetState();
+}
+
+class _WalkSimulatorSheetState extends State<_WalkSimulatorSheet> {
+  late double _speedMps = WalkSimulator.instance.speedMps;
+
+  void _toggleStart() {
+    final sim = WalkSimulator.instance;
+    if (sim.running.value) {
+      sim.stop();
+    } else {
+      sim.start(speedMps: _speedMps);
+    }
+  }
+
+  void _setBearing(double deg) {
+    final sim = WalkSimulator.instance;
+    if (sim.running.value) {
+      sim.setBearing(deg);
+    } else {
+      sim.start(bearingDeg: deg, speedMps: _speedMps);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: WalkSimulator.instance.running,
+      builder: (BuildContext context, bool running, Widget? _) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text('Walk simulator', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                running ? 'Running · bearing ${WalkSimulator.instance.bearingDeg.toStringAsFixed(0)}° · ${_speedMps.toStringAsFixed(1)} m/s' : 'Stopped',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(icon: Icon(running ? Icons.stop : Icons.play_arrow), label: Text(running ? 'Stop' : 'Start (north)'), onPressed: _toggleStart),
+              const SizedBox(height: 16),
+              const Text('Bearing'),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  OutlinedButton(onPressed: () => _setBearing(0), child: const Text('N')),
+                  OutlinedButton(onPressed: () => _setBearing(90), child: const Text('E')),
+                  OutlinedButton(onPressed: () => _setBearing(180), child: const Text('S')),
+                  OutlinedButton(onPressed: () => _setBearing(270), child: const Text('W')),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('Speed: ${_speedMps.toStringAsFixed(1)} m/s'),
+              Slider(
+                value: _speedMps,
+                min: 0.5,
+                max: 5.0,
+                divisions: 45,
+                label: '${_speedMps.toStringAsFixed(1)} m/s',
+                onChanged: (double v) {
+                  setState(() => _speedMps = v);
+                  if (running) {
+                    WalkSimulator.instance.setSpeed(v);
+                  }
+                },
+              ),
+              const SizedBox(height: 4),
+              Text('Default ${kPocWalkSimulatorDefaultSpeedMps.toStringAsFixed(1)} m/s ≈ walking pace', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 final Logger _shareLogger = Logger('presentation.widgets.poc_app_bar.share');

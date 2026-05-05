@@ -50,6 +50,9 @@ dev_dependencies:
   # `package:test/test.dart` for the `dart test` runner. Required for
   # `dart test tool/test/` to resolve. Parent project carries the same pin.
   test: 1.30.0
+  # Synthetic clock for unit tests (WalkSimulator timer). Already a transitive
+  # dep of flutter_test; promoted to direct so test files can import it.
+  fake_async: 1.3.3
 
 flutter:
   uses-material-design: true

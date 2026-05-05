@@ -40,6 +40,7 @@ changes.
 | flutter_lints | 6.0.0 | BSD-3-Clause | https://pub.dev/packages/flutter_lints | None — analyzer config, no runtime | BSD-3 | Active (flutter.dev) | iOS+Android+Windows | 2026-04-30 |
 | yaml | 3.1.3 | MIT | https://pub.dev/packages/yaml | None — pure-Dart YAML parser used by tool/ scripts | MIT, BSD-3 | Active (Dart team) | iOS+Android+Windows | 2026-04-30 |
 | test | 1.30.0 | BSD-3-Clause | https://pub.dev/packages/test | None — pure-Dart test runner used by `dart test tool/test/`; no built-in network | BSD-3 | Active (Dart team) | iOS+Android+Windows | 2026-04-30 |
+| fake_async | 1.3.3 | Apache-2.0 | https://pub.dev/packages/fake_async | None — pure-Dart synthetic clock for unit tests | Apache-2.0 | Active (Dart team) | iOS+Android+Windows | 2026-05-05 |
 
 ## Transitive dependencies
 

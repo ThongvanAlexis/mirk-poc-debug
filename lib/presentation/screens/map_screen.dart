@@ -22,6 +22,7 @@ import 'package:vector_tile_renderer/vector_tile_renderer.dart' as vtr;
 import 'package:mirk_poc_debug/config/constants.dart';
 import 'package:mirk_poc_debug/domain/map/map_screen_services.dart';
 import 'package:mirk_poc_debug/domain/revealed/reveal_disc.dart';
+import 'package:mirk_poc_debug/infrastructure/location/walk_simulator.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf/sdf_cache.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/sdf_rebuild_logger.dart';
 import 'package:mirk_poc_debug/infrastructure/mirk/shader/digit_atlas_builder.dart';
@@ -165,6 +166,26 @@ class _MapScreenState extends State<MapScreen> {
       // appears as soon as the tile provider resolves.
       unawaited(_loadDebugSpiralAssetsIfNeeded());
     }
+    // Walk simulator: re-target our position subscription whenever the
+    // global simulator running flag flips. _subscribeToPositions() above
+    // wired the live Geolocator stream; when the user taps the AppBar
+    // walk-simulator control we cancel that and pivot to the synthetic
+    // stream (and the inverse on stop).
+    WalkSimulator.instance.running.addListener(_onWalkSimulatorRunningChanged);
+  }
+
+  /// Cancels the current position subscription and re-subscribes to whichever
+  /// source the simulator's running flag now points at — live Geolocator when
+  /// false, [WalkSimulator.instance.stream] when true.
+  void _onWalkSimulatorRunningChanged() {
+    if (!mounted) return;
+    unawaited(_positionSubscription?.cancel() ?? Future<void>.value());
+    _positionSubscription = null;
+    if (WalkSimulator.instance.running.value) {
+      _subscribeToSimulator();
+    } else {
+      _subscribeToPositions();
+    }
   }
 
   /// Plan 03.1-08-FIX FIX 2 — reacts to the global [debugSpiralEnabled]
@@ -238,33 +259,51 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _subscribeToPositions() {
-    _positionSubscription = widget.services.positionStreamFactory().listen((Position fix) {
-      if (!mounted) return;
-      setState(() => _lastFix = fix);
-      _log.info('Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m');
-      _maybeAutoRecenter();
-      // FOG-01: every fix → 25 m disc appended to the in-memory repository.
-      // FogLayer (via discRepository.addListener) picks up the change on its
-      // next build, the SDF cache busts on the new hash, the new disc joins
-      // the analytic SDF, and the next paint reveals the new spot.
-      //
-      // WISP-02/03 (Plan 04-04): captured `discId` + `disc` BEFORE the
-      // append so the wisp spawn references the SAME disc object that
-      // landed in the repo. Idempotency + 5-s warmup gating live INSIDE
-      // `WispParticleSystem.spawnAtNewDisc`.
-      _discCounter++;
-      final discId = _handRolledDiscId();
-      final disc = RevealDisc(
-        id: discId,
-        sessionId: kPocPlaceholderSessionId,
-        lat: fix.latitude,
-        lon: fix.longitude,
-        radiusMeters: kPocRevealDiscRadiusMeters,
-        fixedAtUtc: DateTime.now().toUtc(),
-      );
-      widget.services.discRepository.append(disc);
-      widget.services.wispParticleSystem.spawnAtNewDisc(discId: discId, disc: disc);
-    }, onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st));
+    _positionSubscription = widget.services.positionStreamFactory().listen(
+      _onPositionFix,
+      onError: (Object e, StackTrace st) => _log.warning('Position stream error', e, st),
+    );
+  }
+
+  /// Subscribes to the [WalkSimulator] singleton's synthetic stream. Same
+  /// listener body as the live path so wisp spawn / SDF reveal / FOG-19
+  /// behave identically under simulated fixes.
+  void _subscribeToSimulator() {
+    _positionSubscription = WalkSimulator.instance.stream.listen(
+      _onPositionFix,
+      onError: (Object e, StackTrace st) => _log.warning('Simulator stream error', e, st),
+    );
+  }
+
+  /// Shared listener body — runs for both the live Geolocator stream and the
+  /// [WalkSimulator] synthetic stream so any future change to fix-handling
+  /// (logging, disc append, wisp spawn) lives in exactly one place.
+  void _onPositionFix(Position fix) {
+    if (!mounted) return;
+    setState(() => _lastFix = fix);
+    _log.info('Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m');
+    _maybeAutoRecenter();
+    // FOG-01: every fix → 25 m disc appended to the in-memory repository.
+    // FogLayer (via discRepository.addListener) picks up the change on its
+    // next build, the SDF cache busts on the new hash, the new disc joins
+    // the analytic SDF, and the next paint reveals the new spot.
+    //
+    // WISP-02/03 (Plan 04-04): captured `discId` + `disc` BEFORE the
+    // append so the wisp spawn references the SAME disc object that
+    // landed in the repo. Idempotency + 5-s warmup gating live INSIDE
+    // `WispParticleSystem.spawnAtNewDisc`.
+    _discCounter++;
+    final discId = _handRolledDiscId();
+    final disc = RevealDisc(
+      id: discId,
+      sessionId: kPocPlaceholderSessionId,
+      lat: fix.latitude,
+      lon: fix.longitude,
+      radiusMeters: kPocRevealDiscRadiusMeters,
+      fixedAtUtc: DateTime.now().toUtc(),
+    );
+    widget.services.discRepository.append(disc);
+    widget.services.wispParticleSystem.spawnAtNewDisc(discId: discId, disc: disc);
   }
 
   /// Hand-rolled disc ID per RESEARCH §Open Question 4 — no `ulid` dep.
@@ -331,6 +370,11 @@ class _MapScreenState extends State<MapScreen> {
     // framework still wouldn't wait), it would only make a future regression
     // to async dispose less visible.
     debugSpiralEnabled.removeListener(_onDebugSpiralToggleChanged);
+    WalkSimulator.instance.running.removeListener(_onWalkSimulatorRunningChanged);
+    // Stop the simulator on screen dispose — the timer is process-wide so a
+    // dangling tick after /map unmounts would emit into a stream nobody reads,
+    // wasting cycles. Toggle re-engages on next /map mount via the AppBar.
+    WalkSimulator.instance.stop();
     unawaited(_positionSubscription?.cancel() ?? Future<void>.value());
     _positionSubscription = null;
     unawaited(_tileProvider?.archive.close() ?? Future<void>.value());

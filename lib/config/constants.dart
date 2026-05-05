@@ -253,6 +253,18 @@ const int kPocCompassAnimationMs = 250;
 /// improving the blue-dot smoothness at z13–15.
 const int kPocGpsDistanceFilterMeters = 5;
 
+// Walk simulator (debug instrumentation, no GSD plan — see WalkSimulator
+// docstring for rationale).
+
+/// Tick interval for `WalkSimulator.start()` — synthetic Position events are
+/// emitted at this cadence while the simulator is running. 1 s ≈ matches the
+/// real Geolocator cadence at walking pace with `kPocGpsDistanceFilterMeters`.
+const int kPocWalkSimulatorTickMs = 1000;
+
+/// Default speed for `WalkSimulator.start()` when no override is supplied.
+/// 1.4 m/s ≈ comfortable human walking pace (5 km/h).
+const double kPocWalkSimulatorDefaultSpeedMps = 1.4;
+
 // PMTiles asset (CONTEXT §PMTiles copy lifecycle).
 
 /// Bundled rootBundle key for the Melun PMTiles archive (asset side of the
