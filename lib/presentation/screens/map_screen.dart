@@ -111,6 +111,7 @@ class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   late final vtr.Theme _theme;
   Position? _lastFix;
+  bool _hasAutoRecentered = false;
   StreamSubscription<Position>? _positionSubscription;
   PmTilesVectorTileProvider? _tileProvider;
 
@@ -216,11 +217,32 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  /// One-shot auto-recenter on the user's first GPS fix. `kPocInitialZoom` is
+  /// tight enough that a user whose real position is far from
+  /// `kPocInitialCamera*` would otherwise see an empty viewport until they tap
+  /// the recenter FAB. Gated on both `_lastFix` and `_tileProvider` because
+  /// `MapController.move` throws if FlutterMap hasn't rendered once, and
+  /// FlutterMap is only mounted after the PMTiles provider future settles.
+  /// Called from both the fix-arrival path and the tile-provider-ready path —
+  /// whichever resolves second triggers the move.
+  void _maybeAutoRecenter() {
+    if (_hasAutoRecentered) return;
+    if (_tileProvider == null) return;
+    final fix = _lastFix;
+    if (fix == null) return;
+    _hasAutoRecentered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(LatLng(fix.latitude, fix.longitude), kPocInitialZoom);
+    });
+  }
+
   void _subscribeToPositions() {
     _positionSubscription = widget.services.positionStreamFactory().listen((Position fix) {
       if (!mounted) return;
       setState(() => _lastFix = fix);
       _log.info('Fix: ${fix.latitude.toStringAsFixed(5)}, ${fix.longitude.toStringAsFixed(5)} ±${fix.accuracy.toStringAsFixed(0)}m');
+      _maybeAutoRecenter();
       // FOG-01: every fix → 25 m disc appended to the in-memory repository.
       // FogLayer (via discRepository.addListener) picks up the change on its
       // next build, the SDF cache busts on the new hash, the new disc joins
@@ -290,6 +312,7 @@ class _MapScreenState extends State<MapScreen> {
         return;
       }
       setState(() => _tileProvider = provider);
+      _maybeAutoRecenter();
     } on Object catch (e, st) {
       // Stays on the loading state — the user sees a grey rect. Acceptable
       // POC fallback; real failure should already have been caught at the

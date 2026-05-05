@@ -11,7 +11,7 @@ import '../../config/constants.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Recenter FAB (LOC-04 + LOC-05). Tap → 500 ms easeInOut tween from current
-/// camera to `(lastFix.latLng, kPocRecenterZoom)` via per-frame
+/// camera to `(lastFix.latLng, kPocInitialZoom)` via per-frame
 /// `mapController.move`. Disabled when `lastFix == null`.
 ///
 /// Repeat-tap mid-animation disposes the in-flight controller, captures the
@@ -49,7 +49,7 @@ class _RecenterFabState extends State<RecenterFab> with TickerProviderStateMixin
     final fromZoom = cam.zoom;
     final toLat = fix.latitude;
     final toLon = fix.longitude;
-    const toZoom = kPocRecenterZoom;
+    const toZoom = kPocInitialZoom;
     final c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: kPocRecenterAnimationMs),

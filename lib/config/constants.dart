@@ -193,10 +193,6 @@ const double kPocInitialCameraLon = 2.6553;
 /// Zoom level on first map render.
 const double kPocInitialZoom = 19;
 
-/// Zoom level used by the recenter FAB animation target (LOC-04). Tighter than
-/// initial so a "where am I?" tap zooms in rather than just re-centring.
-const double kPocRecenterZoom = 15;
-
 /// Minimum allowed zoom — clamps user pinch-out so the camera cannot escape
 /// the bbox into world view (where the bundled PMTiles archive has no tiles).
 const double kPocMinZoom = 10;

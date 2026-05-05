@@ -120,7 +120,7 @@ void main() {
       final last = controller.moveCalls.last;
       expect(last.center.latitude, closeTo(fix.latitude, 1e-6), reason: 'Final move MUST land on lastFix.latitude.');
       expect(last.center.longitude, closeTo(fix.longitude, 1e-6), reason: 'Final move MUST land on lastFix.longitude.');
-      expect(last.zoom, closeTo(kPocRecenterZoom, 1e-6), reason: 'Final move MUST land at kPocRecenterZoom (15).');
+      expect(last.zoom, closeTo(kPocInitialZoom, 1e-6), reason: 'Final move MUST land at kPocInitialZoom.');
 
       controller.dispose();
     });
