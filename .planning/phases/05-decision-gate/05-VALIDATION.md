@@ -2,7 +2,7 @@
 phase: 5
 slug: decision-gate
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-05-05
 ---
@@ -48,20 +48,20 @@ created: 2026-05-05
 
 ## Per-Task Verification Map
 
-*Plan/task IDs are placeholder until planner finalises Phase 5 plan structure. Pattern: 05-XX-YY where XX = plan number, YY = task number.*
+*Task IDs finalised 2026-05-05 by /gsd:plan-phase 5. Pattern: 05-NN-T where NN = plan number, T = task number within plan.*
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 05-01-XX | 01 (DEPENDENCIES re-audit) | 1 | SC #3 (audit dates current) | unit/CI | `dart run tool/check_dependencies_md.dart` | ✅ existing | ⬜ pending |
-| 05-01-XX | 01 (DEPENDENCIES re-audit) | 1 | SC #3 (license allow-list) | unit/CI | `dart run tool/check_licenses.dart` | ✅ existing | ⬜ pending |
-| 05-01-XX | 01 (DEPENDENCIES re-audit) | 1 | SC #3 (GOSL headers) | unit/CI | `dart run tool/check_headers.dart` | ✅ existing | ⬜ pending |
-| 05-01-XX | 01 (DEPENDENCIES re-audit) | 1 | SC #3 (analyze clean) | unit/CI | `flutter analyze --fatal-infos --fatal-warnings` | ✅ existing | ⬜ pending |
-| 05-01-XX | 01 (DEPENDENCIES re-audit) | 1 | SC #3 (format clean) | unit/CI | `dart format --line-length 160 --set-exit-if-changed .` | ✅ existing | ⬜ pending |
-| 05-02-XX | 02 (iPhone Walk #1) | 2 | SC #1 (re-confirm fog + wisps + share-logs + FPS counter) | manual-only | sideload + WalkSimulator + Mail-share + JSONL grep | manual-only | ⬜ pending |
-| 05-03-XX | 03 (Pixel 4a Walk #1) | 2 | PERF-06 / SC #2 (cross-platform sanity) | manual-only | sideload + WalkSimulator + Mail-share + `adb logcat` | manual-only | ⬜ pending |
-| 05-04-XX | 04 (VERDICT.md authoring) | 3 | SC #4 (verdict doc committed) | doc-presence + plan-checker review | `test -f VERDICT.md && grep -qE "PORT BACK\|DO NOT PORT BACK" VERDICT.md` | manual (authored in this plan) | ⬜ pending |
-| 05-04-XX | 04 (PORTBACK.md authoring) | 3 | SC #4 (portback doc committed) | doc-presence + plan-checker review | `test -f PORTBACK.md` | manual (authored in this plan) | ⬜ pending |
-| 05-05-XX | 05 (STATE/ROADMAP cascade) | 4 | (closure) | doc-presence | `grep -q "Phase 5.*Complete" .planning/ROADMAP.md` | manual | ⬜ pending |
+| 05-01-1 | 01 (DEPENDENCIES re-audit + hardening sweep) | 1 | SC #3 (audit dates current + 7-gate hardening) | unit/CI | `flutter test && flutter analyze --fatal-infos --fatal-warnings && dart format --line-length 160 --set-exit-if-changed . && dart run tool/check_headers.dart && dart run tool/check_licenses.dart && dart run tool/check_dependencies_md.dart && dart test tool/test/` | ✅ existing | ⬜ pending |
+| 05-02-1 | 02 (iPhone Walk #1 — pre-walk skeleton) | 2 | SC #1 prep (gates + IPA download + skeleton docs) | unit/CI | `flutter test && flutter analyze --fatal-infos --fatal-warnings && dart run tool/check_headers.dart && dart run tool/check_dependencies_md.dart && test -f .planning/phases/05-decision-gate/05-FALSIFICATION-1.md` | ✅ existing | ⬜ pending |
+| 05-02-2 | 02 (iPhone Walk #1 — sideload + walk + Mail-share) | 2 | SC #1 (re-confirm fog + wisps + share-logs + FPS counter + C3' + UX-02 + Mail-share) | manual-only | sideload via SideStore + WalkSimulator AppBar + 8-step walk + Mail-share | manual-only | ⬜ pending |
+| 05-02-3 | 02 (iPhone Walk #1 — JSONL extract + verdict) | 2 | SC #1 evidence (5 streams + per-criterion verdict) | doc-presence + grep | `test -s walk-evidence/iphone-walk-1/frame_delta.jsonl && grep -qE "verdict: (CONFIRMED-AFTER-FIX\|ITERATING\|DENIED)" .planning/phases/05-decision-gate/05-FALSIFICATION-1.md` | created by walk | ⬜ pending |
+| 05-03-1 | 03 (Pixel 4a Walk #1 — pre-walk + APK + Pitfall 1 logcat) | 2 | PERF-06 prep (gates + APK + 30 s logcat sanity) | unit/CI + adb | `flutter test && adb devices && adb install -r <apk>` + 30 s logcat capture | ✅ existing + manual | ⬜ pending |
+| 05-03-2 | 03 (Pixel 4a Walk #1 — sideload + walk + Mail-share) | 2 | PERF-06 / SC #2 (cross-platform sanity) | manual-only | adb install + WalkSimulator AppBar + 10-step walk + Android sharesheet (Gmail) | manual-only | ⬜ pending |
+| 05-03-3 | 03 (Pixel 4a Walk #1 — JSONL extract + verdict) | 2 | PERF-06 evidence (5 streams + soft-criterion outcome) | doc-presence + grep | `grep -qE "verdict: (CONFIRMED-PERF-06\|LAUNCH-CRASH-CAVEAT\|PARTIAL-PERF-06\|OTHER)" .planning/phases/05-decision-gate/05-PIXEL4A-FALSIFICATION-1.md && test -f .planning/phases/05-decision-gate/walk-evidence/pixel4a-walk-1/initial-launch-logcat.txt` | created by walk | ⬜ pending |
+| 05-04-1 | 04 (VERDICT.md authoring) | 3 | SC #4 (verdict doc committed at repo root) | doc-presence + plan-checker review | `test -f VERDICT.md && grep -q "PORT BACK" VERDICT.md && grep -q "HYPOTHESIS CONFIRMED-AFTER-FIX" VERDICT.md && grep -q "iPhone 17 Pro" VERDICT.md && grep -q "Pixel 4a" VERDICT.md && grep -q "3.41.7" VERDICT.md` | manual (authored in this plan) | ⬜ pending |
+| 05-04-2 | 04 (PORTBACK.md authoring) | 3 | SC #4 (portback doc committed at repo root) | doc-presence + plan-checker review | `test -f PORTBACK.md && grep -q "ABI extensions" PORTBACK.md && grep -q "uPixelOrigin" PORTBACK.md && grep -q "uZoomScale" PORTBACK.md` | manual (authored in this plan) | ⬜ pending |
+| 05-05-1 | 05 (STATE/ROADMAP/REQUIREMENTS cascade) | 4 | (closure) | doc-presence + grep | `grep -q "Phase 5.*Complete" .planning/ROADMAP.md && grep -q "POC CLOSED" .planning/ROADMAP.md && grep -qE "PERF-06.*Complete" .planning/REQUIREMENTS.md` | manual | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -101,6 +101,6 @@ created: 2026-05-05
 - [x] Wave 0 covers all MISSING references — N/A, none missing (`wave_0_complete: true`)
 - [x] No watch-mode flags in commands above
 - [x] Feedback latency < 120 s (full suite ~90 s)
-- [ ] `nyquist_compliant: true` set in frontmatter — flip to `true` once planner confirms task IDs match this map
+- [x] `nyquist_compliant: true` set in frontmatter — flipped 2026-05-05 by /gsd:plan-phase 5; task IDs finalised across 5 plans / 4 waves
 
-**Approval:** pending (planner must finalise the Per-Task Verification Map task IDs and flip `nyquist_compliant: true`)
+**Approval:** APPROVED 2026-05-05 — Per-Task Verification Map task IDs finalised; nyquist_compliant flipped true; ready for /gsd:execute-phase 5.

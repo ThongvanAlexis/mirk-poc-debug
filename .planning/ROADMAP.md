@@ -154,7 +154,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Pixel 4a (Adreno 618) walk: app launches without crash, fog renders, wisps render, app does not crash during a 5-minute walk; informational FPS recorded in the verdict document for cross-platform reference (no hard pass criterion — PERF-06).
   3. Repository hardening passes: `flutter analyze` zero warnings, `dart format --line-length 160 --set-exit-if-changed` clean, every `.dart` file in `lib/` and `test/` carries the GOSL v1.0 copyright header (re-verified as a CI gate), `DEPENDENCIES.md` covers every package in `pubspec.lock` with current audit dates, and the CI license-check job is green on `main`.
   4. Formal POC verdict document is committed at the repo root: states "hypothesis confirmed" or "hypothesis denied" backed by the Phase 3 frame-delta numbers + subjective walk notes, names the iPhone model and Flutter version, and ends with an explicit MirkFall-migration recommendation (port back / do not port back / port back with caveats).
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 05-01-PLAN.md — Hardening sweep + DEPENDENCIES.md audit-date refresh + closing CI run (Wave 1)
+  - [ ] 05-02-PLAN.md — iPhone 17 Pro Walk #1: pre-walk gates + sideload + WalkSimulator session + Mail-share + 05-FALSIFICATION-1.md verdict (Wave 2)
+  - [ ] 05-03-PLAN.md — Pixel 4a (Adreno 618) Walk #1: APK install + Pitfall 1 launch sanity + WalkSimulator-driven walk + Mail-share + 05-PIXEL4A-FALSIFICATION-1.md (closes PERF-06; Wave 2)
+  - [ ] 05-04-PLAN.md — VERDICT.md + PORTBACK.md authoring at repo root (POC closure artefacts; Wave 3)
+  - [ ] 05-05-PLAN.md — STATE.md + ROADMAP.md + REQUIREMENTS.md cascade closure (Wave 4)
 
 ## Progress
 
