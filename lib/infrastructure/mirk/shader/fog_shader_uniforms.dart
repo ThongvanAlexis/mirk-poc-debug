@@ -48,6 +48,7 @@ import 'dart:ui' show Size;
 /// | 39    | uSdfRectSizeX            | float  |
 /// | 40    | uSdfRectSizeY            | float  |
 /// | 41    | uZoomScale               | float  |
+/// | 42    | uFragCoordYFlip          | float  |
 ///
 /// Sampler 0: uSdf — set via `setImageSampler(0, sdfImage)`.
 class FogShaderUniforms {
@@ -59,7 +60,13 @@ class FogShaderUniforms {
   /// FOG-19 (Plan 03.1-14 Task B) bumped from 41 to 42 to accommodate
   /// the new `uZoomScale` uniform at slot 41 (between `uSdfRectSizeY`
   /// at slot 40 and the SDF sampler at sampler index 0).
-  static const int totalFloatSlots = 42;
+  ///
+  /// FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) bumped from 42 to 43 to
+  /// accommodate the new `uFragCoordYFlip` uniform appended at slot 42
+  /// (between `uZoomScale` at slot 41 and the SDF sampler at sampler
+  /// index 0). Appended at the END of the slot sequence so every
+  /// pre-existing slot index is unchanged — zero index churn.
+  static const int totalFloatSlots = 43;
 
   /// Sets every uniform on [shader] in one call. Caller supplies
   /// already-decoded scalars / colours / records — no re-parsing inside.
@@ -94,6 +101,7 @@ class FogShaderUniforms {
     required double boundaryDensityBoost,
     required (double, double, double, double) sdfRect,
     required double zoomScale,
+    required double fragCoordYFlip,
     required ui.Image sdfImage,
   }) {
     // uResolution — slots 0, 1
@@ -167,6 +175,12 @@ class FogShaderUniforms {
     // At reference zoom (13.0), zoomScale = 1.0 → shader's noise sampling
     // is bit-identical to pre-fix. MIRL visual-identity-preserving.
     shader.setFloat(41, zoomScale);
+    // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — uFragCoordYFlip slot 42.
+    // Forwarded by `_FogPainter.paint()` as 1.0 on Android, 0.0 on iOS.
+    // Drives the shader's single Y-axis correction (replaces the prior
+    // `#ifdef IMPELLER_TARGET_OPENGLES` compile-time guard). At 0.0 the
+    // shader's fragUv is unchanged → iOS render path byte-identical.
+    shader.setFloat(42, fragCoordYFlip);
     // SDF sampler — index 0
     shader.setImageSampler(0, sdfImage);
   }

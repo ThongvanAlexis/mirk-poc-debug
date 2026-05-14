@@ -2,6 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -46,6 +47,15 @@ abstract class FogShaderRenderer {
   /// (=13.0), zoomScale == 1.0 and shader noise sampling is bit-identical
   /// to the pre-FOG-19 formulation (MIRL visual-identity-preservation
   /// rule per CLAUDE.md `# MIRL solution` updated 2026-05-04).
+  ///
+  /// [fragCoordYFlip] (FOG-20 / Pixel 4a Y-flip fix, 2026-05-14): `1.0` on
+  /// Android, `0.0` on iOS — forwarded to the shader's slot 42
+  /// `uFragCoordYFlip` uniform. The Pixel 4a (Adreno 618 / Android 13)
+  /// backend renders the whole shader-painted layer Y-inverted as one
+  /// rigid block; iOS (Impeller-Metal) is correct by construction. The
+  /// shader applies a single `mix`-based Y-axis correction gated on this
+  /// uniform. At `0.0` the shader's `fragUv` is unchanged → the iOS
+  /// render path is byte-identical to pre-FOG-20.
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
@@ -56,6 +66,7 @@ abstract class FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
+    required double fragCoordYFlip,
   });
 }
 
@@ -77,6 +88,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
+    required double fragCoordYFlip,
   }) {
     if (shader == null) return; // production never passes null; defensive guard.
     FogShaderUniforms.setAll(
@@ -110,6 +122,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       boundaryDensityBoost: mirkFogConstants['boundaryDensityBoost']!,
       sdfRect: sdfRect,
       zoomScale: zoomScale,
+      fragCoordYFlip: fragCoordYFlip,
       sdfImage: sdfImage,
     );
   }
@@ -586,6 +599,19 @@ class _FogPainter extends CustomPainter {
     // `# MIRL solution` updated 2026-05-04).
     final uZoomScale = math.pow(2.0, camera.zoom - kPocFogReferenceZoom).toDouble();
 
+    // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — derive uFragCoordYFlip
+    // by platform. The Pixel 4a (Adreno 618 / Android 13) backend
+    // renders the whole shader-painted fog layer Y-inverted as one
+    // rigid block (SDF silhouette + boundaryGlow + RED TINT + noise all
+    // mirrored together); iOS (Impeller-Metal, the canonical Y-down
+    // convention) is correct by construction. 1.0 on Android drives the
+    // shader's single `mix`-based Y correction; 0.0 on iOS leaves the
+    // shader's `fragUv` untouched so the iOS render path is
+    // byte-identical to pre-FOG-20. This replaces the unreliable
+    // `#ifdef IMPELLER_TARGET_OPENGLES` compile-time guard with one
+    // Dart-driven, backend-honest source of truth.
+    final uFragCoordYFlip = Platform.isAndroid ? 1.0 : 0.0;
+
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
@@ -618,6 +644,7 @@ class _FogPainter extends CustomPainter {
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
       zoomScale: uZoomScale, // ← FOG-19 (Plan 03.1-14 Task B) — anchors noise to lat/lng during zoom.
+      fragCoordYFlip: uFragCoordYFlip, // ← FOG-20 — 1.0 Android / 0.0 iOS; corrects the Pixel 4a shader Y-flip.
     );
 
     // Production-only paint step: drawing the shader onto the canvas requires

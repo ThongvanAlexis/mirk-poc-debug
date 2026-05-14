@@ -43,8 +43,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// 3. Debug-spiral shader (`atmospheric_fog_debug_spiral.frag`) mirrors
 ///    the post-FOG-19 formulation: `spiralCoord = worldPx /
 ///    (kNoiseTilePx * uZoomScale)` AND `cellPx = worldPx / uZoomScale`.
-/// 4. `FogShaderUniforms.totalFloatSlots == 42` (FOG-19 added
-///    `uZoomScale` at slot 41; up from 41 pre-Plan-03.1-14).
+/// 4. `FogShaderUniforms.totalFloatSlots == 43` (FOG-19 added
+///    `uZoomScale` at slot 41; FOG-20 appended `uFragCoordYFlip` at
+///    slot 42 — up from 41 pre-Plan-03.1-14).
 void main() {
   group('FOG-17 (Plan 03.1-10) — world-coordinate noise sampling engineering invariant', () {
     test('production shader contains the FOG-17 world-coordinate formulation', () {
@@ -165,16 +166,17 @@ void main() {
       );
     });
 
-    test('FogShaderUniforms.totalFloatSlots == 42 — FOG-19 (Plan 03.1-14 Task B) added uZoomScale at slot 41', () {
+    test('FogShaderUniforms.totalFloatSlots == 43 — FOG-20 (Pixel 4a Y-flip fix) appended uFragCoordYFlip at slot 42', () {
       final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
       expect(
         source,
-        contains('static const int totalFloatSlots = 42;'),
+        contains('static const int totalFloatSlots = 43;'),
         reason:
-            'FOG-19 (Plan 03.1-14 Task B): the float uniform layout grew from 41 to 42 to accommodate '
-            '`uniform float uZoomScale` at slot 41. The `kNoiseTilePx` value is still constant-folded as a '
+            'FOG-20 (Pixel 4a Y-flip fix): the float uniform layout grew from 42 to 43 to accommodate '
+            '`uniform float uFragCoordYFlip` appended at slot 42 (FOG-19 had grown it from 41 to 42 for '
+            '`uZoomScale` at slot 41). The `kNoiseTilePx` value is still constant-folded as a '
             '`const float` in the shader (NOT added as a runtime uniform). If this assertion fails, either '
-            'FOG-19 has been reverted (slot back to 41) or another slot was added without bookkeeping update.',
+            'FOG-20 / FOG-19 have been reverted or another slot was added without bookkeeping update.',
       );
     });
   });

@@ -30,6 +30,7 @@ class RecordedFogRender {
     required this.sdfImage,
     required this.namedFloatArgs,
     required this.zoomScale,
+    required this.fragCoordYFlip,
   });
 
   /// Painter `size` argument — drives the `uResolution` uniform.
@@ -67,6 +68,13 @@ class RecordedFogRender {
   /// `# MIRL solution` updated 2026-05-04).
   final double zoomScale;
 
+  /// FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — uFragCoordYFlip at slot
+  /// 42. Forwarded by the painter as `1.0` on Android, `0.0` on iOS.
+  /// Drives the shader's single `mix`-based Y-axis correction for the
+  /// Pixel 4a backend Y-flip; at `0.0` the iOS render path is
+  /// byte-identical to pre-FOG-20.
+  final double fragCoordYFlip;
+
   /// Counts every distinct float slot observed. The recording renderer
   /// records:
   ///
@@ -76,19 +84,21 @@ class RecordedFogRender {
   ///   * 1 float from [baseAlpha]
   ///   * 4 floats from [sdfRect]
   ///   * 1 float from [zoomScale] — FOG-19 / Plan 03.1-14 Task B (slot 41)
+  ///   * 1 float from [fragCoordYFlip] — FOG-20 / Pixel 4a Y-flip fix (slot 42)
   ///   * `namedFloatArgs.length` floats (kMirkFog* constants)
   ///
-  /// At kMirkFog* count = 20 (Plan 03-05 baseline) + zoomScale, total is
-  /// `2+1+2+1+4+1+20 = 31`. FOG-05's "42 slots" invariant counts every
-  /// uniform float in `FogShaderUniforms.totalFloatSlots` (resolution=2 +
-  /// time=1 + pixelOrigin=2 + uBase=4 + uHighlight=4 + uShadow=4 + 20
-  /// kMirkFog floats + sdfRect=4 + zoomScale=1 = 42).
+  /// At kMirkFog* count = 20 (Plan 03-05 baseline) + zoomScale +
+  /// fragCoordYFlip, total is `2+1+2+1+4+1+1+20 = 32`. FOG-05's "43 slots"
+  /// invariant counts every uniform float in
+  /// `FogShaderUniforms.totalFloatSlots` (resolution=2 + time=1 +
+  /// pixelOrigin=2 + uBase=4 + uHighlight=4 + uShadow=4 + 20 kMirkFog
+  /// floats + sdfRect=4 + zoomScale=1 + fragCoordYFlip=1 = 43).
   /// The recording renderer does NOT record uHighlight / uShadow because the
   /// production code path passes those as compile-time constants (ARGB ints
   /// hard-coded in `_FragmentShaderFogRenderer`); tests assert FOG-05 by
   /// inspecting the production renderer source, while THIS getter measures
   /// what flowed through the renderer interface for behavioural coverage.
-  int get totalFloatSlotsObserved => 2 + 1 + 2 + 1 + 4 + 1 + namedFloatArgs.length;
+  int get totalFloatSlotsObserved => 2 + 1 + 2 + 1 + 4 + 1 + 1 + namedFloatArgs.length;
 }
 
 /// Test impl of [FogShaderRenderer] — records every `render(...)` call into
@@ -115,6 +125,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
+    required double fragCoordYFlip,
   }) {
     renders.add(
       RecordedFogRender(
@@ -126,6 +137,7 @@ class RecordingFogShaderRenderer implements FogShaderRenderer {
         sdfImage: sdfImage,
         namedFloatArgs: Map<String, double>.from(mirkFogConstants),
         zoomScale: zoomScale,
+        fragCoordYFlip: fragCoordYFlip,
       ),
     );
   }

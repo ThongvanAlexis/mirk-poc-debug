@@ -23,19 +23,24 @@ import '../../../_helpers/recording_fog_shader_renderer.dart';
 /// accommodate the new `uZoomScale` uniform at slot 41 (between
 /// `uSdfRectSizeY` at slot 40 and the SDF sampler at sampler index 0).
 ///
+/// FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) bumped totalFloatSlots from
+/// 42 to 43 to accommodate the new `uFragCoordYFlip` uniform appended at
+/// slot 42 (between `uZoomScale` at slot 41 and the SDF sampler).
+///
 /// If a future iteration changes the uniform count, BOTH this constant and
 /// the `.frag` declaration must be updated together (and the FogShaderUniforms.setAll
 /// implementation reviewed) — that's the whole point of pinning the count here.
 void main() {
-  test('FogShaderUniforms.totalFloatSlots == 42 — slot-count gate (FOG-19 / Plan 03.1-14 Task B added uZoomScale at slot 41)', () {
+  test('FogShaderUniforms.totalFloatSlots == 43 — slot-count gate (FOG-20 / Pixel 4a Y-flip fix appended uFragCoordYFlip at slot 42)', () {
     expect(
       FogShaderUniforms.totalFloatSlots,
-      42,
+      43,
       reason:
-          'FOG-19 (Plan 03.1-14 Task B) added `uniform float uZoomScale` at slot 41 to BOTH '
-          '`atmospheric_fog.frag` AND `atmospheric_fog_debug_spiral.frag`. The Dart-side total '
-          'must match. If this assertion fails to match the shader-side declaration, the '
-          'painter and shader will be out of sync and Impeller will fail at uniform-binding time.',
+          'FOG-20 (Pixel 4a Y-flip fix) appended `uniform float uFragCoordYFlip` at slot 42 to '
+          '`atmospheric_fog.frag` (the production fog shader only — the debug-spiral shader has '
+          'its own independent uniform-set path). The Dart-side total must match. If this '
+          'assertion fails to match the shader-side declaration, the painter and shader will be '
+          'out of sync and Impeller will fail at uniform-binding time.',
     );
   });
 
@@ -73,6 +78,7 @@ void main() {
         sdfImage: _NullImage(),
         mirkFogConstants: const <String, double>{},
         zoomScale: 1.0,
+        fragCoordYFlip: 0.0,
       );
       expect(renderer.renders, hasLength(1));
       expect(renderer.renders.last.pixelOrigin, (px, py));
@@ -98,6 +104,7 @@ void main() {
         sdfImage: _NullImage(),
         mirkFogConstants: const <String, double>{},
         zoomScale: zs,
+        fragCoordYFlip: 0.0,
       );
       expect(renderer.renders, hasLength(1));
       expect(renderer.renders.last.zoomScale, closeTo(zs, 1e-9));

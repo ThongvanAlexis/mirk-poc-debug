@@ -140,6 +140,26 @@ uniform float uSdfRectSizeY;     // Slot 40
 // texture" behavior). Slot 41 (FOG-19 / Plan 03.1-14 Task B).
 uniform float uZoomScale;
 
+// FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — fragment-coordinate
+// Y-axis flip selector. 0.0 = no flip (iOS / Impeller-Metal, the
+// canonical top-left-origin Y-down convention — correct by
+// construction). 1.0 = flip (Android — the Pixel 4a / Adreno 618
+// backend renders the whole shader-painted layer Y-inverted as one
+// rigid block: SDF silhouette + boundaryGlow + noise all mirrored
+// together).
+//
+// This REPLACES the prior `#ifdef IMPELLER_TARGET_OPENGLES { fragUv.y
+// = 1.0 - fragUv.y; }` compile-time guard, which was unreliable on
+// the Pixel 4a: if the device runs Impeller-Vulkan the macro is
+// inert; if it runs GLES the macro is active yet the bug still
+// appeared. A Dart-driven uniform (set by `Platform.isAndroid` in
+// `_FogPainter.paint()`) is the single, backend-honest source of
+// truth — exactly ONE Y-convention correction, zero double-flip risk.
+// Applied to `fragUv` BEFORE it feeds both the noise `worldPx` path
+// AND the `sampleSdf(fragUv)` path, so the whole layer is corrected
+// together. Slot 42 (FOG-20).
+uniform float uFragCoordYFlip;
+
 // SDF sampler — R channel encodes signed distance via midpoint-128.
 uniform sampler2D uSdf;
 
@@ -261,12 +281,23 @@ float octaveDensity(vec2 uv, vec2 curlVec, float scale, float driftZ) {
 void main() {
     vec2 fragUv = FlutterFragCoord().xy / uResolution;
 
-    // OpenGLES Y-flip guard — Android API <29 path can flip Y under
-    // OpenGLES backend. Impeller+Vulkan / Impeller+Metal pass through
-    // unchanged.
-    #ifdef IMPELLER_TARGET_OPENGLES
-        fragUv.y = 1.0 - fragUv.y;
-    #endif
+    // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — Dart-driven Y-axis
+    // correction. `uFragCoordYFlip` is 0.0 on iOS (Impeller-Metal, the
+    // canonical Y-down convention — pass through unchanged) and 1.0 on
+    // Android (the Pixel 4a backend renders the shader-painted layer
+    // Y-inverted). The branchless `mix` selects between `fragUv.y` and
+    // `1.0 - fragUv.y`. This single correction sits BEFORE `fragUv`
+    // feeds the noise `worldPx` path AND `sampleSdf(fragUv)`, so the
+    // SDF silhouette + boundaryGlow + RED TINT + noise are all
+    // corrected together as one block — which is exactly why the
+    // symptom was "the whole shader-rendered content is Y-inverted".
+    //
+    // Replaces the prior `#ifdef IMPELLER_TARGET_OPENGLES` compile-time
+    // guard, which did not reliably match the Pixel 4a's actual
+    // backend (inert on Impeller-Vulkan; active-but-insufficient on
+    // GLES). One runtime uniform = one source of truth, no double-flip
+    // risk on any backend.
+    fragUv.y = mix(fragUv.y, 1.0 - fragUv.y, uFragCoordYFlip);
 
     // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
     //
