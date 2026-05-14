@@ -281,6 +281,13 @@ float octaveDensity(vec2 uv, vec2 curlVec, float scale, float driftZ) {
 void main() {
     vec2 fragUv = FlutterFragCoord().xy / uResolution;
 
+    // FOG-20 DIAGNOSTIC (2026-05-14) — capture the raw, unprocessed
+    // FlutterFragCoord-derived UV BEFORE the FOG-20 Y-flip mix below, so
+    // the end-of-main() diagnostic override can visualise the raw
+    // coordinate system this GPU backend hands the shader. Revert this
+    // line together with the diagnostic override block at the end.
+    vec2 rawFragUv = fragUv;
+
     // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — Dart-driven Y-axis
     // correction. `uFragCoordYFlip` is 0.0 on iOS (Impeller-Metal, the
     // canonical Y-down convention — pass through unchanged) and 1.0 on
@@ -491,4 +498,21 @@ void main() {
     #else
         fragColor = vec4(fogColor, finalAlpha);
     #endif
+
+    // FOG-20 DIAGNOSTIC (2026-05-14) — UNCONDITIONAL final-colour override.
+    // Placed AFTER the full pipeline so every uniform stays referenced
+    // (Impeller "no unused uniforms" startup constraint — the dead code
+    // above keeps all uniforms live). Splits the screen on raw
+    // FlutterFragCoord Y at 0.5:
+    //   * the colour PAIR encodes whether uFragCoordYFlip reached the
+    //     shader at all: green/yellow = uniform still 0.0 (did NOT
+    //     arrive); red/blue = uniform == 1.0 (arrived).
+    //   * WHICH colour sits on the visible TOP of the screen encodes the
+    //     raw FlutterFragCoord().y orientation for this GPU backend.
+    // iOS is known-correct → its result is the reference. Compare the
+    // Android screenshot against it to localise the Y-flip. Revert this
+    // block + the `rawFragUv` capture at the top of main() after verdict.
+    vec3 diagTop    = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), step(0.5, uFragCoordYFlip));
+    vec3 diagBottom = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), step(0.5, uFragCoordYFlip));
+    fragColor = vec4(mix(diagTop, diagBottom, step(0.5, rawFragUv.y)), 1.0);
 }
