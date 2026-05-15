@@ -403,17 +403,6 @@ void main() {
     fogColor = mix(fogColor, uShadow.rgb,    max(-hueShift, 0.0));
     fogColor = clamp(fogColor, 0.0, 1.0);
 
-    // DIAGNOSTIC TINT — Pixel 4a Walk #1 SDF-vs-clip-path desync test.
-    // REVERT after walk verdict. Mixes fog red proportional to boundaryGlow,
-    // which is the SDF-derived "near disc edge" signal (1.0 at sdf≈0, 0.0 at
-    // bleed-band edge). The red halo therefore lands wherever the SDF says
-    // "this fragment is near a disc boundary". If the red halo aligns with
-    // the visible reveal hole edge, the SDF→shader sampler binding is correct
-    // and the misaligned thing is some other layer. If the red halo is
-    // displaced from the hole, the SDF-driven boundary effects (Layer 1.5)
-    // are the misaligned layer.
-    fogColor = mix(fogColor, vec3(1.0, 0.0, 0.0), boundaryGlow * 0.85);
-
     // ---------- 6. Two-stop watercolour boundary ----------
     // Sharp inner gradient: 0 → 0.7 alpha over uBoundarySharpDistance.
     // Long-tail bleed:    0.7 → 1.0 alpha over uBoundaryBleedDistance.
