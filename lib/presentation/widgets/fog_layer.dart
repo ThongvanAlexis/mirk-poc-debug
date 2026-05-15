@@ -596,7 +596,25 @@ class _FogPainter extends CustomPainter {
     // matching residual; intPx + fracPx == pxOrigin).
     final boundedX = intPxX + fracPxX;
     final boundedY = intPxY + fracPxY;
-    final appliedPixelOrigin = (boundedX, boundedY);
+    // FOG-23 (Pixel 4a noise direction fix, 2026-05-15) — sign-flip
+    // pixelOrigin.y on Android to cancel a GPU-codegen-level Y-inversion
+    // of the noise pan response, confirmed by the FOG-22 horizontal-
+    // stripe probe (same worldPx the noise samples from; on Android the
+    // stripes drift opposite the basemap during pan). Every Dart-side
+    // value is platform-identical per the fog_transform rollups
+    // (canvasSx=Sy=1.0, shear=0, pixelOrigin evolves consistently with
+    // centerLat, uResolution positive, zoom matches) and FlutterFragCoord
+    // is Y-down on both platforms (proven by the earlier diagnostic
+    // walk's red-top / blue-bottom result). With every input verified
+    // identical, the only place left for the inversion is the impellerc
+    // → Vulkan/SPIR-V codegen of `worldPx.y = fragCoord.y +
+    // uPixelOrigin.y` effectively becoming `fragCoord.y - uPixelOrigin.y`
+    // on Adreno-Vulkan but not on Apple-Metal. Passing -boundedY to slot
+    // 4 double-inverts the codegen bug back to correct on Android. iOS
+    // gets the canonical positive value → render path byte-identical to
+    // f332fb5. Dart-only change, no shader edit, no new uniforms (the
+    // previous three uniform-add attempts each broke Impeller-Metal).
+    final appliedPixelOrigin = Platform.isAndroid ? (boundedX, -boundedY) : (boundedX, boundedY);
 
     // FOG-19 (Plan 03.1-14 Task B) — compute uZoomScale = pow(2,
     // camera.zoom - kPocFogReferenceZoom). Anchors fog noise samples
