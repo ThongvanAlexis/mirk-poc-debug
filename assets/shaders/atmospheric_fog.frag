@@ -414,6 +414,26 @@ void main() {
     // are the misaligned layer.
     fogColor = mix(fogColor, vec3(1.0, 0.0, 0.0), boundaryGlow * 0.85);
 
+    // FOG-22 NOISE DIRECTION PROBE (2026-05-15) — bright green horizontal
+    // stripes at every kStripePeriodPx world-pixels. The stripes use the
+    // SAME worldPx the noise samples key off, so they share whatever
+    // precision / coordinate behaviour the noise has on each platform.
+    // World-anchored: as the camera pans, the stripes should move WITH
+    // the basemap. If iOS and Android show the stripes moving in OPPOSITE
+    // directions for the same swipe, the noise IS being shader-inverted
+    // at the GPU codegen layer (every Dart-side uniform is platform-
+    // identical per the fog_transform logs). If they move correctly on
+    // both, the reported "noise inversion" was perception masked by the
+    // red halo's prior misbehaviour. REVERT after the walk verdict.
+    //
+    // Mixed into fogColor (NOT a fragColor override) so every uniform
+    // upstream stays referenced — avoids the Impeller-Metal dead-code-
+    // elim regression that broke iOS in the previous probe attempt.
+    // No new uniforms — pure shader-side overlay using existing worldPx.
+    const float kStripePeriodPx = 256.0;
+    float stripeY = mod(worldPx.y - 1.0, kStripePeriodPx);
+    fogColor = mix(fogColor, vec3(0.0, 1.0, 0.0), smoothstep(2.0, 0.0, stripeY) * 0.5);
+
     // ---------- 6. Two-stop watercolour boundary ----------
     // Sharp inner gradient: 0 → 0.7 alpha over uBoundarySharpDistance.
     // Long-tail bleed:    0.7 → 1.0 alpha over uBoundaryBleedDistance.
