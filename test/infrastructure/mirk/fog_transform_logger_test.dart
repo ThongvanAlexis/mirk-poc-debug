@@ -46,18 +46,39 @@ void main() {
           cameraPixelOrigin: const Point<double>(100.0, 50.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.1, 0.2),
+          canvasSx: 1.0,
+          canvasSy: 1.0,
+          canvasShearYX: 0.0,
+          canvasShearXY: 0.0,
+          uResolutionX: 1080.0,
+          uResolutionY: 1920.0,
+          zoom: 13.0,
         );
         logger.recordPaint(
           canvasTransform: _matrixWithTranslation(tx: 0.0, ty: 0.0),
           cameraPixelOrigin: const Point<double>(200.0, 60.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.2, 0.3),
+          canvasSx: 1.0,
+          canvasSy: 1.0,
+          canvasShearYX: 0.0,
+          canvasShearXY: 0.0,
+          uResolutionX: 1080.0,
+          uResolutionY: 1920.0,
+          zoom: 13.0,
         );
         logger.recordPaint(
           canvasTransform: _matrixWithTranslation(tx: 0.0, ty: 0.0),
           cameraPixelOrigin: const Point<double>(300.0, 70.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.3, 0.4),
+          canvasSx: 1.0,
+          canvasSy: 1.0,
+          canvasShearYX: 0.0,
+          canvasShearXY: 0.0,
+          uResolutionX: 1080.0,
+          uResolutionY: 1920.0,
+          zoom: 13.0,
         );
         // Wait at least 2 rollup intervals so the timer fires deterministically.
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -65,7 +86,7 @@ void main() {
         expect(captured, hasLength(greaterThanOrEqualTo(1)));
         final firstLine = captured.first.message;
         final decoded = json.decode(firstLine) as Map<String, Object?>;
-        // 26 keys: epochSecond + sampleCount + 8 fields × (Min,Median,Max).
+        // 47 keys: epochSecond + sampleCount + 15 fields × (Min,Median,Max).
         expect(
           decoded.keys,
           containsAll(<String>[
@@ -95,6 +116,27 @@ void main() {
             'uOffsetYMin',
             'uOffsetYMedian',
             'uOffsetYMax',
+            'canvasSxMin',
+            'canvasSxMedian',
+            'canvasSxMax',
+            'canvasSyMin',
+            'canvasSyMedian',
+            'canvasSyMax',
+            'canvasShearYXMin',
+            'canvasShearYXMedian',
+            'canvasShearYXMax',
+            'canvasShearXYMin',
+            'canvasShearXYMedian',
+            'canvasShearXYMax',
+            'uResolutionXMin',
+            'uResolutionXMedian',
+            'uResolutionXMax',
+            'uResolutionYMin',
+            'uResolutionYMedian',
+            'uResolutionYMax',
+            'zoomMin',
+            'zoomMedian',
+            'zoomMax',
           ]),
         );
         expect(decoded['sampleCount'], 3);
@@ -134,6 +176,13 @@ void main() {
             cameraPixelOrigin: Point<double>(i.toDouble(), i.toDouble()),
             cameraCenter: const LatLng(48.5397, 2.6553),
             appliedUOffset: (i.toDouble() % 1.0, i.toDouble() % 1.0),
+            canvasSx: 1.0,
+            canvasSy: 1.0,
+            canvasShearYX: 0.0,
+            canvasShearXY: 0.0,
+            uResolutionX: 1080.0,
+            uResolutionY: 1920.0,
+            zoom: 13.0,
           );
         }
         await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -162,6 +211,13 @@ void main() {
           cameraPixelOrigin: const Point<double>(1024.0, 768.0),
           cameraCenter: const LatLng(48.5397, 2.6553),
           appliedUOffset: (0.5, 0.25),
+          canvasSx: 1.0,
+          canvasSy: 1.0,
+          canvasShearYX: 0.0,
+          canvasShearXY: 0.0,
+          uResolutionX: 1080.0,
+          uResolutionY: 1920.0,
+          zoom: 13.0,
         );
         logger.stop();
         // stop() emits via _log.info synchronously; onRecord delivery is

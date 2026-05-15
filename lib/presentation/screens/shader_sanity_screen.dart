@@ -3,6 +3,7 @@
 // See LICENSE file for details
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -347,6 +348,10 @@ class _FogSanityPainter extends CustomPainter {
       // trajectory implicitly stays at the reference zoom; passing 1.0 here
       // preserves the pre-FOG-19 visual character on /sanity.
       zoomScale: 1.0,
+      // FOG-21 (Pixel 4a SDF V-origin fix) — match the production /map path so
+      // the sanity screen exercises the same V-flip convention. 1.0 on Android,
+      // 0.0 on iOS; mix collapses to identity sampling on iOS.
+      sdfVFlip: Platform.isAndroid ? 1.0 : 0.0,
       sdfImage: sdfImage,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);

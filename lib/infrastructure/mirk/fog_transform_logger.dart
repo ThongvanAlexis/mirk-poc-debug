@@ -20,10 +20,11 @@ import 'package:mirk_poc_debug/config/constants.dart';
 /// timers so post-walk grep can join the three streams by `epochSecond`. This is
 /// the load-bearing guarantee of CONTEXT §log-timeline-alignment.
 ///
-/// Captured per paint: 8 diagnostic doubles (canvasTx, canvasTy, pixelOriginX,
-/// pixelOriginY, centerLat, centerLon, uOffsetX, uOffsetY). The rollup emits
-/// min, median, and max for each field — 24 numeric values plus epochSecond +
-/// sampleCount = 26 keys total per JSONL line.
+/// Captured per paint: 15 diagnostic doubles (canvasTx, canvasTy, pixelOriginX,
+/// pixelOriginY, centerLat, centerLon, uOffsetX, uOffsetY, canvasSx, canvasSy,
+/// canvasShearYX, canvasShearXY, uResolutionX, uResolutionY, zoom). The rollup
+/// emits min, median, and max for each field — 45 numeric values plus
+/// epochSecond + sampleCount = 47 keys total per JSONL line.
 ///
 /// Idle seconds (no [recordPaint] calls) emit nothing — same convention as
 /// `SdfRebuildLogger` + `FrameDeltaProbe` (RESEARCH §Pattern B).
@@ -83,6 +84,13 @@ class FogTransformLogger {
     required Point<double> cameraPixelOrigin,
     required LatLng cameraCenter,
     required (double, double) appliedUOffset,
+    required double canvasSx,
+    required double canvasSy,
+    required double canvasShearYX,
+    required double canvasShearXY,
+    required double uResolutionX,
+    required double uResolutionY,
+    required double zoom,
   }) {
     _frameCounter += 1;
     _buffer.add(
@@ -96,6 +104,13 @@ class FogTransformLogger {
         centerLon: cameraCenter.longitude,
         uOffsetX: appliedUOffset.$1,
         uOffsetY: appliedUOffset.$2,
+        canvasSx: canvasSx,
+        canvasSy: canvasSy,
+        canvasShearYX: canvasShearYX,
+        canvasShearXY: canvasShearXY,
+        uResolutionX: uResolutionX,
+        uResolutionY: uResolutionY,
+        zoom: zoom,
       ),
     );
     while (_buffer.length > kPocFogTransformBufferMaxSamples) {
@@ -127,6 +142,17 @@ class FogTransformLogger {
     final centerLonStats = computeStats(_buffer.map((s) => s.centerLon).toList()..sort());
     final uOffsetXStats = computeStats(_buffer.map((s) => s.uOffsetX).toList()..sort());
     final uOffsetYStats = computeStats(_buffer.map((s) => s.uOffsetY).toList()..sort());
+    // FOG-21 noise-direction diagnostics — canvas transform's non-translation
+    // components (scale + shear), the uResolution size, and the camera zoom.
+    // Surfaced as 1-Hz min/median/max to localise whether MobileLayerTransformer
+    // applies anything beyond pure translation on Android.
+    final canvasSxStats = computeStats(_buffer.map((s) => s.canvasSx).toList()..sort());
+    final canvasSyStats = computeStats(_buffer.map((s) => s.canvasSy).toList()..sort());
+    final canvasShearYXStats = computeStats(_buffer.map((s) => s.canvasShearYX).toList()..sort());
+    final canvasShearXYStats = computeStats(_buffer.map((s) => s.canvasShearXY).toList()..sort());
+    final uResolutionXStats = computeStats(_buffer.map((s) => s.uResolutionX).toList()..sort());
+    final uResolutionYStats = computeStats(_buffer.map((s) => s.uResolutionY).toList()..sort());
+    final zoomStats = computeStats(_buffer.map((s) => s.zoom).toList()..sort());
 
     // WALL-CLOCK source — REQUIRED for grep-correlation with SdfRebuildLogger
     // and FrameDeltaProbe, both of which derive epochSecond identically.
@@ -159,14 +185,35 @@ class FogTransformLogger {
       'uOffsetYMin': uOffsetYStats.$1.toStringAsFixed(6),
       'uOffsetYMedian': uOffsetYStats.$2.toStringAsFixed(6),
       'uOffsetYMax': uOffsetYStats.$3.toStringAsFixed(6),
+      'canvasSxMin': canvasSxStats.$1.toStringAsFixed(6),
+      'canvasSxMedian': canvasSxStats.$2.toStringAsFixed(6),
+      'canvasSxMax': canvasSxStats.$3.toStringAsFixed(6),
+      'canvasSyMin': canvasSyStats.$1.toStringAsFixed(6),
+      'canvasSyMedian': canvasSyStats.$2.toStringAsFixed(6),
+      'canvasSyMax': canvasSyStats.$3.toStringAsFixed(6),
+      'canvasShearYXMin': canvasShearYXStats.$1.toStringAsFixed(6),
+      'canvasShearYXMedian': canvasShearYXStats.$2.toStringAsFixed(6),
+      'canvasShearYXMax': canvasShearYXStats.$3.toStringAsFixed(6),
+      'canvasShearXYMin': canvasShearXYStats.$1.toStringAsFixed(6),
+      'canvasShearXYMedian': canvasShearXYStats.$2.toStringAsFixed(6),
+      'canvasShearXYMax': canvasShearXYStats.$3.toStringAsFixed(6),
+      'uResolutionXMin': uResolutionXStats.$1.toStringAsFixed(6),
+      'uResolutionXMedian': uResolutionXStats.$2.toStringAsFixed(6),
+      'uResolutionXMax': uResolutionXStats.$3.toStringAsFixed(6),
+      'uResolutionYMin': uResolutionYStats.$1.toStringAsFixed(6),
+      'uResolutionYMedian': uResolutionYStats.$2.toStringAsFixed(6),
+      'uResolutionYMax': uResolutionYStats.$3.toStringAsFixed(6),
+      'zoomMin': zoomStats.$1.toStringAsFixed(6),
+      'zoomMedian': zoomStats.$2.toStringAsFixed(6),
+      'zoomMax': zoomStats.$3.toStringAsFixed(6),
     });
     _log.info(line);
     _buffer.clear();
   }
 }
 
-/// Immutable per-paint observation. Nine final fields (frameCounter +
-/// 8 diagnostic doubles) — kept private because the JSONL rollup is the only
+/// Immutable per-paint observation. Sixteen final fields (frameCounter +
+/// 15 diagnostic doubles) — kept private because the JSONL rollup is the only
 /// supported consumer outside the logger.
 @immutable
 class _FogTransformSample {
@@ -180,6 +227,13 @@ class _FogTransformSample {
     required this.centerLon,
     required this.uOffsetX,
     required this.uOffsetY,
+    required this.canvasSx,
+    required this.canvasSy,
+    required this.canvasShearYX,
+    required this.canvasShearXY,
+    required this.uResolutionX,
+    required this.uResolutionY,
+    required this.zoom,
   });
 
   final int frameCounter;
@@ -191,4 +245,11 @@ class _FogTransformSample {
   final double centerLon;
   final double uOffsetX;
   final double uOffsetY;
+  final double canvasSx;
+  final double canvasSy;
+  final double canvasShearYX;
+  final double canvasShearXY;
+  final double uResolutionX;
+  final double uResolutionY;
+  final double zoom;
 }

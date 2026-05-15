@@ -2,6 +2,7 @@
 // Licensed under the Good Old Software License v1.0
 // See LICENSE file for details
 
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -46,6 +47,15 @@ abstract class FogShaderRenderer {
   /// (=13.0), zoomScale == 1.0 and shader noise sampling is bit-identical
   /// to the pre-FOG-19 formulation (MIRL visual-identity-preservation
   /// rule per CLAUDE.md `# MIRL solution` updated 2026-05-04).
+  ///
+  /// [sdfVFlip] (FOG-21 — Pixel 4a SDF V-origin fix): 0.0 on iOS
+  /// (Impeller-Metal canonical V-down → identity sampling), 1.0 on Android
+  /// (the Pixel 4a Impeller backend appears to sample `ui.Image` textures
+  /// V-up; flipping `sdfUv.y` cancels the hardware convention). Forwarded
+  /// to the shader's slot 42 `uSdfVFlip` uniform. The shader applies the
+  /// flip INSIDE `sampleSdf` only — `fragUv` and the noise / `worldPx`
+  /// path are untouched, so iOS render output is byte-identical to
+  /// pre-FOG-21 (mix(x, 1.0 - x, 0.0) == x).
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
@@ -56,6 +66,7 @@ abstract class FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
+    required double sdfVFlip,
   });
 }
 
@@ -77,6 +88,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
+    required double sdfVFlip,
   }) {
     if (shader == null) return; // production never passes null; defensive guard.
     FogShaderUniforms.setAll(
@@ -110,6 +122,7 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       boundaryDensityBoost: mirkFogConstants['boundaryDensityBoost']!,
       sdfRect: sdfRect,
       zoomScale: zoomScale,
+      sdfVFlip: sdfVFlip,
       sdfImage: sdfImage,
     );
   }
@@ -586,6 +599,13 @@ class _FogPainter extends CustomPainter {
     // `# MIRL solution` updated 2026-05-04).
     final uZoomScale = math.pow(2.0, camera.zoom - kPocFogReferenceZoom).toDouble();
 
+    // FOG-21 (Pixel 4a SDF V-origin fix) — derive uSdfVFlip by platform.
+    // 1.0 on Android (cancels the Impeller-backend ui.Image V-up
+    // convention), 0.0 on iOS (Metal canonical; identity). Forwarded to
+    // the shader's slot 42 uSdfVFlip uniform; the shader applies it
+    // INSIDE sampleSdf only — fragUv and noise/worldPx are untouched.
+    final uSdfVFlip = Platform.isAndroid ? 1.0 : 0.0;
+
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
@@ -597,11 +617,25 @@ class _FogPainter extends CustomPainter {
     // pixelOrigin (zoom-13 ~1e6, zoom-15+ ~4e6) instead of the modulo-1.0
     // fraction (0..1); post-walk grep tooling reads the higher magnitude
     // directly without any key rename.
+    //
+    // FOG-21 noise-direction diagnostics — capture the canvas transform's
+    // scale + shear components, the uResolution size, and the camera zoom
+    // alongside the existing translation/origin/center fields. Localises
+    // whether MobileLayerTransformer is applying anything beyond pure
+    // translation on Android (a non-1.0 sx/sy or non-0.0 shear would
+    // explain a Y-inverted shader output independent of the SDF V-origin).
     fogTransformLogger.recordPaint(
       canvasTransform: canvasTransform, // ← Plan 03.1-05: reuse the single allocation from above (single-snapshot at the matrix level).
       cameraPixelOrigin: pixOrigin,
       cameraCenter: camera.center,
       appliedUOffset: appliedPixelOrigin,
+      canvasSx: canvasTransform[0],
+      canvasSy: canvasTransform[5],
+      canvasShearYX: canvasTransform[1],
+      canvasShearXY: canvasTransform[4],
+      uResolutionX: size.width,
+      uResolutionY: size.height,
+      zoom: camera.zoom,
     );
 
     // FOG-05: populate all 41 uniforms via the locked single source of truth
@@ -618,6 +652,7 @@ class _FogPainter extends CustomPainter {
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
       zoomScale: uZoomScale, // ← FOG-19 (Plan 03.1-14 Task B) — anchors noise to lat/lng during zoom.
+      sdfVFlip: uSdfVFlip, // ← FOG-21 (Pixel 4a SDF V-origin fix) — 1.0 on Android, 0.0 on iOS; applied INSIDE sampleSdf only.
     );
 
     // Production-only paint step: drawing the shader onto the canvas requires
