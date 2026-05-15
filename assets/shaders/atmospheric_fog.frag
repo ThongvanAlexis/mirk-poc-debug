@@ -140,26 +140,6 @@ uniform float uSdfRectSizeY;     // Slot 40
 // texture" behavior). Slot 41 (FOG-19 / Plan 03.1-14 Task B).
 uniform float uZoomScale;
 
-// FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — fragment-coordinate
-// Y-axis flip selector. 0.0 = no flip (iOS / Impeller-Metal, the
-// canonical top-left-origin Y-down convention — correct by
-// construction). 1.0 = flip (Android — the Pixel 4a / Adreno 618
-// backend renders the whole shader-painted layer Y-inverted as one
-// rigid block: SDF silhouette + boundaryGlow + noise all mirrored
-// together).
-//
-// This REPLACES the prior `#ifdef IMPELLER_TARGET_OPENGLES { fragUv.y
-// = 1.0 - fragUv.y; }` compile-time guard, which was unreliable on
-// the Pixel 4a: if the device runs Impeller-Vulkan the macro is
-// inert; if it runs GLES the macro is active yet the bug still
-// appeared. A Dart-driven uniform (set by `Platform.isAndroid` in
-// `_FogPainter.paint()`) is the single, backend-honest source of
-// truth — exactly ONE Y-convention correction, zero double-flip risk.
-// Applied to `fragUv` BEFORE it feeds both the noise `worldPx` path
-// AND the `sampleSdf(fragUv)` path, so the whole layer is corrected
-// together. Slot 42 (FOG-20).
-uniform float uFragCoordYFlip;
-
 // SDF sampler — R channel encodes signed distance via midpoint-128.
 uniform sampler2D uSdf;
 
@@ -281,30 +261,12 @@ float octaveDensity(vec2 uv, vec2 curlVec, float scale, float driftZ) {
 void main() {
     vec2 fragUv = FlutterFragCoord().xy / uResolution;
 
-    // FOG-20 DIAGNOSTIC (2026-05-14) — capture the raw, unprocessed
-    // FlutterFragCoord-derived UV BEFORE the FOG-20 Y-flip mix below, so
-    // the end-of-main() diagnostic override can visualise the raw
-    // coordinate system this GPU backend hands the shader. Revert this
-    // line together with the diagnostic override block at the end.
-    vec2 rawFragUv = fragUv;
-
-    // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — Dart-driven Y-axis
-    // correction. `uFragCoordYFlip` is 0.0 on iOS (Impeller-Metal, the
-    // canonical Y-down convention — pass through unchanged) and 1.0 on
-    // Android (the Pixel 4a backend renders the shader-painted layer
-    // Y-inverted). The branchless `mix` selects between `fragUv.y` and
-    // `1.0 - fragUv.y`. This single correction sits BEFORE `fragUv`
-    // feeds the noise `worldPx` path AND `sampleSdf(fragUv)`, so the
-    // SDF silhouette + boundaryGlow + RED TINT + noise are all
-    // corrected together as one block — which is exactly why the
-    // symptom was "the whole shader-rendered content is Y-inverted".
-    //
-    // Replaces the prior `#ifdef IMPELLER_TARGET_OPENGLES` compile-time
-    // guard, which did not reliably match the Pixel 4a's actual
-    // backend (inert on Impeller-Vulkan; active-but-insufficient on
-    // GLES). One runtime uniform = one source of truth, no double-flip
-    // risk on any backend.
-    fragUv.y = mix(fragUv.y, 1.0 - fragUv.y, uFragCoordYFlip);
+    // OpenGLES Y-flip guard — Android API <29 path can flip Y under
+    // OpenGLES backend. Impeller+Vulkan / Impeller+Metal pass through
+    // unchanged.
+    #ifdef IMPELLER_TARGET_OPENGLES
+        fragUv.y = 1.0 - fragUv.y;
+    #endif
 
     // Plan 03.1-10 — FOG-17 world-coordinate noise sampling.
     //
@@ -498,21 +460,4 @@ void main() {
     #else
         fragColor = vec4(fogColor, finalAlpha);
     #endif
-
-    // FOG-20 DIAGNOSTIC (2026-05-14) — UNCONDITIONAL final-colour override.
-    // Placed AFTER the full pipeline so every uniform stays referenced
-    // (Impeller "no unused uniforms" startup constraint — the dead code
-    // above keeps all uniforms live). Splits the screen on raw
-    // FlutterFragCoord Y at 0.5:
-    //   * the colour PAIR encodes whether uFragCoordYFlip reached the
-    //     shader at all: green/yellow = uniform still 0.0 (did NOT
-    //     arrive); red/blue = uniform == 1.0 (arrived).
-    //   * WHICH colour sits on the visible TOP of the screen encodes the
-    //     raw FlutterFragCoord().y orientation for this GPU backend.
-    // iOS is known-correct → its result is the reference. Compare the
-    // Android screenshot against it to localise the Y-flip. Revert this
-    // block + the `rawFragUv` capture at the top of main() after verdict.
-    vec3 diagTop    = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), step(0.5, uFragCoordYFlip));
-    vec3 diagBottom = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), step(0.5, uFragCoordYFlip));
-    fragColor = vec4(mix(diagTop, diagBottom, step(0.5, rawFragUv.y)), 1.0);
 }

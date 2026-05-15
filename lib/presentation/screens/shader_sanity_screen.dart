@@ -3,7 +3,6 @@
 // See LICENSE file for details
 
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -348,11 +347,6 @@ class _FogSanityPainter extends CustomPainter {
       // trajectory implicitly stays at the reference zoom; passing 1.0 here
       // preserves the pre-FOG-19 visual character on /sanity.
       zoomScale: 1.0,
-      // FOG-20 (Pixel 4a Y-flip fix, 2026-05-14) — mirror the production
-      // `_FogPainter.paint()` platform-driven Y-flip selector so /sanity
-      // renders the fog shader the same way the live map does (Y-corrected
-      // on Android, untouched on iOS).
-      fragCoordYFlip: Platform.isAndroid ? 1.0 : 0.0,
       sdfImage: sdfImage,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
