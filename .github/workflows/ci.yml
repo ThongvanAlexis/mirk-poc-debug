@@ -71,10 +71,15 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build apk --debug
+      - name: Tag APK with short commit SHA
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+          mv build/app/outputs/flutter-apk/app-debug.apk "build/app/outputs/flutter-apk/app-debug-${SHORT_SHA}.apk"
       - uses: actions/upload-artifact@v4
         with:
-          name: mirk-poc-debug-android-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: mirk-poc-debug-android-debug-apk-${{ env.SHORT_SHA }}
+          path: build/app/outputs/flutter-apk/app-debug-${{ env.SHORT_SHA }}.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -103,9 +108,11 @@ jobs:
         run: pod install
       - name: Build iOS (no-codesign)
         run: flutter build ios --release --no-codesign
-      - name: Package unsigned IPA for sideloading
+      - name: Package unsigned IPA for sideloading (SHA-tagged)
         run: |
           set -euo pipefail
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
           BUILD_DIR="build/ios/iphoneos"
           if [ ! -d "$BUILD_DIR/Runner.app" ]; then
             echo "::error::Expected Runner.app under $BUILD_DIR after flutter build ios"
@@ -114,10 +121,10 @@ jobs:
           WORK_DIR="$(mktemp -d)"
           mkdir "$WORK_DIR/Payload"
           cp -R "$BUILD_DIR/Runner.app" "$WORK_DIR/Payload/"
-          (cd "$WORK_DIR" && zip -qr "$GITHUB_WORKSPACE/mirk-poc-debug-unsigned.ipa" Payload)
+          (cd "$WORK_DIR" && zip -qr "$GITHUB_WORKSPACE/mirk-poc-debug-unsigned-${SHORT_SHA}.ipa" Payload)
       - uses: actions/upload-artifact@v4
         with:
-          name: mirk-poc-debug-ios-unsigned-ipa
-          path: mirk-poc-debug-unsigned.ipa
+          name: mirk-poc-debug-ios-unsigned-ipa-${{ env.SHORT_SHA }}
+          path: mirk-poc-debug-unsigned-${{ env.SHORT_SHA }}.ipa
           if-no-files-found: error
           retention-days: 14
