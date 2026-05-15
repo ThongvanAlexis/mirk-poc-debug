@@ -47,15 +47,6 @@ abstract class FogShaderRenderer {
   /// (=13.0), zoomScale == 1.0 and shader noise sampling is bit-identical
   /// to the pre-FOG-19 formulation (MIRL visual-identity-preservation
   /// rule per CLAUDE.md `# MIRL solution` updated 2026-05-04).
-  ///
-  /// [sdfVFlip] (FOG-21 — Pixel 4a SDF V-origin fix): 0.0 on iOS
-  /// (Impeller-Metal canonical V-down → identity sampling), 1.0 on Android
-  /// (the Pixel 4a Impeller backend appears to sample `ui.Image` textures
-  /// V-up; flipping `sdfUv.y` cancels the hardware convention). Forwarded
-  /// to the shader's slot 42 `uSdfVFlip` uniform. The shader applies the
-  /// flip INSIDE `sampleSdf` only — `fragUv` and the noise / `worldPx`
-  /// path are untouched, so iOS render output is byte-identical to
-  /// pre-FOG-21 (mix(x, 1.0 - x, 0.0) == x).
   void render({
     required ui.FragmentShader? shader,
     required Size resolution,
@@ -66,7 +57,6 @@ abstract class FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
-    required double sdfVFlip,
   });
 }
 
@@ -88,7 +78,6 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
     required ui.Image sdfImage,
     required Map<String, double> mirkFogConstants,
     required double zoomScale,
-    required double sdfVFlip,
   }) {
     if (shader == null) return; // production never passes null; defensive guard.
     FogShaderUniforms.setAll(
@@ -122,7 +111,6 @@ class _FragmentShaderFogRenderer implements FogShaderRenderer {
       boundaryDensityBoost: mirkFogConstants['boundaryDensityBoost']!,
       sdfRect: sdfRect,
       zoomScale: zoomScale,
-      sdfVFlip: sdfVFlip,
       sdfImage: sdfImage,
     );
   }
@@ -532,8 +520,29 @@ class _FogPainter extends CustomPainter {
     // FOG-07 single-snapshot invariant preserved: this consumes the painter's
     // existing `camera` field (passed by FogLayer.build from the same
     // MapCamera.of(context) read).
-    // Identity uSdfRect (slots 37..40 → const (0,0,1,1)) UNCHANGED — RESEARCH
-    // §Anti-Pattern 1 (dynamic uSdfRect re-introduces BUG-014).
+    // FOG-21 (Pixel 4a SDF V-origin fix, 2026-05-15) — Android Impeller
+    // backend samples ui.Image textures V-up while iOS Impeller-Metal samples
+    // V-down (canonical). The fix flips sdfUv.y on Android by passing dynamic
+    // uSdfRect values: with origin.y=1 and size.y=-1, the shader's existing
+    // `sdfUv.y = (fragUv.y - origin.y) / size.y` collapses to `1 - fragUv.y`,
+    // cancelling the hardware V-flip. The clamp afterwards keeps sdfUv.y in
+    // [0,1].
+    //
+    // Why dynamic uSdfRect VALUES are safe here: BUG-014 was about Impeller-
+    // Metal SPIR-V → MSL transpilation reordering vec4 COMPONENTS when a
+    // sampler2D sits adjacent in the declaration. The Plan 03-08 follow-up
+    // decomposed uSdfRect into four INDEPENDENT scalar slots (37, 38, 39,
+    // 40) precisely to eliminate that reordering risk — with each component
+    // bound to a distinct slot, there is no vec4 to reinterpret. Changing
+    // the VALUES of those independent slots cannot re-introduce BUG-014.
+    // iOS values stay at (0,0,1,1) — render path byte-identical to f332fb5.
+    //
+    // The alternative (adding a new uniform `uSdfVFlip` at slot 42) was
+    // tried in the prior FOG-21 iteration and BROKE Impeller-Metal: adding
+    // ANY new uniform near the SDF sampler appears to corrupt MSL
+    // transpilation in a way that prevents the shader from rendering. The
+    // dynamic uSdfRect approach avoids the issue by keeping the binary
+    // layout at exactly 42 floats + 1 sampler.
     // FOG-18 (Plan 03.1-12) — direct pixelOrigin forwarding (FOG-17a
     // wrap eliminated).
     //
@@ -599,13 +608,6 @@ class _FogPainter extends CustomPainter {
     // `# MIRL solution` updated 2026-05-04).
     final uZoomScale = math.pow(2.0, camera.zoom - kPocFogReferenceZoom).toDouble();
 
-    // FOG-21 (Pixel 4a SDF V-origin fix) — derive uSdfVFlip by platform.
-    // 1.0 on Android (cancels the Impeller-backend ui.Image V-up
-    // convention), 0.0 on iOS (Metal canonical; identity). Forwarded to
-    // the shader's slot 42 uSdfVFlip uniform; the shader applies it
-    // INSIDE sampleSdf only — fragUv and noise/worldPx are untouched.
-    final uSdfVFlip = Platform.isAndroid ? 1.0 : 0.0;
-
     // FOG-10 diagnostic capture — record AFTER the derivation but BEFORE the
     // shader call so the logged tuple is the actual value forwarded.
     // canvas.getTransform() is native-backed in Flutter 3.41.7 (sky_engine
@@ -648,11 +650,12 @@ class _FogPainter extends CustomPainter {
       timeSeconds: uTimeSeconds,
       pixelOrigin: appliedPixelOrigin, // ← Plan 03.1-04 — full-precision; shader applies `fract()` per-fragment.
       baseAlpha: 1.0,
-      sdfRect: const (0.0, 0.0, 1.0, 1.0), // identity — UNCHANGED.
+      sdfRect: Platform.isAndroid
+          ? const (0.0, 1.0, 1.0, -1.0) // Android — see comment above
+          : const (0.0, 0.0, 1.0, 1.0), // iOS / Impeller-Metal — identity (canonical V-down).
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
       zoomScale: uZoomScale, // ← FOG-19 (Plan 03.1-14 Task B) — anchors noise to lat/lng during zoom.
-      sdfVFlip: uSdfVFlip, // ← FOG-21 (Pixel 4a SDF V-origin fix) — 1.0 on Android, 0.0 on iOS; applied INSIDE sampleSdf only.
     );
 
     // Production-only paint step: drawing the shader onto the canvas requires

@@ -165,17 +165,16 @@ void main() {
       );
     });
 
-    test('FogShaderUniforms.totalFloatSlots == 43 — FOG-21 (Pixel 4a SDF V-origin fix) added uSdfVFlip at slot 42', () {
+    test('FogShaderUniforms.totalFloatSlots == 42 — FOG-19 (Plan 03.1-14 Task B) added uZoomScale at slot 41', () {
       final source = File('lib/infrastructure/mirk/shader/fog_shader_uniforms.dart').readAsStringSync();
       expect(
         source,
-        contains('static const int totalFloatSlots = 43;'),
+        contains('static const int totalFloatSlots = 42;'),
         reason:
-            'FOG-21 (Pixel 4a SDF V-origin fix): the float uniform layout grew from 42 to 43 to accommodate '
-            '`uniform float uSdfVFlip` at slot 42, on top of the FOG-19 `uZoomScale` at slot 41. The '
-            '`kNoiseTilePx` value is still constant-folded as a `const float` in the shader (NOT added as a '
-            'runtime uniform). If this assertion fails, either FOG-21 has been reverted (slot back to 42) or '
-            'another slot was added without bookkeeping update.',
+            'FOG-19 (Plan 03.1-14 Task B): the float uniform layout grew from 41 to 42 to accommodate '
+            '`uniform float uZoomScale` at slot 41. The `kNoiseTilePx` value is still constant-folded as a '
+            '`const float` in the shader (NOT added as a runtime uniform). If this assertion fails, either '
+            'FOG-19 has been reverted (slot back to 41) or another slot was added without bookkeeping update.',
       );
     });
   });

@@ -28,11 +28,6 @@ const double _sanityViewportWest = 2.60;
 const double _sanityViewportNorth = 48.57;
 const double _sanityViewportEast = 2.72;
 
-/// Identity SDF rectangle (origin (0, 0), size (1, 1)) — matches the
-/// FogLayer's per-frame setting so the sanity screen exercises the same
-/// shader path as production.
-const (double, double, double, double) _identitySdfRect = (0.0, 0.0, 1.0, 1.0);
-
 /// Microseconds-per-second for the elapsed-time conversion fed to the
 /// shader's `uTime` slot.
 const double _microsPerSecond = 1e6;
@@ -341,17 +336,13 @@ class _FogSanityPainter extends CustomPainter {
       boundaryBleedDistance: kMirkFogBoundaryBleedDistance,
       boundaryEdgeBand: kMirkFogBoundaryEdgeBand,
       boundaryDensityBoost: kMirkFogBoundaryDensityBoost,
-      sdfRect: _identitySdfRect,
+      sdfRect: Platform.isAndroid ? const (0.0, 1.0, 1.0, -1.0) : const (0.0, 0.0, 1.0, 1.0),
       // FOG-19 (Plan 03.1-14 Task B) — at the reference zoom uZoomScale = 1.0,
       // which makes the shader's noise sampling bit-identical to the pre-fix
       // formulation. The sanity screen has no live MapCamera so the synthetic
       // trajectory implicitly stays at the reference zoom; passing 1.0 here
       // preserves the pre-FOG-19 visual character on /sanity.
       zoomScale: 1.0,
-      // FOG-21 (Pixel 4a SDF V-origin fix) — match the production /map path so
-      // the sanity screen exercises the same V-flip convention. 1.0 on Android,
-      // 0.0 on iOS; mix collapses to identity sampling on iOS.
-      sdfVFlip: Platform.isAndroid ? 1.0 : 0.0,
       sdfImage: sdfImage,
     );
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);

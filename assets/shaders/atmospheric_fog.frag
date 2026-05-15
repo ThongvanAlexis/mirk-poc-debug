@@ -140,15 +140,6 @@ uniform float uSdfRectSizeY;     // Slot 40
 // texture" behavior). Slot 41 (FOG-19 / Plan 03.1-14 Task B).
 uniform float uZoomScale;
 
-// FOG-21 (Pixel 4a SDF V-origin fix) — Dart-driven flip of the SDF
-// sampler's V coordinate. 0.0 on iOS (Impeller-Metal canonical V-down
-// → identity), 1.0 on Android (the Pixel 4a Impeller backend appears
-// to sample ui.Image textures V-up; flipping sdfUv.y cancels the
-// hardware convention). Applied INSIDE sampleSdf only — fragUv and
-// worldPx are NOT touched, so the noise path stays correct on both
-// platforms. Slot 42 (FOG-21).
-uniform float uSdfVFlip;
-
 // SDF sampler — R channel encodes signed distance via midpoint-128.
 uniform sampler2D uSdf;
 
@@ -246,10 +237,6 @@ float sampleSdf(vec2 fragUv) {
     vec2 sdfSize   = vec2(uSdfRectSizeX,   uSdfRectSizeY);
     vec2 sdfUv = (fragUv - sdfOrigin) / sdfSize;
     sdfUv = clamp(sdfUv, 0.0, 1.0);
-    // FOG-21 — flip sdfUv.y on Android to cancel ui.Image V-origin
-    // mismatch. mix collapses to sdfUv.y on iOS (uSdfVFlip == 0.0) →
-    // iOS render path byte-identical to pre-FOG-21.
-    sdfUv.y = mix(sdfUv.y, 1.0 - sdfUv.y, uSdfVFlip);
     float r = texture(uSdf, sdfUv).r;
     // Hashed white-noise dither in [-0.5/256, +0.5/256] keyed on screen
     // position. Standard "blue-noise alternative" (cheap, deterministic

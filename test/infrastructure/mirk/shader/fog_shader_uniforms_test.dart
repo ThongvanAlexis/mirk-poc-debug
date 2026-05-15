@@ -27,13 +27,13 @@ import '../../../_helpers/recording_fog_shader_renderer.dart';
 /// the `.frag` declaration must be updated together (and the FogShaderUniforms.setAll
 /// implementation reviewed) — that's the whole point of pinning the count here.
 void main() {
-  test('FogShaderUniforms.totalFloatSlots == 43 — slot-count gate (FOG-21 / Pixel 4a SDF V-origin fix added uSdfVFlip at slot 42)', () {
+  test('FogShaderUniforms.totalFloatSlots == 42 — slot-count gate (FOG-19 / Plan 03.1-14 Task B added uZoomScale at slot 41)', () {
     expect(
       FogShaderUniforms.totalFloatSlots,
-      43,
+      42,
       reason:
-          'FOG-21 (Pixel 4a SDF V-origin fix) added `uniform float uSdfVFlip` at slot 42 to '
-          '`atmospheric_fog.frag` on top of the FOG-19 `uZoomScale` at slot 41. The Dart-side total '
+          'FOG-19 (Plan 03.1-14 Task B) added `uniform float uZoomScale` at slot 41 to BOTH '
+          '`atmospheric_fog.frag` AND `atmospheric_fog_debug_spiral.frag`. The Dart-side total '
           'must match. If this assertion fails to match the shader-side declaration, the '
           'painter and shader will be out of sync and Impeller will fail at uniform-binding time.',
     );
@@ -73,7 +73,6 @@ void main() {
         sdfImage: _NullImage(),
         mirkFogConstants: const <String, double>{},
         zoomScale: 1.0,
-        sdfVFlip: 0.0,
       );
       expect(renderer.renders, hasLength(1));
       expect(renderer.renders.last.pixelOrigin, (px, py));
@@ -99,7 +98,6 @@ void main() {
         sdfImage: _NullImage(),
         mirkFogConstants: const <String, double>{},
         zoomScale: zs,
-        sdfVFlip: 0.0,
       );
       expect(renderer.renders, hasLength(1));
       expect(renderer.renders.last.zoomScale, closeTo(zs, 1e-9));

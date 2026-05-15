@@ -48,7 +48,6 @@ import 'dart:ui' show Size;
 /// | 39    | uSdfRectSizeX            | float  |
 /// | 40    | uSdfRectSizeY            | float  |
 /// | 41    | uZoomScale               | float  |
-/// | 42    | uSdfVFlip                | float  |
 ///
 /// Sampler 0: uSdf — set via `setImageSampler(0, sdfImage)`.
 class FogShaderUniforms {
@@ -60,10 +59,7 @@ class FogShaderUniforms {
   /// FOG-19 (Plan 03.1-14 Task B) bumped from 41 to 42 to accommodate
   /// the new `uZoomScale` uniform at slot 41 (between `uSdfRectSizeY`
   /// at slot 40 and the SDF sampler at sampler index 0).
-  /// FOG-21 (Pixel 4a SDF V-origin fix) bumped from 42 to 43 to
-  /// accommodate the new `uSdfVFlip` uniform at slot 42 (between
-  /// `uZoomScale` at slot 41 and the SDF sampler at sampler index 0).
-  static const int totalFloatSlots = 43;
+  static const int totalFloatSlots = 42;
 
   /// Sets every uniform on [shader] in one call. Caller supplies
   /// already-decoded scalars / colours / records — no re-parsing inside.
@@ -98,7 +94,6 @@ class FogShaderUniforms {
     required double boundaryDensityBoost,
     required (double, double, double, double) sdfRect,
     required double zoomScale,
-    required double sdfVFlip,
     required ui.Image sdfImage,
   }) {
     // uResolution — slots 0, 1
@@ -172,11 +167,6 @@ class FogShaderUniforms {
     // At reference zoom (13.0), zoomScale = 1.0 → shader's noise sampling
     // is bit-identical to pre-fix. MIRL visual-identity-preserving.
     shader.setFloat(41, zoomScale);
-    // FOG-21 (Pixel 4a SDF V-origin fix) — uSdfVFlip slot 42. Forwarded by
-    // `_FogPainter.paint()` as `Platform.isAndroid ? 1.0 : 0.0`. The shader
-    // applies the flip INSIDE sampleSdf only; iOS render path is bit-identical
-    // to pre-FOG-21 because mix(sdfUv.y, 1.0 - sdfUv.y, 0.0) == sdfUv.y.
-    shader.setFloat(42, sdfVFlip);
     // SDF sampler — index 0
     shader.setImageSampler(0, sdfImage);
   }
