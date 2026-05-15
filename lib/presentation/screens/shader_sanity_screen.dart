@@ -336,6 +336,15 @@ class _FogSanityPainter extends CustomPainter {
       boundaryBleedDistance: kMirkFogBoundaryBleedDistance,
       boundaryEdgeBand: kMirkFogBoundaryEdgeBand,
       boundaryDensityBoost: kMirkFogBoundaryDensityBoost,
+      // FOG-21 — Android-only dynamic uSdfRect cancels the Impeller-Vulkan
+      // `ui.Image` V-up texture sampling on Adreno (iOS Impeller-Metal is
+      // canonical V-down → identity). This is the shader-sanity-screen
+      // mirror of the production fix; full rationale + the Plan 03-08
+      // scalar-decomposition + BUG-014 lineage is at the same call site
+      // in `_FogPainter.paint()` in `lib/presentation/widgets/fog_layer.dart`.
+      // The companion FOG-23 (sign-flipped pixelOrigin.y on Android) for the
+      // noise's worldPx math doesn't apply here — `pixelOrigin: const (0,0)`
+      // above means there's no pan to compensate on the sanity screen.
       sdfRect: Platform.isAndroid ? const (0.0, 1.0, 1.0, -1.0) : const (0.0, 0.0, 1.0, 1.0),
       // FOG-19 (Plan 03.1-14 Task B) — at the reference zoom uZoomScale = 1.0,
       // which makes the shader's noise sampling bit-identical to the pre-fix

@@ -520,29 +520,7 @@ class _FogPainter extends CustomPainter {
     // FOG-07 single-snapshot invariant preserved: this consumes the painter's
     // existing `camera` field (passed by FogLayer.build from the same
     // MapCamera.of(context) read).
-    // FOG-21 (Pixel 4a SDF V-origin fix, 2026-05-15) — Android Impeller
-    // backend samples ui.Image textures V-up while iOS Impeller-Metal samples
-    // V-down (canonical). The fix flips sdfUv.y on Android by passing dynamic
-    // uSdfRect values: with origin.y=1 and size.y=-1, the shader's existing
-    // `sdfUv.y = (fragUv.y - origin.y) / size.y` collapses to `1 - fragUv.y`,
-    // cancelling the hardware V-flip. The clamp afterwards keeps sdfUv.y in
-    // [0,1].
     //
-    // Why dynamic uSdfRect VALUES are safe here: BUG-014 was about Impeller-
-    // Metal SPIR-V → MSL transpilation reordering vec4 COMPONENTS when a
-    // sampler2D sits adjacent in the declaration. The Plan 03-08 follow-up
-    // decomposed uSdfRect into four INDEPENDENT scalar slots (37, 38, 39,
-    // 40) precisely to eliminate that reordering risk — with each component
-    // bound to a distinct slot, there is no vec4 to reinterpret. Changing
-    // the VALUES of those independent slots cannot re-introduce BUG-014.
-    // iOS values stay at (0,0,1,1) — render path byte-identical to f332fb5.
-    //
-    // The alternative (adding a new uniform `uSdfVFlip` at slot 42) was
-    // tried in the prior FOG-21 iteration and BROKE Impeller-Metal: adding
-    // ANY new uniform near the SDF sampler appears to corrupt MSL
-    // transpilation in a way that prevents the shader from rendering. The
-    // dynamic uSdfRect approach avoids the issue by keeping the binary
-    // layout at exactly 42 floats + 1 sampler.
     // FOG-18 (Plan 03.1-12) — direct pixelOrigin forwarding (FOG-17a
     // wrap eliminated).
     //
@@ -658,18 +636,62 @@ class _FogPainter extends CustomPainter {
       zoom: camera.zoom,
     );
 
-    // FOG-05: populate all 41 uniforms via the locked single source of truth
+    // FOG-05: populate all 42 uniforms via the locked single source of truth
     // (FogShaderUniforms.setAll — production impl) OR record them
-    // (RecordingFogShaderRenderer — widget test impl). Identity uSdfRect
-    // is non-negotiable per CONTEXT.md / RESEARCH §Anti-Pattern 1.
+    // (RecordingFogShaderRenderer — widget test impl). uSdfRect VALUES are
+    // now per-platform (FOG-21 — see the inline comment block below) but
+    // the binary layout remains 42 floats + 1 sampler — deliberately NO
+    // new uniforms added, to dodge the Impeller-Metal MSL-near-sampler
+    // regression documented at the FOG-21 site.
     shaderRenderer.render(
       shader: shader,
       resolution: size,
       timeSeconds: uTimeSeconds,
-      pixelOrigin: appliedPixelOrigin, // ← Plan 03.1-04 — full-precision; shader applies `fract()` per-fragment.
+      pixelOrigin: appliedPixelOrigin, // ← Plan 03.1-04 full-precision + FOG-23 Android sign-flip; see appliedPixelOrigin definition above.
       baseAlpha: 1.0,
+      // FOG-21 (Pixel 4a SDF V-origin fix, 2026-05-15) — Android-only
+      // dynamic uSdfRect to cancel a GPU-backend texture-V-origin
+      // mismatch. Companion to the FOG-23 sign-flip at the
+      // appliedPixelOrigin site above: same underlying Impeller-Vulkan-
+      // vs-Metal Y-handling defect, two manifestations, two targeted
+      // per-platform compensations.
+      //
+      // Symptom (Android only): the SDF-derived red boundary halo
+      // rendered at the wrong screen-Y — vertically mirrored relative
+      // to the canvas-drawn clip-path reveal hole. iOS correct.
+      //
+      // Root cause: Android Impeller-Vulkan (observed on Adreno 618 /
+      // Pixel 4a / Android 13) samples `ui.Image` textures with V-up
+      // convention (uv.y=0 → bottom data row); iOS Impeller-Metal
+      // samples V-down (canonical: uv.y=0 → top data row). The SDF
+      // builder writes row 0 = north, so on Android the disc-at-north
+      // lands at the south of the screen — static vertical mirror.
+      //
+      // Fix: pass dynamic uSdfRect (0, 1, 1, -1) on Android. The
+      // shader's existing `sdfUv = (fragUv - origin) / size` collapses
+      // to `sdfUv.y = (fragUv.y - 1) / -1 = 1 - fragUv.y` (then clamped
+      // back into [0,1]). iOS keeps identity (0, 0, 1, 1) → `sdfUv =
+      // fragUv` → render path byte-identical to pre-FOG-21.
+      //
+      // Why dynamic uSdfRect VALUES are safe here, despite the prior
+      // RESEARCH §Anti-Pattern 1 warning: BUG-014 was specifically about
+      // Metal SPIR-V → MSL transpilation reordering vec4 COMPONENTS
+      // when a sampler2D sits adjacent in the declaration. The Plan
+      // 03-08 follow-up decomposed uSdfRect into four INDEPENDENT
+      // scalar slots (37, 38, 39, 40) — with each component bound to a
+      // distinct slot there is no vec4 to reinterpret. Changing the
+      // VALUES of those independent scalars cannot re-introduce BUG-014.
+      //
+      // Why NOT add a new `uSdfVFlip` uniform instead: tried in the
+      // prior FOG-21 iteration (commit ab9670d, reverted in 0cd9994).
+      // Adding ANY new uniform near the SDF sampler corrupts MSL
+      // transpilation and prevents the shader from rendering on Metal —
+      // third reproduction in Phase 5 (FOG-20 uFragCoordYFlip and an
+      // interim probe also broke iOS the same way). The dynamic-
+      // uSdfRect approach keeps the binary layout at exactly 42 floats
+      // + 1 sampler — zero ABI change, zero Metal regression risk.
       sdfRect: Platform.isAndroid
-          ? const (0.0, 1.0, 1.0, -1.0) // Android — see comment above
+          ? const (0.0, 1.0, 1.0, -1.0) // Android — pre-flip sdfUv.y to cancel the Impeller-Vulkan V-up sampling.
           : const (0.0, 0.0, 1.0, 1.0), // iOS / Impeller-Metal — identity (canonical V-down).
       sdfImage: sdfImage!,
       mirkFogConstants: mirkFogConstants,
